@@ -1,869 +1,1031 @@
 <!doctype html>
 <html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width,initial-scale=1" />
+        <title>JSONL Episode Viewer</title>
+        <style>
+            :root {
+                --bg: #0b0f14;
+                --panel: #121a24;
+                --panel2: #0f1720;
+                --text: #e6edf3;
+                --muted: #9aa4b2;
+                --border: #223047;
+                --accent: #6aa7ff;
+                --mono:
+                    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                    "Liberation Mono", "Courier New", monospace;
+                --sans:
+                    ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+                    Helvetica, Arial;
+            }
 
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>JSONL Episode Viewer</title>
-    <style>
-        :root {
-            --bg: #0b0f14;
-            --panel: #121a24;
-            --panel2: #0f1720;
-            --text: #e6edf3;
-            --muted: #9aa4b2;
-            --border: #223047;
-            --accent: #6aa7ff;
-            --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-            --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
-        }
+            html,
+            body {
+                height: 100%;
+                background: var(--bg);
+                color: var(--text);
+                margin: 0;
+                font-family: var(--sans);
+            }
 
-        html,
-        body {
-            height: 100%;
-            background: var(--bg);
-            color: var(--text);
-            margin: 0;
-            font-family: var(--sans);
-        }
+            a {
+                color: var(--accent);
+            }
 
-        a {
-            color: var(--accent);
-        }
+            .app {
+                display: grid;
+                grid-template-columns: 340px 1fr;
+                height: 100vh;
+            }
 
-        .app {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            height: 100vh;
-        }
+            .sidebar {
+                border-right: 1px solid var(--border);
+                background: linear-gradient(
+                    180deg,
+                    var(--panel),
+                    var(--panel2)
+                );
+                display: flex;
+                flex-direction: column;
+                min-width: 280px;
+            }
 
-        .sidebar {
-            border-right: 1px solid var(--border);
-            background: linear-gradient(180deg, var(--panel), var(--panel2));
-            display: flex;
-            flex-direction: column;
-            min-width: 280px;
-        }
+            .main {
+                display: flex;
+                flex-direction: column;
+                min-width: 0;
+            }
 
-        .main {
-            display: flex;
-            flex-direction: column;
-            min-width: 0;
-        }
+            header {
+                padding: 12px 14px;
+                border-bottom: 1px solid var(--border);
+                background: rgba(255, 255, 255, 0.02);
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                flex-wrap: wrap;
+            }
 
-        header {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.02);
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
+            header input[type="text"] {
+                flex: 1;
+                min-width: 240px;
+                background: #0a111a;
+                color: var(--text);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 10px 10px;
+                outline: none;
+                font-family: var(--mono);
+                font-size: 12px;
+            }
 
-        header input[type="text"] {
-            flex: 1;
-            min-width: 240px;
-            background: #0a111a;
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 10px 10px;
-            outline: none;
-            font-family: var(--mono);
-            font-size: 12px;
-        }
+            header button {
+                background: #173055;
+                border: 1px solid #224a83;
+                color: var(--text);
+                padding: 10px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+            }
 
-        header button {
-            background: #173055;
-            border: 1px solid #224a83;
-            color: var(--text);
-            padding: 10px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-        }
+            header button:disabled {
+                opacity: 0.5;
+                cursor: not-allowed;
+            }
 
-        header button:disabled {
-            opacity: .5;
-            cursor: not-allowed;
-        }
+            header .hint {
+                color: var(--muted);
+                font-size: 12px;
+            }
 
-        header .hint {
-            color: var(--muted);
-            font-size: 12px
-        }
+            .sidebar .controls {
+                padding: 12px 14px;
+                border-bottom: 1px solid var(--border);
+                display: grid;
+                gap: 10px;
+            }
 
-        .sidebar .controls {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border);
-            display: grid;
-            gap: 10px;
-        }
+            .row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
 
-        .row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
+            label {
+                color: var(--muted);
+                font-size: 12px;
+            }
 
-        label {
-            color: var(--muted);
-            font-size: 12px;
-        }
+            select,
+            input[type="checkbox"] {
+                accent-color: var(--accent);
+            }
 
-        select,
-        input[type="checkbox"] {
-            accent-color: var(--accent);
-        }
+            select {
+                background: #0a111a;
+                color: var(--text);
+                border: 1px solid var(--border);
+                border-radius: 8px;
+                padding: 8px 10px;
+                font-size: 12px;
+            }
 
-        select {
-            background: #0a111a;
-            color: var(--text);
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            padding: 8px 10px;
-            font-size: 12px;
-        }
+            .small {
+                font-size: 12px;
+                color: var(--muted);
+            }
 
-        .small {
-            font-size: 12px;
-            color: var(--muted);
-        }
+            .episodes {
+                overflow: auto;
+                padding: 6px;
+                flex: 1;
+            }
 
-        .episodes {
-            overflow: auto;
-            padding: 6px;
-            flex: 1;
-        }
+            .ep-item {
+                border: 1px solid transparent;
+                border-radius: 10px;
+                padding: 10px 10px;
+                margin: 6px 6px;
+                background: rgba(255, 255, 255, 0.03);
+                cursor: pointer;
+            }
 
-        .ep-item {
-            border: 1px solid transparent;
-            border-radius: 10px;
-            padding: 10px 10px;
-            margin: 6px 6px;
-            background: rgba(255, 255, 255, 0.03);
-            cursor: pointer;
-        }
+            .ep-item:hover {
+                border-color: rgba(106, 167, 255, 0.35);
+            }
 
-        .ep-item:hover {
-            border-color: rgba(106, 167, 255, 0.35);
-        }
+            .ep-item.active {
+                border-color: rgba(106, 167, 255, 0.8);
+                box-shadow: 0 0 0 1px rgba(106, 167, 255, 0.25) inset;
+            }
 
-        .ep-item.active {
-            border-color: rgba(106, 167, 255, 0.8);
-            box-shadow: 0 0 0 1px rgba(106, 167, 255, 0.25) inset;
-        }
+            .ep-title {
+                font-family: var(--mono);
+                font-size: 12px;
+            }
 
-        .ep-title {
-            font-family: var(--mono);
-            font-size: 12px;
-        }
+            .ep-meta {
+                color: var(--muted);
+                font-size: 12px;
+                margin-top: 6px;
+                display: flex;
+                gap: 10px;
+                flex-wrap: wrap;
+            }
 
-        .ep-meta {
-            color: var(--muted);
-            font-size: 12px;
-            margin-top: 6px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
+            .content {
+                display: grid;
+                grid-template-rows: auto auto 1fr;
+                min-height: 0;
+            }
 
-        .content {
-            display: grid;
-            grid-template-rows: auto auto 1fr;
-            min-height: 0;
-        }
+            .pane {
+                padding: 12px 14px;
+                border-bottom: 1px solid var(--border);
+                background: rgba(255, 255, 255, 0.02);
+            }
 
-        .pane {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.02);
-        }
+            .pane h2 {
+                margin: 0 0 8px 0;
+                font-size: 14px;
+            }
 
-        .pane h2 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-        }
+            .pane pre {
+                margin: 0;
+                white-space: pre-wrap;
+                font-family: var(--mono);
+                font-size: 12px;
+                line-height: 1.45;
+                background: #070c12;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                padding: 10px;
+                max-height: 220px;
+                overflow: auto;
+            }
 
-        .pane pre {
-            margin: 0;
-            white-space: pre-wrap;
-            font-family: var(--mono);
-            font-size: 12px;
-            line-height: 1.45;
-            background: #070c12;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 10px;
-            max-height: 220px;
-            overflow: auto;
-        }
+            .viz {
+                display: grid;
+                grid-template-columns: 1fr 360px;
+                min-height: 0;
+            }
 
-        .viz {
-            display: grid;
-            grid-template-columns: 1fr 360px;
-            min-height: 0;
-        }
+            .tokens {
+                padding: 12px 14px;
+                overflow: auto;
+                min-width: 0;
+            }
 
-        .tokens {
-            padding: 12px 14px;
-            overflow: auto;
-            min-width: 0;
-        }
+            .tokens h2 {
+                margin: 0 0 8px 0;
+                font-size: 14px;
+            }
 
-        .tokens h2 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-        }
+            .token-wrap {
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 10px;
+                background: #070c12;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                align-content: flex-start;
+                min-height: 120px;
+            }
 
-        .token-wrap {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 10px;
-            background: #070c12;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            align-content: flex-start;
-            min-height: 120px;
-        }
+            .tok {
+                font-family: var(--mono);
+                font-size: 12px;
+                line-height: 1.2;
+                padding: 6px 8px;
+                border-radius: 10px;
+                border: 1px solid rgba(255, 255, 255, 0.08);
+                background: rgba(255, 255, 255, 0.04);
+                user-select: text;
+                position: relative;
+                cursor: default;
+                white-space: pre;
+            }
 
-        .tok {
-            font-family: var(--mono);
-            font-size: 12px;
-            line-height: 1.2;
-            padding: 6px 8px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(255, 255, 255, 0.04);
-            user-select: text;
-            position: relative;
-            cursor: default;
-            white-space: pre;
-        }
+            .tok .idx {
+                color: rgba(255, 255, 255, 0.55);
+                font-size: 10px;
+                margin-right: 6px;
+            }
 
-        .tok .idx {
-            color: rgba(255, 255, 255, 0.55);
-            font-size: 10px;
-            margin-right: 6px;
-        }
+            .right {
+                border-left: 1px solid var(--border);
+                padding: 12px 14px;
+                overflow: auto;
+                background: rgba(255, 255, 255, 0.02);
+            }
 
-        .right {
-            border-left: 1px solid var(--border);
-            padding: 12px 14px;
-            overflow: auto;
-            background: rgba(255, 255, 255, 0.02);
-        }
+            .right h2 {
+                margin: 0 0 8px 0;
+                font-size: 14px;
+            }
 
-        .right h2 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-        }
+            .card {
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                padding: 10px;
+                background: #070c12;
+                margin-bottom: 10px;
+            }
 
-        .card {
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 10px;
-            background: #070c12;
-            margin-bottom: 10px;
-        }
+            .kv {
+                display: grid;
+                grid-template-columns: 120px 1fr;
+                gap: 6px 10px;
+                font-family: var(--mono);
+                font-size: 12px;
+            }
 
-        .kv {
-            display: grid;
-            grid-template-columns: 120px 1fr;
-            gap: 6px 10px;
-            font-family: var(--mono);
-            font-size: 12px;
-        }
+            .k {
+                color: var(--muted);
+            }
 
-        .k {
-            color: var(--muted)
-        }
+            canvas {
+                width: 100%;
+                height: 180px;
+                border: 1px solid var(--border);
+                border-radius: 12px;
+                background: #070c12;
+                display: block;
+            }
 
-        canvas {
-            width: 100%;
-            height: 180px;
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            background: #070c12;
-            display: block;
-        }
+            .footer {
+                padding: 8px 14px;
+                color: var(--muted);
+                font-size: 12px;
+                border-top: 1px solid var(--border);
+                background: rgba(255, 255, 255, 0.02);
+            }
+        </style>
+    </head>
 
-        .footer {
-            padding: 8px 14px;
-            color: var(--muted);
-            font-size: 12px;
-            border-top: 1px solid var(--border);
-            background: rgba(255, 255, 255, 0.02);
-        }
-    </style>
-</head>
+    <body>
+        <div class="app">
+            <aside class="sidebar">
+                <header>
+                    <input
+                        id="url"
+                        type="text"
+                        spellcheck="false"
+                        placeholder="https://example.com/episode.jsonl  (must allow CORS)"
+                    />
+                    <button id="loadBtn">Load</button>
+                    <span class="hint">or</span>
+                    <button id="demoBtn" title="Load ./episodes.jsonl">
+                        Demo
+                    </button>
+                    <div class="hint" style="flex-basis: 100%">
+                        Each JSONL line:
+                        {"text","tokens","token_ids","rewards","values","log_probs","policy_mask"}
+                    </div>
+                </header>
 
-<body>
-    <div class="app">
-        <aside class="sidebar">
-            <header>
-                <input id="url" type="text" spellcheck="false"
-                    placeholder="https://example.com/episode.jsonl  (must allow CORS)" />
-                <button id="loadBtn">Load</button>
-                <span class="hint">or</span>
-                <button id="demoBtn" title="Load ./episodes.jsonl">Demo</button>
-                <div class="hint" style="flex-basis:100%">
-                    Each JSONL line: {"text","tokens","token_ids","rewards","values","log_probs","policy_mask"}
+                <div class="controls">
+                    <div class="row">
+                        <label for="metric">Color by</label>
+                        <select id="metric">
+                            <option value="values">values</option>
+                            <option value="rewards">rewards</option>
+                            <option value="log_probs">log_probs</option>
+                            <option value="policy_mask">policy_mask</option>
+                            <option value="none">none</option>
+                        </select>
+                    </div>
+                    <div class="row">
+                        <label
+                            ><input id="showIdx" type="checkbox" checked /> show
+                            token index</label
+                        >
+                        <label
+                            ><input id="showId" type="checkbox" /> show token
+                            id</label
+                        >
+                    </div>
+                    <div class="row">
+                        <label
+                            ><input id="globalScale" type="checkbox" /> global
+                            scale (all episodes)</label
+                        >
+                    </div>
+                    <div class="small" id="status">No data loaded.</div>
                 </div>
-            </header>
 
-            <div class="controls">
-                <div class="row">
-                    <label for="metric">Color by</label>
-                    <select id="metric">
-                        <option value="values">values</option>
-                        <option value="rewards">rewards</option>
-                        <option value="log_probs">log_probs</option>
-                        <option value="policy_mask">policy_mask</option>
-                        <option value="none">none</option>
-                    </select>
+                <div class="episodes" id="episodes"></div>
+                <div class="footer">
+                    Tip: If fetch fails it's often CORS. For local files, run a
+                    server (e.g.
+                    <code>python -m http.server</code>).
                 </div>
-                <div class="row">
-                    <label><input id="showIdx" type="checkbox" checked /> show token index</label>
-                    <label><input id="showId" type="checkbox" /> show token id</label>
-                </div>
-                <div class="row">
-                    <label><input id="globalScale" type="checkbox" /> global scale (all episodes)</label>
-                </div>
-                <div class="small" id="status">No data loaded.</div>
-            </div>
+            </aside>
 
-            <div class="episodes" id="episodes"></div>
-            <div class="footer">
-                Tip: If fetch fails it’s often CORS. For local files, run a server (e.g.
-                <code>python -m http.server</code>).
-            </div>
-        </aside>
+            <main class="main">
+                <div class="content">
+                    <div class="pane">
+                        <h2>Episode text</h2>
+                        <pre id="fullText">Load a JSONL to begin.</pre>
+                    </div>
 
-        <main class="main">
-            <div class="content">
-                <div class="pane">
-                    <h2>Episode text</h2>
-                    <pre id="fullText">Load a JSONL to begin.</pre>
-                </div>
+                    <div class="pane">
+                        <h2>Metric plot (selected episode)</h2>
+                        <canvas id="plot"></canvas>
+                        <div
+                            class="small"
+                            id="plotLegend"
+                            style="margin-top: 6px"
+                        ></div>
+                    </div>
 
-                <div class="pane">
-                    <h2>Metric plot (selected episode)</h2>
-                    <canvas id="plot"></canvas>
-                    <div class="small" id="plotLegend" style="margin-top:6px;"></div>
-                </div>
-
-                <div class="viz">
-                    <section class="tokens">
-                        <h2>Tokens</h2>
-                        <div class="token-wrap" id="tokenWrap"></div>
-                    </section>
-                    <aside class="right">
-                        <h2>Token details</h2>
-                        <div class="card">
-                            <div class="small">Hover or click a token to inspect its values.</div>
-                        </div>
-                        <div class="card">
-                            <div class="kv" id="tokenKV">
-                                <div class="k">index</div>
-                                <div class="v">—</div>
-                                <div class="k">token</div>
-                                <div class="v">—</div>
-                                <div class="k">token_id</div>
-                                <div class="v">—</div>
-                                <div class="k">reward</div>
-                                <div class="v">—</div>
-                                <div class="k">value</div>
-                                <div class="v">—</div>
-                                <div class="k">log_prob</div>
-                                <div class="v">—</div>
-                                <div class="k">policy_mask</div>
-                                <div class="v">—</div>
+                    <div class="viz">
+                        <section class="tokens">
+                            <h2>Tokens</h2>
+                            <div class="token-wrap" id="tokenWrap"></div>
+                        </section>
+                        <aside class="right">
+                            <h2>Token details</h2>
+                            <div class="card">
+                                <div class="small">
+                                    Hover or click a token to inspect its
+                                    values.
+                                </div>
                             </div>
-                        </div>
+                            <div class="card">
+                                <div class="kv" id="tokenKV">
+                                    <div class="k">index</div>
+                                    <div class="v">—</div>
+                                    <div class="k">token</div>
+                                    <div class="v">—</div>
+                                    <div class="k">token_id</div>
+                                    <div class="v">—</div>
+                                    <div class="k">reward</div>
+                                    <div class="v">—</div>
+                                    <div class="k">value</div>
+                                    <div class="v">—</div>
+                                    <div class="k">log_prob</div>
+                                    <div class="v">—</div>
+                                    <div class="k">policy_mask</div>
+                                    <div class="v">—</div>
+                                </div>
+                            </div>
 
-                        <div class="card">
-                            <div class="small" id="episodeStats">Episode stats: —</div>
-                        </div>
-                    </aside>
+                            <div class="card">
+                                <div class="small" id="episodeStats">
+                                    Episode stats: —
+                                </div>
+                            </div>
+                        </aside>
+                    </div>
                 </div>
-            </div>
-        </main>
-    </div>
+            </main>
+        </div>
 
-    <script>
-        (async () => {
-            const $ = (id) => document.getElementById(id);
+        <script>
+            (async () => {
+                const $ = (id) => document.getElementById(id);
 
-            const state = {
-                episodes: [],
-                active: -1,
-                activeTok: -1,
-                globalStats: null, // {rewards:{min,max}, ...}
-            };
+                const state = {
+                    episodes: [],
+                    active: -1,
+                    activeTok: -1,
+                    globalStats: null, // {rewards:{min,max}, ...}
+                };
 
-            // You said you replaced the dummy data with real data:
-            // This attempts to load ./episodes.jsonl at startup (same origin).
-            let DEMO_JSONL = null;
-            try {
-                DEMO_JSONL = await fetch("episodes.jsonl", { cache: "no-store" }).then(r => {
-                    if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
-                    return r.text();
-                });
-            } catch (e) {
-                // Keep DEMO_JSONL null; Demo button will report a helpful error.
-                console.warn("Could not preload episodes.jsonl:", e);
-            }
+                // You said you replaced the dummy data with real data:
+                // This attempts to load ./episodes.jsonl at startup (same origin).
+                let DEMO_JSONL = null;
+                try {
+                    DEMO_JSONL = await fetch("episodes.jsonl", {
+                        cache: "no-store",
+                    }).then((r) => {
+                        if (!r.ok)
+                            throw new Error(`HTTP ${r.status} ${r.statusText}`);
+                        return r.text();
+                    });
+                } catch (e) {
+                    // Keep DEMO_JSONL null; Demo button will report a helpful error.
+                    console.warn("Could not preload episodes.jsonl:", e);
+                }
 
-            function escapeHtml(s) {
-                return (s ?? "").toString()
-                    .replaceAll("&", "&amp;")
-                    .replaceAll("<", "&lt;")
-                    .replaceAll(">", "&gt;")
-                    .replaceAll('"', "&quot;")
-                    .replaceAll("'", "&#039;");
-            }
+                function escapeHtml(s) {
+                    return (s ?? "")
+                        .toString()
+                        .replaceAll("&", "&amp;")
+                        .replaceAll("<", "&lt;")
+                        .replaceAll(">", "&gt;")
+                        .replaceAll('"', "&quot;")
+                        .replaceAll("'", "&#039;");
+                }
 
-            function parseJSONL(text) {
-                const lines = text.split(/\r?\n/).filter(l => l.trim().length);
-                const out = [];
-                for (let i = 0; i < lines.length; i++) {
-                    try {
-                        out.push(JSON.parse(lines[i]));
-                    } catch (e) {
-                        throw new Error(`JSON parse error on line ${i + 1}: ${e.message}`);
+                // Strip common tokenizer special characters for display
+                function cleanToken(tok) {
+                    if (typeof tok !== "string") return String(tok ?? "");
+                    return tok
+                        .replace(/Ġ/g, " ") // GPT-2/GPT-3/GPT-4 leading space
+                        .replace(/ġ/g, " ") // Lowercase variant
+                        .replace(/Ċ/g, "\\n") // GPT-2 newline
+                        .replace(/ċ/g, "\\n") // Lowercase variant
+                        .replace(/Ĉ/g, "\\r") // GPT-2 carriage return
+                        .replace(/ĉ/g, "\\t") // GPT-2 tab
+                        .replace(/▁/g, " ") // SentencePiece (LLaMA, T5, etc.) space
+                        .replace(/Ã/g, "") // Common encoding artifact
+                        .replace(/Â/g, "") // Common encoding artifact
+                        .replace(/ĵ/g, "") // Other tokenizer artifacts
+                        .replace(/č/g, "") // Other tokenizer artifacts
+                        .replace(/^[ ]+/, " "); // Collapse multiple leading spaces to one
+                }
+
+                function parseJSONL(text) {
+                    const lines = text
+                        .split(/\r?\n/)
+                        .filter((l) => l.trim().length);
+                    const out = [];
+                    for (let i = 0; i < lines.length; i++) {
+                        try {
+                            out.push(JSON.parse(lines[i]));
+                        } catch (e) {
+                            throw new Error(
+                                `JSON parse error on line ${i + 1}: ${e.message}`,
+                            );
+                        }
                     }
+                    return out;
                 }
-                return out;
-            }
 
-            function metricKeys() {
-                return ["rewards", "values", "log_probs", "policy_mask"];
-            }
-
-            function isNumericArray(a) {
-                return Array.isArray(a) && a.every(v => typeof v === "number" && Number.isFinite(v));
-            }
-
-            function computeMinMax(arr) {
-                let min = Infinity, max = -Infinity;
-                for (const v of arr) {
-                    if (typeof v !== "number" || !Number.isFinite(v)) continue;
-                    if (v < min) min = v;
-                    if (v > max) max = v;
+                function metricKeys() {
+                    return ["rewards", "values", "log_probs", "policy_mask"];
                 }
-                if (min === Infinity) return { min: 0, max: 0 };
-                if (min === max) return { min, max: max + 1e-9 };
-                return { min, max };
-            }
 
-            function computeGlobalStats(episodes) {
-                const stats = {};
-                for (const k of metricKeys()) {
-                    let all = [];
-                    for (const ep of episodes) {
-                        if (Array.isArray(ep[k])) all = all.concat(ep[k]);
+                function isNumericArray(a) {
+                    return (
+                        Array.isArray(a) &&
+                        a.every(
+                            (v) => typeof v === "number" && Number.isFinite(v),
+                        )
+                    );
+                }
+
+                function computeMinMax(arr) {
+                    let min = Infinity,
+                        max = -Infinity;
+                    for (const v of arr) {
+                        if (typeof v !== "number" || !Number.isFinite(v))
+                            continue;
+                        if (v < min) min = v;
+                        if (v > max) max = v;
                     }
-                    stats[k] = computeMinMax(all);
+                    if (min === Infinity) return { min: 0, max: 0 };
+                    if (min === max) return { min, max: max + 1e-9 };
+                    return { min, max };
                 }
-                return stats;
-            }
 
-            // blue (low) -> red (high)
-            function colorForValue(v, min, max) {
-                if (typeof v !== "number" || !Number.isFinite(v)) return "rgba(255,255,255,0.05)";
-                const t = (v - min) / (max - min);
-                const tt = Math.max(0, Math.min(1, t));
-                const hue = 220 + (10 - 220) * tt;
-                const sat = 75;
-                const light = 22 + 18 * (1 - Math.abs(tt - 0.5) * 2);
-                return `hsl(${hue} ${sat}% ${light}%)`;
-            }
+                function computeGlobalStats(episodes) {
+                    const stats = {};
+                    for (const k of metricKeys()) {
+                        let all = [];
+                        for (const ep of episodes) {
+                            if (Array.isArray(ep[k])) all = all.concat(ep[k]);
+                        }
+                        stats[k] = computeMinMax(all);
+                    }
+                    return stats;
+                }
 
-            function borderForValue(v, min, max) {
-                if (typeof v !== "number" || !Number.isFinite(v)) return "rgba(255,255,255,0.10)";
-                const t = (v - min) / (max - min);
-                const tt = Math.max(0, Math.min(1, t));
-                const hue = 220 + (10 - 220) * tt;
-                return `hsl(${hue} 80% 55% / 0.65)`;
-            }
+                // blue (low) -> red (high)
+                function colorForValue(v, min, max) {
+                    if (typeof v !== "number" || !Number.isFinite(v))
+                        return "rgba(255,255,255,0.05)";
+                    const t = (v - min) / (max - min);
+                    const tt = Math.max(0, Math.min(1, t));
+                    const hue = 220 + (10 - 220) * tt;
+                    const sat = 75;
+                    const light = 22 + 18 * (1 - Math.abs(tt - 0.5) * 2);
+                    return `hsl(${hue} ${sat}% ${light}%)`;
+                }
 
-            function renderEpisodesList() {
-                const container = $("episodes");
-                container.innerHTML = "";
-                state.episodes.forEach((ep, i) => {
-                    const n = Array.isArray(ep.tokens) ? ep.tokens.length :
-                        Array.isArray(ep.token_ids) ? ep.token_ids.length : 0;
+                function borderForValue(v, min, max) {
+                    if (typeof v !== "number" || !Number.isFinite(v))
+                        return "rgba(255,255,255,0.10)";
+                    const t = (v - min) / (max - min);
+                    const tt = Math.max(0, Math.min(1, t));
+                    const hue = 220 + (10 - 220) * tt;
+                    return `hsl(${hue} 80% 55% / 0.65)`;
+                }
 
-                    const preview = (ep.text ?? "").toString().replace(/\s+/g, " ").slice(0, 60);
-                    const div = document.createElement("div");
-                    div.className = "ep-item" + (i === state.active ? " active" : "");
-                    div.innerHTML = `
+                function renderEpisodesList() {
+                    const container = $("episodes");
+                    container.innerHTML = "";
+                    state.episodes.forEach((ep, i) => {
+                        const n = Array.isArray(ep.tokens)
+                            ? ep.tokens.length
+                            : Array.isArray(ep.token_ids)
+                              ? ep.token_ids.length
+                              : 0;
+
+                        const preview = (ep.text ?? "")
+                            .toString()
+                            .replace(/\s+/g, " ")
+                            .slice(0, 60);
+                        const div = document.createElement("div");
+                        div.className =
+                            "ep-item" + (i === state.active ? " active" : "");
+                        div.innerHTML = `
         <div class="ep-title">Episode ${i}</div>
-        <div class="small">${escapeHtml(preview)}${(ep.text && ep.text.length > 60) ? "…" : ""}</div>
+        <div class="small">${escapeHtml(preview)}${ep.text && ep.text.length > 60 ? "…" : ""}</div>
         <div class="ep-meta">
           <span>tokens: <b>${n}</b></span>
           <span>has text: <b>${ep.text ? "yes" : "no"}</b></span>
         </div>
       `;
-                    div.addEventListener("click", () => setActiveEpisode(i));
-                    container.appendChild(div);
-                });
-            }
-
-            function validateEpisode(ep) {
-                const n = (ep.tokens?.length ?? ep.token_ids?.length ?? 0);
-                const problems = [];
-                if (!Array.isArray(ep.tokens)) problems.push("tokens missing");
-                if (!Array.isArray(ep.token_ids)) problems.push("token_ids missing");
-                for (const k of metricKeys()) {
-                    if (!Array.isArray(ep[k])) problems.push(`${k} missing`);
-                }
-                const lens = {};
-                ["tokens", "token_ids", ...metricKeys()].forEach(k => { if (Array.isArray(ep[k])) lens[k] = ep[k].length; });
-                const uniqueLens = [...new Set(Object.values(lens))];
-                if (uniqueLens.length > 1) problems.push(`length mismatch: ${JSON.stringify(lens)}`);
-                return { n, problems };
-            }
-
-            function setActiveEpisode(i) {
-                state.active = i;
-                state.activeTok = -1;
-                renderEpisodesList();
-                renderActiveEpisode();
-            }
-
-            function currentMetric() {
-                return $("metric").value;
-            }
-
-            function getScaleForMetric(ep, metric) {
-                const useGlobal = $("globalScale").checked;
-                if (useGlobal && state.globalStats && state.globalStats[metric]) return state.globalStats[metric];
-                if (!ep || !Array.isArray(ep[metric])) return { min: 0, max: 1 };
-                return computeMinMax(ep[metric]);
-            }
-
-            function renderActiveEpisode() {
-                const ep = state.episodes[state.active];
-                if (!ep) {
-                    $("fullText").textContent = "Load a JSONL to begin.";
-                    $("tokenWrap").innerHTML = "";
-                    drawPlot(null);
-                    $("episodeStats").textContent = "Episode stats: —";
-                    return;
+                        div.addEventListener("click", () =>
+                            setActiveEpisode(i),
+                        );
+                        container.appendChild(div);
+                    });
                 }
 
-                $("fullText").textContent = ep.text ?? "";
+                function validateEpisode(ep) {
+                    const n = ep.tokens?.length ?? ep.token_ids?.length ?? 0;
+                    const problems = [];
+                    if (!Array.isArray(ep.tokens))
+                        problems.push("tokens missing");
+                    if (!Array.isArray(ep.token_ids))
+                        problems.push("token_ids missing");
+                    for (const k of metricKeys()) {
+                        if (!Array.isArray(ep[k]))
+                            problems.push(`${k} missing`);
+                    }
+                    const lens = {};
+                    ["tokens", "token_ids", ...metricKeys()].forEach((k) => {
+                        if (Array.isArray(ep[k])) lens[k] = ep[k].length;
+                    });
+                    const uniqueLens = [...new Set(Object.values(lens))];
+                    if (uniqueLens.length > 1)
+                        problems.push(
+                            `length mismatch: ${JSON.stringify(lens)}`,
+                        );
+                    return { n, problems };
+                }
 
-                const { n, problems } = validateEpisode(ep);
-                $("episodeStats").textContent =
-                    `Episode stats: tokens=${n}` + (problems.length ? ` | warnings: ${problems.join(", ")}` : "");
+                function setActiveEpisode(i) {
+                    state.active = i;
+                    state.activeTok = -1;
+                    renderEpisodesList();
+                    renderActiveEpisode();
+                }
 
-                renderTokens(ep);
-                drawPlot(ep);
+                function currentMetric() {
+                    return $("metric").value;
+                }
 
-                if (n > 0) setActiveToken(0, false);
-            }
+                function getScaleForMetric(ep, metric) {
+                    const useGlobal = $("globalScale").checked;
+                    if (
+                        useGlobal &&
+                        state.globalStats &&
+                        state.globalStats[metric]
+                    )
+                        return state.globalStats[metric];
+                    if (!ep || !Array.isArray(ep[metric]))
+                        return { min: 0, max: 1 };
+                    return computeMinMax(ep[metric]);
+                }
 
-            function renderTokens(ep) {
-                const metric = currentMetric();
-                const wrap = $("tokenWrap");
-                wrap.innerHTML = "";
+                function renderActiveEpisode() {
+                    const ep = state.episodes[state.active];
+                    if (!ep) {
+                        $("fullText").textContent = "Load a JSONL to begin.";
+                        $("tokenWrap").innerHTML = "";
+                        drawPlot(null);
+                        $("episodeStats").textContent = "Episode stats: —";
+                        return;
+                    }
 
-                const showIdx = $("showIdx").checked;
-                const showId = $("showId").checked;
+                    $("fullText").textContent = ep.text ?? "";
 
-                const n = ep.tokens?.length ?? 0;
-                const scale = (metric && metric !== "none" && metric !== "policy_mask") ? getScaleForMetric(ep, metric) : null;
+                    const { n, problems } = validateEpisode(ep);
+                    $("episodeStats").textContent =
+                        `Episode stats: tokens=${n}` +
+                        (problems.length
+                            ? ` | warnings: ${problems.join(", ")}`
+                            : "");
 
-                for (let i = 0; i < n; i++) {
-                    const tok = ep.tokens[i];
+                    renderTokens(ep);
+                    drawPlot(ep);
+
+                    if (n > 0) setActiveToken(0, false);
+                }
+
+                function renderTokens(ep) {
+                    const metric = currentMetric();
+                    const wrap = $("tokenWrap");
+                    wrap.innerHTML = "";
+
+                    const showIdx = $("showIdx").checked;
+                    const showId = $("showId").checked;
+
+                    const n = ep.tokens?.length ?? 0;
+                    const scale =
+                        metric && metric !== "none" && metric !== "policy_mask"
+                            ? getScaleForMetric(ep, metric)
+                            : null;
+
+                    for (let i = 0; i < n; i++) {
+                        const tok = ep.tokens[i];
+                        const tid = ep.token_ids?.[i];
+                        const reward = ep.rewards?.[i];
+                        const value = ep.values?.[i];
+                        const lp = ep.log_probs?.[i];
+                        const pm = ep.policy_mask?.[i];
+
+                        let bg = "rgba(255,255,255,0.04)";
+                        let border = "rgba(255,255,255,0.10)";
+
+                        if (metric === "policy_mask") {
+                            const on = !!pm;
+                            bg = on
+                                ? "rgba(90, 200, 120, 0.22)"
+                                : "rgba(150, 150, 150, 0.12)";
+                            border = on
+                                ? "rgba(90, 200, 120, 0.55)"
+                                : "rgba(150, 150, 150, 0.35)";
+                        } else if (metric && metric !== "none") {
+                            const v = ep[metric]?.[i];
+                            const { min, max } = scale ?? { min: 0, max: 1 };
+                            bg = colorForValue(v, min, max);
+                            border = borderForValue(v, min, max);
+                        }
+
+                        const span = document.createElement("span");
+                        span.className = "tok";
+                        span.style.background = bg;
+                        span.style.borderColor = border;
+                        span.dataset.i = String(i);
+
+                        const parts = [];
+                        if (showIdx)
+                            parts.push(`<span class="idx">${i}</span>`);
+                        // Use cleanToken for display, keep original in tooltip
+                        let label = escapeHtml(cleanToken(tok));
+                        if (showId && typeof tid === "number")
+                            label += ` <span style="color:rgba(255,255,255,0.55)">#${tid}</span>`;
+                        parts.push(`<span class="t">${label}</span>`);
+                        span.innerHTML = parts.join(" ");
+
+                        // Tooltip shows original token for debugging
+                        span.title =
+                            `i=${i}\n` +
+                            `token=${tok}\n` +
+                            `token_id=${tid}\n` +
+                            `reward=${reward}\n` +
+                            `value=${value}\n` +
+                            `log_prob=${lp}\n` +
+                            `policy_mask=${pm}`;
+
+                        span.addEventListener("mouseenter", () =>
+                            setActiveToken(i, false),
+                        );
+                        span.addEventListener("click", () =>
+                            setActiveToken(i, false),
+                        );
+
+                        wrap.appendChild(span);
+                    }
+                }
+
+                function setActiveToken(i, scroll) {
+                    state.activeTok = i;
+                    const ep = state.episodes[state.active];
+                    if (!ep) return;
+
+                    const kv = $("tokenKV").querySelectorAll(".v");
+                    const tok = ep.tokens?.[i];
                     const tid = ep.token_ids?.[i];
                     const reward = ep.rewards?.[i];
                     const value = ep.values?.[i];
                     const lp = ep.log_probs?.[i];
                     const pm = ep.policy_mask?.[i];
 
-                    let bg = "rgba(255,255,255,0.04)";
-                    let border = "rgba(255,255,255,0.10)";
+                    // Show original token in details panel for debugging
+                    const vals = [i, tok, tid, reward, value, lp, pm];
+                    kv.forEach((el, idx) => {
+                        el.textContent = vals[idx] ?? "—";
+                    });
 
-                    if (metric === "policy_mask") {
-                        const on = !!pm;
-                        bg = on ? "rgba(90, 200, 120, 0.22)" : "rgba(150, 150, 150, 0.12)";
-                        border = on ? "rgba(90, 200, 120, 0.55)" : "rgba(150, 150, 150, 0.35)";
-                    } else if (metric && metric !== "none") {
-                        const v = ep[metric]?.[i];
-                        const { min, max } = scale ?? { min: 0, max: 1 };
-                        bg = colorForValue(v, min, max);
-                        border = borderForValue(v, min, max);
+                    const wrap = $("tokenWrap");
+                    for (const el of wrap.children) el.style.boxShadow = "";
+                    const activeEl = wrap.querySelector(`.tok[data-i="${i}"]`);
+                    if (activeEl) {
+                        activeEl.style.boxShadow =
+                            "0 0 0 2px rgba(255,255,255,0.20) inset, 0 0 0 1px rgba(106,167,255,0.35)";
+                        if (scroll)
+                            activeEl.scrollIntoView({
+                                block: "nearest",
+                                inline: "nearest",
+                            });
                     }
 
-                    const span = document.createElement("span");
-                    span.className = "tok";
-                    span.style.background = bg;
-                    span.style.borderColor = border;
-                    span.dataset.i = String(i);
-
-                    const parts = [];
-                    if (showIdx) parts.push(`<span class="idx">${i}</span>`);
-                    let label = escapeHtml(tok);
-                    if (showId && typeof tid === "number") label += ` <span style="color:rgba(255,255,255,0.55)">#${tid}</span>`;
-                    parts.push(`<span class="t">${label}</span>`);
-                    span.innerHTML = parts.join(" ");
-
-                    span.title =
-                        `i=${i}\n` +
-                        `token=${tok}\n` +
-                        `token_id=${tid}\n` +
-                        `reward=${reward}\n` +
-                        `value=${value}\n` +
-                        `log_prob=${lp}\n` +
-                        `policy_mask=${pm}`;
-
-                    span.addEventListener("mouseenter", () => setActiveToken(i, false));
-                    span.addEventListener("click", () => setActiveToken(i, false));
-
-                    wrap.appendChild(span);
-                }
-            }
-
-            function setActiveToken(i, scroll) {
-                state.activeTok = i;
-                const ep = state.episodes[state.active];
-                if (!ep) return;
-
-                const kv = $("tokenKV").querySelectorAll(".v");
-                const tok = ep.tokens?.[i];
-                const tid = ep.token_ids?.[i];
-                const reward = ep.rewards?.[i];
-                const value = ep.values?.[i];
-                const lp = ep.log_probs?.[i];
-                const pm = ep.policy_mask?.[i];
-
-                const vals = [i, tok, tid, reward, value, lp, pm];
-                kv.forEach((el, idx) => { el.textContent = (vals[idx] ?? "—"); });
-
-                const wrap = $("tokenWrap");
-                for (const el of wrap.children) el.style.boxShadow = "";
-                const activeEl = wrap.querySelector(`.tok[data-i="${i}"]`);
-                if (activeEl) {
-                    activeEl.style.boxShadow = "0 0 0 2px rgba(255,255,255,0.20) inset, 0 0 0 1px rgba(106,167,255,0.35)";
-                    if (scroll) activeEl.scrollIntoView({ block: "nearest", inline: "nearest" });
+                    // Update plot marker
+                    drawPlot(ep);
                 }
 
-                // Update plot marker
-                drawPlot(ep);
-            }
+                // --- Canvas sizing fix: match drawing buffer to CSS size (and DPR) ---
+                function getPlotContext() {
+                    const canvas = $("plot");
+                    const ctx = canvas.getContext("2d");
 
-            // --- Canvas sizing fix: match drawing buffer to CSS size (and DPR) ---
-            function getPlotContext() {
-                const canvas = $("plot");
-                const ctx = canvas.getContext("2d");
+                    const dpr = window.devicePixelRatio || 1;
+                    const rect = canvas.getBoundingClientRect();
 
-                const dpr = window.devicePixelRatio || 1;
-                const rect = canvas.getBoundingClientRect();
+                    const bw = Math.max(1, Math.round(rect.width * dpr));
+                    const bh = Math.max(1, Math.round(rect.height * dpr));
 
-                const bw = Math.max(1, Math.round(rect.width * dpr));
-                const bh = Math.max(1, Math.round(rect.height * dpr));
-
-                if (canvas.width !== bw || canvas.height !== bh) {
-                    canvas.width = bw;
-                    canvas.height = bh;
-                }
-
-                // Draw using CSS pixel coordinates
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-                return { ctx, W: rect.width, H: rect.height };
-            }
-
-            function drawPlot(ep) {
-                const { ctx, W, H } = getPlotContext();
-
-                // Clear
-                ctx.clearRect(0, 0, W, H);
-                ctx.fillStyle = "#070c12";
-                ctx.fillRect(0, 0, W, H);
-
-                // Grid
-                ctx.strokeStyle = "rgba(255,255,255,0.06)";
-                ctx.lineWidth = 1;
-                for (let x = 0; x <= 10; x++) {
-                    const xx = Math.round((x / 10) * W) + 0.5;
-                    ctx.beginPath(); ctx.moveTo(xx, 0); ctx.lineTo(xx, H); ctx.stroke();
-                }
-                for (let y = 0; y <= 6; y++) {
-                    const yy = Math.round((y / 6) * H) + 0.5;
-                    ctx.beginPath(); ctx.moveTo(0, yy); ctx.lineTo(W, yy); ctx.stroke();
-                }
-
-                if (!ep) {
-                    $("plotLegend").textContent = "—";
-                    return;
-                }
-
-                const metric = currentMetric();
-                let series = [];
-                if (metric && metric !== "none") {
-                    series = [{ key: metric, color: "rgba(106,167,255,0.95)" }];
-                } else {
-                    series = [
-                        { key: "rewards", color: "rgba(106,167,255,0.95)" },
-                        { key: "values", color: "rgba(255,170,90,0.95)" },
-                        { key: "log_probs", color: "rgba(120,220,140,0.95)" }
-                    ];
-                }
-
-                const n = ep.tokens?.length ?? 0;
-                if (!n) {
-                    $("plotLegend").textContent = "No tokens to plot.";
-                    return;
-                }
-
-                // policy_mask is categorical; don't use for y scaling
-                let all = [];
-                for (const s of series) {
-                    if (s.key === "policy_mask") continue;
-                    if (Array.isArray(ep[s.key])) all = all.concat(ep[s.key]);
-                }
-                const { min, max } = computeMinMax(all.length ? all : [0, 1]);
-
-                ctx.fillStyle = "rgba(255,255,255,0.65)";
-                ctx.font = "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
-                ctx.fillText(`y: [${min.toFixed(3)}, ${max.toFixed(3)}]`, 10, 18);
-                ctx.fillText(`x: token index 0..${n - 1}`, 10, H - 10);
-
-                const padTop = 26, padBottom = 22;
-                const plotH = H - padTop - padBottom;
-
-                function xFor(i) { return (n === 1) ? 0 : (i / (n - 1)) * (W - 1); }
-                function yFor(v) {
-                    const t = (v - min) / (max - min);
-                    return padTop + (1 - t) * plotH;
-                }
-
-                for (const s of series) {
-                    const arr = ep[s.key];
-                    if (!Array.isArray(arr)) continue;
-
-                    if (s.key === "policy_mask") {
-                        // simple dots for policy_mask (0/1) if selected
-                        ctx.fillStyle = "rgba(106,167,255,0.95)";
-                        for (let i = 0; i < n; i++) {
-                            const v = arr[i] ? 1 : 0;
-                            const x = xFor(i), y = yFor(v ? max : min);
-                            ctx.beginPath();
-                            ctx.arc(x, y, 1.8, 0, Math.PI * 2);
-                            ctx.fill();
-                        }
-                        continue;
+                    if (canvas.width !== bw || canvas.height !== bh) {
+                        canvas.width = bw;
+                        canvas.height = bh;
                     }
 
-                    if (!isNumericArray(arr)) continue;
+                    // Draw using CSS pixel coordinates
+                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-                    ctx.strokeStyle = s.color;
-                    ctx.lineWidth = 2;
-                    ctx.beginPath();
-                    for (let i = 0; i < n; i++) {
-                        const v = arr[i];
-                        const x = xFor(i), y = yFor(v);
-                        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-                    }
-                    ctx.stroke();
+                    return { ctx, W: rect.width, H: rect.height };
                 }
 
-                // Active token marker
-                if (state.activeTok >= 0) {
-                    const x = (n === 1) ? 0 : (state.activeTok / (n - 1)) * (W - 1);
-                    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+                function drawPlot(ep) {
+                    const { ctx, W, H } = getPlotContext();
+
+                    // Clear
+                    ctx.clearRect(0, 0, W, H);
+                    ctx.fillStyle = "#070c12";
+                    ctx.fillRect(0, 0, W, H);
+
+                    // Grid
+                    ctx.strokeStyle = "rgba(255,255,255,0.06)";
                     ctx.lineWidth = 1;
-                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-                }
-
-                const legend = series.map(s => s.key).join("  |  ");
-                $("plotLegend").textContent =
-                    (metric && metric !== "none")
-                        ? `Showing: ${legend}`
-                        : `Showing: ${legend} (set "Color by" to plot one metric)`;
-            }
-
-            function applyLoadedEpisodes(eps, label) {
-                state.episodes = eps;
-                state.globalStats = computeGlobalStats(eps);
-                state.active = eps.length ? 0 : -1;
-                state.activeTok = -1;
-
-                $("status").textContent = `Loaded ${eps.length} episode(s)${label ? " (" + label + ")" : ""}.`;
-                renderEpisodesList();
-                renderActiveEpisode();
-            }
-
-            async function loadFromUrl(url) {
-                $("status").textContent = "Loading…";
-                $("loadBtn").disabled = true;
-                try {
-                    const res = await fetch(url, { cache: "no-store" });
-                    if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-                    const text = await res.text();
-                    const eps = parseJSONL(text);
-                    applyLoadedEpisodes(eps, "url");
-                } catch (e) {
-                    console.error(e);
-                    $("status").textContent = `Load failed: ${e.message}`;
-                } finally {
-                    $("loadBtn").disabled = false;
-                }
-            }
-
-            async function loadDemo() {
-                try {
-                    if (DEMO_JSONL == null) {
-                        // If preload failed, try again on demand
-                        $("status").textContent = "Loading ./episodes.jsonl…";
-                        DEMO_JSONL = await fetch("episodes.jsonl", { cache: "no-store" }).then(r => {
-                            if (!r.ok) throw new Error(`HTTP ${r.status} ${r.statusText}`);
-                            return r.text();
-                        });
+                    for (let x = 0; x <= 10; x++) {
+                        const xx = Math.round((x / 10) * W) + 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(xx, 0);
+                        ctx.lineTo(xx, H);
+                        ctx.stroke();
                     }
-                    const eps = parseJSONL(DEMO_JSONL);
-                    applyLoadedEpisodes(eps, "demo");
-                } catch (e) {
-                    console.error(e);
-                    $("status").textContent = `Demo load failed: ${e.message}`;
+                    for (let y = 0; y <= 6; y++) {
+                        const yy = Math.round((y / 6) * H) + 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(0, yy);
+                        ctx.lineTo(W, yy);
+                        ctx.stroke();
+                    }
+
+                    if (!ep) {
+                        $("plotLegend").textContent = "—";
+                        return;
+                    }
+
+                    const metric = currentMetric();
+                    let series = [];
+                    if (metric && metric !== "none") {
+                        series = [
+                            { key: metric, color: "rgba(106,167,255,0.95)" },
+                        ];
+                    } else {
+                        series = [
+                            { key: "rewards", color: "rgba(106,167,255,0.95)" },
+                            { key: "values", color: "rgba(255,170,90,0.95)" },
+                            {
+                                key: "log_probs",
+                                color: "rgba(120,220,140,0.95)",
+                            },
+                        ];
+                    }
+
+                    const n = ep.tokens?.length ?? 0;
+                    if (!n) {
+                        $("plotLegend").textContent = "No tokens to plot.";
+                        return;
+                    }
+
+                    // policy_mask is categorical; don't use for y scaling
+                    let all = [];
+                    for (const s of series) {
+                        if (s.key === "policy_mask") continue;
+                        if (Array.isArray(ep[s.key]))
+                            all = all.concat(ep[s.key]);
+                    }
+                    const { min, max } = computeMinMax(
+                        all.length ? all : [0, 1],
+                    );
+
+                    ctx.fillStyle = "rgba(255,255,255,0.65)";
+                    ctx.font =
+                        "12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace";
+                    ctx.fillText(
+                        `y: [${min.toFixed(3)}, ${max.toFixed(3)}]`,
+                        10,
+                        18,
+                    );
+                    ctx.fillText(`x: token index 0..${n - 1}`, 10, H - 10);
+
+                    const padTop = 26,
+                        padBottom = 22;
+                    const plotH = H - padTop - padBottom;
+
+                    function xFor(i) {
+                        return n === 1 ? 0 : (i / (n - 1)) * (W - 1);
+                    }
+                    function yFor(v) {
+                        const t = (v - min) / (max - min);
+                        return padTop + (1 - t) * plotH;
+                    }
+
+                    for (const s of series) {
+                        const arr = ep[s.key];
+                        if (!Array.isArray(arr)) continue;
+
+                        if (s.key === "policy_mask") {
+                            // simple dots for policy_mask (0/1) if selected
+                            ctx.fillStyle = "rgba(106,167,255,0.95)";
+                            for (let i = 0; i < n; i++) {
+                                const v = arr[i] ? 1 : 0;
+                                const x = xFor(i),
+                                    y = yFor(v ? max : min);
+                                ctx.beginPath();
+                                ctx.arc(x, y, 1.8, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                            continue;
+                        }
+
+                        if (!isNumericArray(arr)) continue;
+
+                        ctx.strokeStyle = s.color;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        for (let i = 0; i < n; i++) {
+                            const v = arr[i];
+                            const x = xFor(i),
+                                y = yFor(v);
+                            if (i === 0) ctx.moveTo(x, y);
+                            else ctx.lineTo(x, y);
+                        }
+                        ctx.stroke();
+                    }
+
+                    // Active token marker
+                    if (state.activeTok >= 0) {
+                        const x =
+                            n === 1 ? 0 : (state.activeTok / (n - 1)) * (W - 1);
+                        ctx.strokeStyle = "rgba(255,255,255,0.35)";
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(x, 0);
+                        ctx.lineTo(x, H);
+                        ctx.stroke();
+                    }
+
+                    const legend = series.map((s) => s.key).join("  |  ");
+                    $("plotLegend").textContent =
+                        metric && metric !== "none"
+                            ? `Showing: ${legend}`
+                            : `Showing: ${legend} (set "Color by" to plot one metric)`;
                 }
-            }
 
-            // --- Wire up UI ---
-            $("loadBtn").addEventListener("click", () => {
-                const url = $("url").value.trim();
-                if (!url) {
-                    $("status").textContent = "Enter a URL to a .jsonl file.";
-                    return;
+                function applyLoadedEpisodes(eps, label) {
+                    state.episodes = eps;
+                    state.globalStats = computeGlobalStats(eps);
+                    state.active = eps.length ? 0 : -1;
+                    state.activeTok = -1;
+
+                    $("status").textContent =
+                        `Loaded ${eps.length} episode(s)${label ? " (" + label + ")" : ""}.`;
+                    renderEpisodesList();
+                    renderActiveEpisode();
                 }
-                loadFromUrl(url);
-            });
 
-            $("demoBtn").addEventListener("click", loadDemo);
+                async function loadFromUrl(url) {
+                    $("status").textContent = "Loading…";
+                    $("loadBtn").disabled = true;
+                    try {
+                        const res = await fetch(url, { cache: "no-store" });
+                        if (!res.ok)
+                            throw new Error(
+                                `HTTP ${res.status} ${res.statusText}`,
+                            );
+                        const text = await res.text();
+                        const eps = parseJSONL(text);
+                        applyLoadedEpisodes(eps, "url");
+                    } catch (e) {
+                        console.error(e);
+                        $("status").textContent = `Load failed: ${e.message}`;
+                    } finally {
+                        $("loadBtn").disabled = false;
+                    }
+                }
 
-            ["metric", "showIdx", "showId", "globalScale"].forEach(id => {
-                $(id).addEventListener("change", () => renderActiveEpisode());
-            });
+                async function loadDemo() {
+                    try {
+                        if (DEMO_JSONL == null) {
+                            // If preload failed, try again on demand
+                            $("status").textContent =
+                                "Loading ./episodes.jsonl…";
+                            DEMO_JSONL = await fetch("episodes.jsonl", {
+                                cache: "no-store",
+                            }).then((r) => {
+                                if (!r.ok)
+                                    throw new Error(
+                                        `HTTP ${r.status} ${r.statusText}`,
+                                    );
+                                return r.text();
+                            });
+                        }
+                        const eps = parseJSONL(DEMO_JSONL);
+                        applyLoadedEpisodes(eps, "demo");
+                    } catch (e) {
+                        console.error(e);
+                        $("status").textContent =
+                            `Demo load failed: ${e.message}`;
+                    }
+                }
 
-            // Redraw plot on resize so it doesn't stretch/blow up
-            window.addEventListener("resize", () => drawPlot(state.episodes[state.active]));
+                // --- Wire up UI ---
+                $("loadBtn").addEventListener("click", () => {
+                    const url = $("url").value.trim();
+                    if (!url) {
+                        $("status").textContent =
+                            "Enter a URL to a .jsonl file.";
+                        return;
+                    }
+                    loadFromUrl(url);
+                });
 
-            // Initial auto-load (if episodes.jsonl was preloaded successfully)
-            if (DEMO_JSONL != null) {
-                await loadDemo();
-            } else {
-                $("status").textContent = "Preload of ./episodes.jsonl failed (try Demo after starting a server).";
-                drawPlot(null);
-            }
-        })();
-    </script>
-</body>
+                $("demoBtn").addEventListener("click", loadDemo);
 
+                ["metric", "showIdx", "showId", "globalScale"].forEach((id) => {
+                    $(id).addEventListener("change", () =>
+                        renderActiveEpisode(),
+                    );
+                });
+
+                // Redraw plot on resize so it doesn't stretch/blow up
+                window.addEventListener("resize", () =>
+                    drawPlot(state.episodes[state.active]),
+                );
+
+                // Initial auto-load (if episodes.jsonl was preloaded successfully)
+                if (DEMO_JSONL != null) {
+                    await loadDemo();
+                } else {
+                    $("status").textContent =
+                        "Preload of ./episodes.jsonl failed (try Demo after starting a server).";
+                    drawPlot(null);
+                }
+            })();
+        </script>
+    </body>
 </html>

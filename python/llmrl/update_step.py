@@ -8,7 +8,7 @@ from llmrl.model.qwen3 import Qwen3
 
 
 def calculate_advantages(
-    rewards: jax.Array, values: jax.Array, discount: jax.Array, gae_lambda: jax.Array
+    rewards: jax.Array, values: jax.Array, discount: jax.Array, td_lambda: jax.Array
 ) -> tuple[jax.Array, jax.Array]:
     def _body(acc, xs):
         rewards_t, value_tp1, discount_t, lambda_t = xs
@@ -23,26 +23,19 @@ def calculate_advantages(
             jnp.swapaxes(rewards[:, 1:], 0, 1),
             jnp.swapaxes(values[:, 1:], 0, 1),
             jnp.swapaxes(discount, 0, 1),
-            jnp.swapaxes(gae_lambda, 0, 1),
+            jnp.swapaxes(td_lambda, 0, 1),
         ),
         reverse=True,
     )
     targets = jnp.swapaxes(targets, 0, 1)
-
     advantages = targets - values[:, :-1]
-
-    # advantages = (advantages - advantages.mean()) / (
-    #     advantages.std() + 1e-8
-    # )
-
-    return advantages, targets
+    return jax.lax.stop_gradient(advantages), jax.lax.stop_gradient(targets)
 
 
 def loss_fn(
     model: Qwen3,
     rollout: UpdateBatch,
-    advantages: jax.Array,
-    targets: jax.Array,
+    td_discount: jax.Array,
     config: LossConfig,
     bounds_mask: jax.Array,
     value_only: bool,
@@ -60,38 +53,42 @@ def loss_fn(
 
     log_prob = policy.log_prob(rollout.context[:, 1:])
 
-    if value_only:
-        # use fresh values for the target since the values were collected originally with a random value net
-        _, targets = calculate_advantages(
-            jnp.asarray(rollout.rewards), jax.lax.stop_gradient(values), config.gae_discount, config.gae_lambda
-        )
+    log_ratio = log_prob - rollout.log_probs
+    pg_ratio = jnp.exp(log_ratio)
+    td_lambda = config.gae_lambda * jnp.minimum(pg_ratio, 1.0)
+    advantages, targets = calculate_advantages(jnp.asarray(rollout.rewards), values, td_discount, td_lambda)
 
     value_loss = model.get_value_loss(values_logits[:, :-1], targets).mean(
         where=bounds_mask[:, :-1]
     )
+    entropy = policy.entropy().mean(where=policy_mask[:, :-1])
+    # entropy_loss = 0.0001 * -entropy
 
-    loss = config.vf_coef * value_loss
+    loss = value_loss
     metrics = {
         "value_loss": value_loss,
         "value": values.mean(where=bounds_mask),
+        "entropy": policy.entropy().mean(where=policy_mask[:, :-1]),
+        "approx_kl": (pg_ratio - 1 - log_ratio).mean(where=policy_mask[:, :-1]),
+        "td_lambda": td_lambda.mean(where=policy_mask[:, :-1]),
     }
 
     if not value_only:
-        log_prob = policy.log_prob(rollout.context[:, 1:])
-        # actor_loss: jax.Array = -(log_prob * advantages).mean(where=policy_mask[:, :-1])
-        pg_ratio = jnp.exp(log_prob - rollout.log_probs)
-        pg_loss1 = pg_ratio * advantages
-        pg_loss2 = (
-            jnp.clip(pg_ratio, 1.0 - config.pg_clip_low, 1.0 + config.pg_clip_high)
-            * advantages
-        )
-        actor_loss = -jnp.minimum(pg_loss1, pg_loss2).mean(where=policy_mask[:, :-1])
+        # log_prob = policy.log_prob(rollout.context[:, 1:])
+        actor_loss: jax.Array = -(log_prob * advantages).mean(where=policy_mask[:, :-1])
+        # pg_ratio = jnp.exp(log_prob - rollout.log_probs)
+        # pg_loss1 = pg_ratio * advantages
+        # pg_loss2 = (
+        #     jnp.clip(pg_ratio, 1.0 - config.pg_clip_low, 1.0 + config.pg_clip_high)
+        #     * advantages
+        # )
+        # actor_loss = -jnp.minimum(pg_loss1, pg_loss2).mean(where=policy_mask[:, :-1])
 
         metrics = {**metrics, "actor_loss": actor_loss}
-        loss = loss + actor_loss
+        loss = loss + actor_loss # + entropy_loss
     else:
         _, true_targets = calculate_advantages(
-            jnp.asarray(rollout.rewards), jax.lax.stop_gradient(values), config.gae_discount, 1.0
+            jnp.asarray(rollout.rewards), values, td_discount, jnp.ones_like(td_lambda)
         )
         value_error = jnp.mean(jnp.abs(values[:, :-1] - true_targets), where=bounds_mask[:, :-1])
         metrics = {**metrics, "value_error": value_error}
@@ -132,12 +129,12 @@ def update_step(
     rollout = rollout._replace(policy_mask=policy_mask, values=values)
 
     turn_boundries = ~rollout.policy_mask[:, :-1] & rollout.policy_mask[:, 1:]
-    gae_discount = jnp.where(turn_boundries, config.turn_discount, config.gae_discount)
-    gae_lambda = jnp.where(turn_boundries, config.turn_lambda, config.gae_lambda)
+    td_discount = jnp.where(turn_boundries, config.turn_discount, config.gae_discount)
+    # gae_lambda = jnp.where(turn_boundries, config.turn_lambda, config.gae_lambda)
 
-    advantages, targets = calculate_advantages(
-        jnp.asarray(rollout.rewards), values, gae_discount, gae_lambda
-    )
+    # advantages, targets = calculate_advantages(
+    #     jnp.asarray(rollout.rewards), values, td_discount, gae_lambda
+    # )
 
     wrt =  value_opt.wrt
     if not value_only:
@@ -145,7 +142,7 @@ def update_step(
 
     diff = nnx.DiffState(0, wrt)
     grad, (metrics, rng_key) = nnx.grad(loss_fn, argnums=diff, has_aux=True)(
-        model, rollout, advantages, targets, config, bounds_mask, value_only, rng_key
+        model, rollout, td_discount, config, bounds_mask, value_only, rng_key
     )
 
     if not value_only:

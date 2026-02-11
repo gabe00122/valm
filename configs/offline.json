@@ -1,55 +1,83 @@
 {
-  "seed": "random",
+  "seed": 1487432481,
   "base_model": "Qwen/Qwen3-4B-Instruct-2507",
-  "eval_envs": 72,
-  "update_envs": 4,
-  "max_seq_length": 1024,
-  "total_update_episodes": 40000,
-  "checkpoint_every": 1000,
   "lora": {
-    "mlp": false,
-    "attn": false,
+    "mlp": true,
+    "attn": true,
     "rank": 32
   },
+  "value_net": {
+    "laten_encoder_rank": 256,
+    "backbone": {
+      "embed": 256,
+      "q_heads": 8,
+      "kv_heads": 8,
+      "num_layers": 12,
+      "head_dim": 32,
+      "vocab_size": -1,
+      "mlp_ffw_size": 512,
+      "norm_eps": 1e-6,
+      "rope_theta": 500000.0
+    },
+    "head": {
+      "type": "hl_gauss",
+      "min": -0.1,
+      "max": 1.1,
+      "n_logits": 51,
+      "sigma": 0.01
+    }
+  },
   "logger": {
-    "use_console": true,
+    "project_name": "llmrl",
+    "use_tb": false,
+    "use_console": false,
     "use_wandb": false
   },
   "policy_optimizer": {
     "opt": {
       "type": "adamw",
-      "lr": 0.00008,
+      "lr": 0.00001,
       "beta1": 0.9,
       "beta2": 0.999,
-      "weight_decay": 0.0
+      "weight_decay": 0.0,
+      "eps": 1e-8
     },
     "schedule": {
       "type": "warmup_cosine",
       "warmup_ratio": 0.1
-    }
+    },
+    "multi_step": null
   },
   "value_optimizer": {
     "opt": {
       "type": "adamw",
-      "lr": 0.0002,
-      "beta1": 0.9,
-      "beta2": 0.999,
-      "weight_decay": 0.0
+      "lr": 0.0001,
+      "beta1": 0.0,
+      "beta2": 0.99,
+      "weight_decay": 0.0001,
+      "eps": 0.00001
     },
     "schedule": {
       "type": "warmup_cosine",
       "warmup_ratio": 0.1
-    }
+    },
+    "multi_step": null
   },
   "loss": {
-    "gae_lambda": 0.996,
+    "gae_lambda": 0.99,
     "gae_discount": 1.0,
-    "vf_coef": 1.0,
+    "turn_lambda": 0.8,
+    "turn_discount": 0.9,
     "pg_clip_high": 0.28,
     "pg_clip_low": 0.2
   },
   "env": {
     "name": "wordle",
     "max_guesses": 6
-  }
+  },
+  "eval_envs": 32,
+  "update_envs": 4,
+  "max_seq_length": 1024,
+  "total_update_episodes": 40000,
+  "checkpoint_every": 1000
 }

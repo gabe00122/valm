@@ -200,7 +200,7 @@ def generate(
             rng_key=carry.rng_key,
         )
         logits = logits.squeeze(-2)  # remove time axis
-        value = model.get_value(value_repr).squeeze(-1)
+        # value = model.get_value(value_repr).squeeze(-1)
 
         rng_key, sample_key = jax.random.split(rng_key)
         dist = Categorical(logits=logits)
@@ -228,9 +228,9 @@ def generate(
             carry.log_probs, carry.kv_cache_length, log_prob, use_sample
         )
         # we want to track values even for prompt tokens, hence no use_sample check
-        values = batched_put_where(
-            carry.values, carry.kv_cache_length, value, ~turn_finished
-        )
+        # values = batched_put_where(
+        #     carry.values, carry.kv_cache_length, value, ~turn_finished
+        # )
 
         # we might be able to drop the ~turn_finished filter here
         policy_mask = batched_put_where(
@@ -248,7 +248,7 @@ def generate(
             context=context,
             turn_finished=turn_finished,
             log_probs=log_probs,
-            values=values,
+            # values=values,
             policy_mask=policy_mask,
             rng_key=rng_key,
             tokens_processed=tokens_processed,
