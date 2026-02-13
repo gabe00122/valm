@@ -7,15 +7,15 @@
         "rank": 32
     },
     "value_net": {
-        "laten_encoder_rank": 512,
+        "laten_encoder_rank": 256,
         "backbone": {
-            "embed": 512,
+            "embed": 256,
             "q_heads": 8,
-            "kv_heads": 4,
-            "num_layers": 24,
-            "head_dim": 64,
+            "kv_heads": 8,
+            "num_layers": 12,
+            "head_dim": 32,
             "vocab_size": -1,
-            "mlp_ffw_size": 1024,
+            "mlp_ffw_size": 512,
             "norm_eps": 1e-6,
             "rope_theta": 500000.0
         },
@@ -52,10 +52,10 @@
         "opt": {
             "type": "adamw",
             "lr": 0.0001,
-            "beta1": 0.0,
-            "beta2": 0.99,
-            "weight_decay": 0.0001,
-            "eps": 0.00001
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "weight_decay": 0.0,
+            "eps": 1e-8
         },
         "schedule": {
             "type": "warmup_cosine",

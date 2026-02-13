@@ -112,7 +112,7 @@ class ValueNetEncode(nnx.Module):
         rng_key, dropout_rng = jax.random.split(rng_key)
 
         x = jax.lax.stop_gradient(x)
-        # x = self._dropout(x, rngs=dropout_rng)
+        x = self._dropout(x, rngs=dropout_rng)
         x = self._normalize(x)
         gate = self._up_gate(x)
         x = self._encode_up(x)

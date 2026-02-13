@@ -55,14 +55,14 @@ def loss_fn(
 
     log_ratio = log_prob - rollout.log_probs
     pg_ratio = jnp.exp(log_ratio)
-    td_lambda = config.gae_lambda * jnp.minimum(pg_ratio, 1.0)
+    td_lambda = jnp.minimum(pg_ratio, config.gae_lambda)
     advantages, targets = calculate_advantages(jnp.asarray(rollout.rewards), values, td_discount, td_lambda)
 
     value_loss = model.get_value_loss(values_logits[:, :-1], targets).mean(
         where=bounds_mask[:, :-1]
     )
     entropy = policy.entropy().mean(where=policy_mask[:, :-1])
-    # entropy_loss = 0.0001 * -entropy
+    entropy_loss = 0.0001 * -entropy
 
     loss = value_loss
     metrics = {
@@ -85,7 +85,7 @@ def loss_fn(
         # actor_loss = -jnp.minimum(pg_loss1, pg_loss2).mean(where=policy_mask[:, :-1])
 
         metrics = {**metrics, "actor_loss": actor_loss}
-        loss = loss + actor_loss # + entropy_loss
+        loss = loss + actor_loss + entropy_loss
     else:
         _, true_targets = calculate_advantages(
             jnp.asarray(rollout.rewards), values, td_discount, jnp.ones_like(td_lambda)
