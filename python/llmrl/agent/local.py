@@ -24,7 +24,7 @@ from llmrl.chat import (
 )
 from llmrl.checkpointer import Checkpointer
 from llmrl.config import Config
-from llmrl.logger import BaseLogger
+from llmrl.logger import MetricsAccumulator
 from llmrl.model.qwen3 import Qwen3
 from llmrl.update_step import update_step
 from llmrl.utils.performance import PerformanceTracker
@@ -49,7 +49,7 @@ class Trainer(EpisodeListener):
         rng_key: jax.Array,
         checkpointer: Checkpointer,
         performance: PerformanceTracker,
-        logger: BaseLogger,
+        logger: MetricsAccumulator,
         config: Config,
     ):
         self._model_provider = model_provider
@@ -121,14 +121,14 @@ class Trainer(EpisodeListener):
 
         self._model_provider.model_state = new_model_state
 
-        metrics["rewards"] = batch.rewards.sum() / batch.rewards.shape[0]
+        # metrics["rewards"] = batch.rewards.sum() / batch.rewards.shape[0]
         metrics["performance"] = self._performance.total_time_percentages()
         self._performance.reset()
 
-        self._logger.log_dict(metrics, self._update_step)
+        self._logger.add(metrics)
         self._update_step += 1
 
-        batch.save_npz("./episode_viewer/episodes.npz")
+        # batch.save_npz("./episode_viewer/episodes.npz")
 
         if self._update_step % self._config.checkpoint_every == 0:
             self.save_checkpoint()
@@ -167,7 +167,6 @@ class BufferedEpisodeListener(EpisodeListener):
         self._buffer = UpdateBuffer(buffer_size, batch_size, seq_length)
 
     def on_episodes(self, batch: UpdateBatch):
-        print(f"Storing {batch.rewards.shape[0]} episodes")
         self._buffer.store(batch)
         while self._buffer.has_batch:
             self._listener.on_episodes(self._buffer.take_batch())
@@ -203,7 +202,7 @@ class LocalAgent(Agent, ModelProvider):
         model: Qwen3,
         tokenizer: PreTrainedTokenizerFast,
         config: Config,
-        logger: BaseLogger,
+        logger: MetricsAccumulator,
         performance_tracker: PerformanceTracker,
         rng_key: jax.Array,
     ):
@@ -229,7 +228,6 @@ class LocalAgent(Agent, ModelProvider):
         )
 
         self._last_tokens = 0
-        self._last_tps_time = 0.0
 
     def set_episode_instructions(self, instructions: str):
         instruction_tokens = encode_input(
@@ -255,19 +253,13 @@ class LocalAgent(Agent, ModelProvider):
         )
 
     def _report_tps(self):
-        current_tps_time = time.perf_counter()
-        time_delta = current_tps_time - self._last_tps_time
+        current_tokens = self._gen.tokens_processed.item()
+        # token_delta = current_tokens - self._last_tokens
+        # self._last_tokens = current_tokens
 
-        if time_delta > 60.0:
-            current_tokens = self._gen.tokens_processed.item()
-
-            token_delta = current_tokens - self._last_tokens
-
-            self._last_tps_time = current_tps_time
-            self._last_tokens = current_tokens
-
-            tps = token_delta / time_delta
-            print(f"TPS: {tps:.2f}")
+        self._logger.add_counts({
+            "tokens": current_tokens
+        })
 
     @override
     def reset(self) -> None:
@@ -301,7 +293,7 @@ class LocalAgent(Agent, ModelProvider):
 
             with self._performance_tracker.time("reset"):
                 self._np_gen.context_length[done_idx] = self._env_instruction_length
-                self._np_gen.kv_cache_length[done_idx] = 0
+                self._np_gen.kv_cache_length[done_idx] = self._env_instruction_length
                 self._rewards[done_idx] = 0.0
 
         with self._performance_tracker.time("encode"):
@@ -318,6 +310,7 @@ class LocalAgent(Agent, ModelProvider):
                 kv_cache_length=kv_cache_length,
                 turn_finished=jnp.zeros_like(self._gen.turn_finished),
             )
+            self._report_tps()
 
         with self._performance_tracker.time("generate"):
             self._gen = generate(
@@ -327,7 +320,5 @@ class LocalAgent(Agent, ModelProvider):
 
         with self._performance_tracker.time("decode"):
             response_indices, response = decode_responses(self._tokenizer, self._np_gen)
-
-        self._report_tps()
 
         return response_indices, response

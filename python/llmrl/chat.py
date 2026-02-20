@@ -116,7 +116,7 @@ def create_generation_state(
         env_instruction_length=jnp.zeros(batch_size, jnp.int32),
         policy_mask=jnp.zeros((batch_size, seq_len), jnp.bool_),
         context=jnp.zeros((batch_size, seq_len), jnp.int32),
-        turn_finished=jnp.zeros(batch_size, jnp.bool_),
+        turn_finished=jnp.zeros((batch_size,), jnp.bool_),
         log_probs=jnp.zeros((batch_size, seq_len - 1), jnp.float32),
         values=jnp.zeros((batch_size, seq_len), jnp.float32),
         rng_key=rng_key,

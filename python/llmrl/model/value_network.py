@@ -179,7 +179,7 @@ class ValueBackbone(nnx.Module):
             carry = tuple(out_carry)
         else:
             for layer, latent in zip(self.layers, layer_latents):
-                x, _, rng_key = jax.checkpoint(layer)(x, latent, positions, rng_key=rng_key)
+                x, _, rng_key = layer(x, latent, positions, rng_key=rng_key)
 
         x = self.final_norm(x)
         value_repr = self._head(x)

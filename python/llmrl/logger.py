@@ -1,9 +1,13 @@
+from referencing.typing import Mapping
+import time
+from rich.live import Live
 from abc import ABC, abstractmethod
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple, MutableMapping, Callable
 
 from rich.console import Console
+from rich.table import Table
 import jax
 import numpy as np
 from tensorboardX import SummaryWriter
@@ -30,12 +34,16 @@ def json_normalize(data: dict, sep: str = ".") -> dict:
     flatten(data)
     return out
 
+
 class BaseLogger(ABC):
     @abstractmethod
     def __init__(self, unique_token: str):
         pass
 
     def log_dict(self, data: Metrics, step: int) -> None:
+        pass
+
+    def start(self) -> None:
         pass
 
     def close(self) -> None:
@@ -49,6 +57,10 @@ class MultiLogger(BaseLogger):
     def log_dict(self, data: dict, step: int) -> None:
         for logger in self.loggers:
             logger.log_dict(data, step)
+
+    def start(self):
+        for logger in self.loggers:
+            logger.start()
 
     def close(self) -> None:
         for logger in self.loggers:
@@ -73,7 +85,13 @@ class TensorboardLogger(BaseLogger):
 
 class ConsoleLogger(BaseLogger):
     def __init__(self, unique_token: str, console: Console) -> None:
-        self._console = console
+        self._live = Live(console=console)
+
+    def start(self):
+        self._live.start()
+
+    def close(self):
+        self._live.stop()
 
     def log_dict(self, data: Metrics, step: int) -> None:
         data = json_normalize(data, sep=".")
@@ -86,9 +104,14 @@ class ConsoleLogger(BaseLogger):
                  value = value.item()
             values.append(f"{value:.6f}" if isinstance(value, float) else value)
 
-        log_str = "\n".join([f"{key}: {value}" for key, value in zip(keys, values)])
-        log_str = f"step: {step}\n{log_str}"
-        self._console.print(log_str)
+        table = Table()
+        table.add_column("Key")
+        table.add_column("Value")
+        for key, value in zip(keys, values):
+            table.add_row(key, str(value))
+
+        table.add_row("Step", str(step))
+        self._live.update(table)
 
 
 class WandbLogger(BaseLogger):
@@ -115,3 +138,66 @@ def create_logger(settings: Config, unique_token: str, console: Console) -> Base
         loggers.append(WandbLogger(unique_token, settings))
 
     return MultiLogger(loggers)
+
+
+class MetricAccum(NamedTuple):
+    total: int | float
+    count: int
+
+
+def _accum_merge(dst: MutableMapping[str, Any], update: Mapping[str, Any]) -> None:
+    for key, value in update.items():
+        if isinstance(value, dict):
+            child = dst.setdefault(key, {})
+            _accum_merge(dst[key], value)
+        else:
+            if hasattr(value, 'item'):
+                value = value.item()
+
+            acc = dst.get(key)
+            dst[key] = (
+                MetricAccum(value, 1) if acc is None else MetricAccum(acc.total + value, acc.count + 1)
+            )
+
+
+def _tree_map(tree: Any, fn: Callable[[Any], Any]) -> Any:
+    if isinstance(tree, Mapping):
+        return {key: _tree_map(value, fn) for key, value in tree.items()}
+    return fn(tree)
+
+
+class MetricsAccumulator:
+    def __init__(self, logger: BaseLogger):
+        self._metrics = {}
+        self._counts = {}
+        self._logger = logger
+        self._last_metrics = None
+        self._last_counts = None
+
+    def add(self, metrics: Metrics):
+        if self._last_metrics is not None:
+            _accum_merge(self._metrics, self._last_metrics)
+        self._last_metrics = metrics
+
+    def add_counts(self, counts: Metrics):
+        if self._last_counts is not None:
+            _accum_merge(self._counts, self._last_counts)
+        self._last_counts = counts
+
+    def flush(self, step: int):
+        current_time = time.perf_counter()
+        delta_time = current_time - self._last_flush_time
+        # self._last_flush_time = current_time
+
+        self._metrics = _tree_map(self._metrics, lambda x: x.total / x.count)
+        self._counts = _tree_map(self._counts, lambda x: x.total / delta_time)
+        self._logger.log_dict(self._metrics | self._counts, step)
+        self._metrics.clear()
+        self._counts.clear()
+
+    def start(self):
+        self._last_flush_time = time.perf_counter()
+        self._logger.start()
+
+    def close(self):
+        self._logger.close()

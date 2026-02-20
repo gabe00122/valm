@@ -71,6 +71,7 @@ def loss_fn(
         "entropy": policy.entropy().mean(where=policy_mask[:, :-1]),
         "approx_kl": (pg_ratio - 1 - log_ratio).mean(where=policy_mask[:, :-1]),
         "td_lambda": td_lambda.mean(where=policy_mask[:, :-1]),
+        "rewards": rollout.rewards.sum() / rollout.rewards.shape[0]
     }
 
     if not value_only:

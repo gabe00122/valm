@@ -1,3 +1,4 @@
+import jax
 import numpy as np
 from flax import nnx
 
@@ -11,7 +12,7 @@ from llmrl.base_model_loader import load_base_model
 from llmrl.checkpointer import Checkpointer
 from llmrl.env.make import make_env
 from llmrl.experiement import Experiment
-from llmrl.logger import create_logger
+from llmrl.logger import create_logger, MetricsAccumulator
 from llmrl.utils.performance import PerformanceTracker
 from llmrl.utils.optimizer import make_optimizer
 
@@ -22,11 +23,13 @@ def train_cli(
     value_net_id: str | None = None,
 ):
     experiment = Experiment.from_config_file(config_url)
+    # jax.config.update("jax_log_compiles", True)
+    # jax.config.update("jax_explain_cache_misses", True)
 
     config = experiment.config
     console = Console()
     performance_tracker = PerformanceTracker()
-    logger = create_logger(config, experiment.unique_token, console)
+    logger = MetricsAccumulator(create_logger(config, experiment.unique_token, console))
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
@@ -82,10 +85,18 @@ def train_cli(
     dones = np.zeros((eval_batch_size,), dtype=np.bool_)
 
     obs = env.reset(env_indices)
+    last_progress = 0.0
+
+    logger.start()
 
     while trainer.progress < 1.0:
         env_indices, actions = agent.act(env_indices, obs, rewards, dones)
         with performance_tracker.time("env_step"):
             obs, rewards, dones = env.step(env_indices, actions)
 
+        if trainer.progress > last_progress:
+            last_progress = trainer.progress
+            logger.flush(trainer._update_step)
+
+    logger.close()
     checkpointer.close()
