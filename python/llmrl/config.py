@@ -68,12 +68,6 @@ class ValueConfig(BaseModel):
     backbone: LLMConfig
     head: HlGaussConfig | MseCriticConfig = Field(discriminator="type")
 
-class TrainerConfig(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
-    eval_env: int
-    update_envs: int
-    seq_length: int
-
 
 class LoggerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

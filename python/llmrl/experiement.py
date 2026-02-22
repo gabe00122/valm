@@ -38,7 +38,7 @@ class Experiment:
         self.ckpt_dir = f"{self.root}/checkpoints"
 
         # seeds
-        random.seed(0)
+        random.seed(self.config.seed)
         self.environments_seed = random.getrandbits(31)
         self.default_seed = random.getrandbits(31)
         self.params_seed = random.getrandbits(31)

@@ -118,7 +118,7 @@ class ValueNetEncode(nnx.Module):
         x = self._encode_up(x)
         x = jax.nn.silu(x) * gate
         x = self._encode_down(x)
-        return x, dropout_rng
+        return x, rng_key
 
 
 class ValueNetLayer(nnx.Module):
