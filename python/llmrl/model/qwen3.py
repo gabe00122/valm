@@ -8,7 +8,7 @@ from llmrl.config import LLMConfig, LoraConfig, ValueConfig
 from llmrl.model.attention import KVCache
 from llmrl.model.layer import Qwen3Layer
 from llmrl.model.util import load_param
-from llmrl.model.value_network import ValueBackbone
+from llmrl.model.value_network import ValueBackbone, ValueRepresentation
 from llmrl.model.util import wrap_param
 
 
@@ -75,7 +75,7 @@ class Qwen3(nnx.Module):
         carry: Any = None,
         *,
         rng_key: jax.Array,
-    ) -> tuple[jax.Array, jax.Array, Any, jax.Array]:
+    ) -> tuple[jax.Array, ValueRepresentation, Any, jax.Array]:
         x = self.embeddings(tokens)
 
         if carry is not None:
@@ -114,8 +114,3 @@ class Qwen3(nnx.Module):
         value_carry = self.value_net.initialize_carry(batch_size, seq_length) if self.value_net is not None else None
         return base_carry, value_carry
 
-    def get_value(self, repr: jax.Array) -> jax.Array:
-        return self.value_net.get_value(repr)
-
-    def get_value_loss(self, repr: jax.Array, target_values: jax.Array) -> jax.Array:
-        return self.value_net.get_loss(repr, target_values)

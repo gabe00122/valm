@@ -47,8 +47,8 @@ def loss_fn(
 
     positions = jnp.repeat(jnp.arange(seq_len, dtype=jnp.int32)[None, :], batch_len, 0)
 
-    logits, values_logits, _, rng_key = model(jnp.asarray(rollout.context), positions, rng_key=rng_key)
-    values = model.get_value(values_logits)
+    logits, value_repr, _, rng_key = model(jnp.asarray(rollout.context), positions, rng_key=rng_key)
+    values = value_repr.value()
     policy = distrax.Categorical(logits=logits[:, :-1])
 
     log_prob = policy.log_prob(rollout.context[:, 1:])
@@ -58,7 +58,7 @@ def loss_fn(
     td_lambda = jnp.minimum(pg_ratio, config.gae_lambda)
     advantages, targets = calculate_advantages(jnp.asarray(rollout.rewards), values, td_discount, td_lambda)
 
-    value_loss = model.get_value_loss(values_logits[:, :-1], targets).mean(
+    value_loss = value_repr[:, :-1].loss(targets).mean(
         where=bounds_mask[:, :-1]
     )
     entropy = policy.entropy().mean(where=policy_mask[:, :-1])

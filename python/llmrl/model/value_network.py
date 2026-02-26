@@ -10,12 +10,23 @@ from jax import numpy as jnp
 
 A = tp.TypeVar("A")
 
-from typing import Any
+from typing import Any, Protocol
 from einops import rearrange
 from flax import nnx
 import jax.numpy as jnp
 from jax.scipy.stats import norm
 import optax
+
+
+class ValueRepresentation(Protocol):
+    def __getitem__(self, idx) -> "ValueRepresentation":
+        ...
+
+    def value(self) -> jax.Array:
+        ...
+
+    def loss(self, target: jax.Array) -> jax.Array:
+        ...
 
 
 def calculate_supports(config: HlGaussConfig):
@@ -27,34 +38,29 @@ def calculate_supports(config: HlGaussConfig):
 
     return support, centers
 
+class HlGaussValueRepresentation:
+    def __init__(self, config: HlGaussConfig, logits: jax.Array):
+        self.config = config
+        self.logits = logits
 
-class HlGaussHead(nnx.Module):
-    def __init__(
-        self, in_features: int, hl_gauss_config: HlGaussConfig, *, rngs: nnx.Rngs
-    ) -> None:
-        self._min = hl_gauss_config.min
-        self._max = hl_gauss_config.max
-        self._sigma = hl_gauss_config.sigma
+    def __getitem__(self, idx):
+        return HlGaussValueRepresentation(self.config, self.logits[idx])
 
-        self.dense = nnx.Linear(in_features, hl_gauss_config.n_logits, param_dtype=jnp.bfloat16, rngs=rngs)
-        self._supports, self._centers = calculate_supports(hl_gauss_config)
+    def value(self) -> jax.Array:
+        _, centers = calculate_supports(self.config)
+        probs = nnx.softmax(self.logits, axis=-1)
+        return (probs * centers).sum(-1)
 
-    def __call__(self, x) -> Any:
-        return self.dense(x).astype(jnp.float32)
+    def loss(self, target: jax.Array) -> jax.Array:
+        b, t = target.shape
+        supports, _ = calculate_supports(self.config)
 
-    def get_value(self, logits):
-        probs = nnx.softmax(logits, axis=-1)
-        return (probs * self._centers).sum(-1)
+        logits = rearrange(self.logits, "b t l -> (b t) l")
+        target = rearrange(target, "b t -> (b t)")
 
-    def get_loss(self, logits, target_values):
-        b, t = target_values.shape
+        targets = jnp.clip(target, self.config.min, self.config.max)
 
-        logits = rearrange(logits, "b t l -> (b t) l")
-        target_values = rearrange(target_values, "b t -> (b t)")
-
-        targets = jnp.clip(target_values, self._min, self._max)
-
-        cdf_evals = norm.cdf(self._supports, loc=targets[:, None], scale=self._sigma)
+        cdf_evals = norm.cdf(supports, loc=targets[:, None], scale=self.config.sigma)
 
         z = cdf_evals[:, -1] - cdf_evals[:, 0]
 
@@ -65,20 +71,39 @@ class HlGaussHead(nnx.Module):
         loss = optax.softmax_cross_entropy(logits, target_probs, axis=-1)
         return loss.reshape(b, t)
 
+class HlGaussHead(nnx.Module):
+    def __init__(
+        self, in_features: int, hl_gauss_config: HlGaussConfig, *, rngs: nnx.Rngs
+    ) -> None:
+        self.hl_gauss_config = hl_gauss_config
+        self.dense = nnx.Linear(in_features, hl_gauss_config.n_logits, param_dtype=jnp.bfloat16, rngs=rngs)
+
+    def __call__(self, x: jax.Array) -> ValueRepresentation:
+        x = self.dense(x).astype(jnp.float32)
+        return HlGaussValueRepresentation(self.hl_gauss_config, x)
+
+
+class MseValueRepresentation:
+    def __init__(self, values: jax.Array):
+        self.values = values
+
+    def __getitem__(self, idx):
+        return MseValueRepresentation(self.values[idx])
+
+    def value(self) -> jax.Array:
+        return self.values
+
+    def loss(self, target: jax.Array) -> jax.Array:
+        return 0.5 * jnp.square(self.values - target)
+
 
 class MseHead(nnx.Module):
     def __init__(self, in_features: int, *, rngs: nnx.Rngs) -> None:
         self.dense = nnx.Linear(in_features, 1, rngs=rngs)
 
-    def __call__(self, x) -> Any:
-        x = self.dense(x)
-        return x.squeeze(axis=-1)
-
-    def get_value(self, value):
-        return value
-
-    def get_loss(self, values, target_values):
-        return 0.5 * jnp.square(values - target_values)
+    def __call__(self, x) -> ValueRepresentation:
+        x = self.dense(x).squeeze(axis=-1)
+        return MseValueRepresentation(x)
 
 
 class ValueParam(variablelib.Param[A]):
@@ -161,7 +186,7 @@ class ValueBackbone(nnx.Module):
         elif isinstance(config.head, MseCriticConfig):
             self._head = MseHead(config.backbone.embed, rngs=rngs)
 
-    def __call__(self, latents: list[jax.Array], positions: jax.Array, carry: tuple[Any, ...] | None = None, *, rng_key: jax.Array):
+    def __call__(self, latents: list[jax.Array], positions: jax.Array, carry: tuple[Any, ...] | None = None, *, rng_key: jax.Array) -> tuple[ValueRepresentation, tuple[Any, ...] | None, jax.Array]:
         x, *layer_latents = latents
 
         take_every = len(layer_latents) // len(self.layers)
@@ -190,8 +215,3 @@ class ValueBackbone(nnx.Module):
             layer.initialize_carry(batch_size, seq_length) for layer in self.layers
         )
 
-    def get_value(self, repr: jax.Array) -> jax.Array:
-        return self._head.get_value(repr)
-
-    def get_loss(self, repr: jax.Array, target_values: jax.Array) -> jax.Array:
-        return self._head.get_loss(repr, target_values)
