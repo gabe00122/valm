@@ -245,7 +245,7 @@ class LocalAgent(Agent, ModelProvider):
             np.arange(self._config.eval_envs, dtype=np.int32),
             instruction_tokens,
         )
-        self._env_instruction_length = self._np_gen.context_length[0].item()
+        self._env_instruction_length = 0 #self._np_gen.context_length[0].item()
 
         # this can probably go away now
         self._gen = self._gen._replace(
