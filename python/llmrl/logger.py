@@ -1,10 +1,10 @@
-from referencing.typing import Mapping
+import json
 import time
 from rich.live import Live
 from abc import ABC, abstractmethod
 import os
 from pathlib import Path
-from typing import Any, NamedTuple, MutableMapping, Callable
+from typing import Any, NamedTuple, MutableMapping, Callable, Mapping
 
 from rich.console import Console
 from rich.table import Table
@@ -14,6 +14,8 @@ from tensorboardX import SummaryWriter
 import wandb
 
 from llmrl.config import LoggerConfig, Config
+from llmrl.experiement import Experiment
+
 
 Metrics = dict[str, jax.Array | float | int]
 
@@ -114,6 +116,25 @@ class ConsoleLogger(BaseLogger):
         self._live.update(table)
 
 
+class JsonLogger(BaseLogger):
+    def __init__(self, experiement_path: str) -> None:
+        self._file = None
+        self._experiement_path = f"{experiement_path}/logs.jsonl"
+
+    def start(self):
+        self._file = open(f"{self._experiement_path}.jsonl", "w")
+
+    def close(self):
+        if self._file is not None:
+            self._file.close()
+            self._file = None
+
+    def log_dict(self, data: Metrics, step: int) -> None:
+        if self._file is not None:
+            self._file.write(json.dumps(data) + "\n")
+            self._file.flush()
+
+
 class WandbLogger(BaseLogger):
     def __init__(self, unique_token: str, settings: Config):
         wandb.init(project=settings.logger.project_name, name=unique_token, config=settings.model_dump())
@@ -127,15 +148,18 @@ class WandbLogger(BaseLogger):
         wandb.finish()
 
 
-def create_logger(settings: Config, unique_token: str, console: Console) -> BaseLogger:
+def create_logger(experiment: Experiment, console: Console) -> BaseLogger:
+    logger_config = experiment.config.logger
     loggers: list[BaseLogger] = []
 
-    if settings.logger.use_tb:
-        loggers.append(TensorboardLogger(unique_token))
-    if settings.logger.use_console:
-        loggers.append(ConsoleLogger(unique_token, console))
-    if settings.logger.use_wandb:
-        loggers.append(WandbLogger(unique_token, settings))
+    if logger_config.use_tb:
+        loggers.append(TensorboardLogger(experiment.unique_token))
+    if logger_config.use_console:
+        loggers.append(ConsoleLogger(experiment.unique_token, console))
+    if logger_config.use_wandb:
+        loggers.append(WandbLogger(experiment.unique_token, experiment.config))
+    if logger_config.use_jsonl:
+        loggers.append(JsonLogger(experiment.root))
 
     return MultiLogger(loggers)
 
