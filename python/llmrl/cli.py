@@ -15,6 +15,16 @@ app.add_typer(eval_app, name="eval")
 
 
 @app.command()
+def play(
+    env: Annotated[str, typer.Argument(help="Environment name (arithmetic, wordle, countdown, spatial)")],
+    seed: Annotated[int, typer.Option("--seed", "-s", help="Random seed")] = 42,
+):
+    """Play an environment interactively from the terminal."""
+    from llmrl.play import play as play_fn
+    play_fn(env, seed)
+
+
+@app.command()
 def train(
     config_url: str,
     value_net_id: Annotated[Optional[str], typer.Option("--value-net-id", help="Experiment token to start training from")] = None,
@@ -43,8 +53,8 @@ def episode_to_jsonl():
     )
 
 
-@eval_app.command("openrouter")
-def eval_openrouter_cmd(
+@eval_app.command("api")
+def eval_api_cmd(
     model: Annotated[
         str,
         typer.Argument(
@@ -85,14 +95,14 @@ def eval_openrouter_cmd(
         uv run llmrl eval openrouter openrouter/meta-llama/llama-3.3-8b-instruct:free --env arithmetic
         uv run llmrl eval openrouter openrouter/google/gemma-3-4b-it:free --env wordle --episodes 50
     """
-    from llmrl.eval import eval_openrouter
+    from llmrl.eval import eval_api
 
     if env not in ("arithmetic", "wordle"):
         raise typer.BadParameter(
             f"Unknown environment: {env}. Must be 'arithmetic' or 'wordle'."
         )
 
-    eval_openrouter(
+    eval_api(
         model=model,
         env_name=env,  # type: ignore[arg-type]
         num_envs=num_envs,

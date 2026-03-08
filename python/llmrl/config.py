@@ -75,6 +75,7 @@ class LoggerConfig(BaseModel):
     use_tb: bool = False
     use_console: bool = True
     use_wandb: bool = False
+    use_jsonl: bool = True
 
 
 class SGDConfig(BaseModel):

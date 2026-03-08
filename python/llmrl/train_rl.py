@@ -29,7 +29,7 @@ def train_cli(
     config = experiment.config
     console = Console()
     performance_tracker = PerformanceTracker()
-    logger = MetricsAccumulator(create_logger(config, experiment.unique_token, console))
+    logger = MetricsAccumulator(create_logger(experiment, console))
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)

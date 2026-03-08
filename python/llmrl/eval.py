@@ -107,7 +107,7 @@ def _run_eval_loop(
     )
 
 
-def eval_openrouter(
+def eval_api(
     model: str,
     env_name: Literal["arithmetic", "wordle"],
     num_envs: int = 4,
@@ -139,21 +139,7 @@ def eval_openrouter(
         EvalResult with evaluation statistics
     """
     console = Console()
-
-    # Create environment config
-    if env_name == "arithmetic":
-        env_config = ArithmeticEnvConfig(
-            max_x=arithmetic_max_x,
-            max_y=arithmetic_max_y,
-        )
-    elif env_name == "wordle":
-        env_config = WordleEnvConfig(
-            max_guesses=wordle_max_guesses,
-        )
-    else:
-        raise ValueError(f"Unknown environment: {env_name}")
-
-    env = make_env(env_name, num_envs, env_seed, env_config)
+    env = make_env(env_name, num_envs, env_seed, None)
 
     agent = LiteAgent(
         model=model,
