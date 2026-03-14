@@ -1,10 +1,10 @@
-from llmrl.agent.local import EpisodeSaver
-import numpy as np
-from flax import nnx
 from pathlib import Path
 
+import numpy as np
+from flax import nnx
 from llmrl.agent.local import (
     BufferedEpisodeListener,
+    EpisodeSaver,
     LocalAgent,
 )
 from llmrl.base_model_loader import load_base_model
@@ -12,8 +12,8 @@ from llmrl.env.make import make_env
 from llmrl.experiement import Experiment
 from llmrl.logger import create_logger
 from llmrl.utils.performance import PerformanceTracker
-
 from rich.console import Console
+
 
 def _get_start(p: str):
     path = Path(p)

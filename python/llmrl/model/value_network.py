@@ -1,21 +1,19 @@
-from llmrl.config import HlGaussConfig, LLMConfig, ValueConfig, MseCriticConfig
-from llmrl.model.layer import Qwen3Layer
-
 import typing as tp
 
 import jax
 from flax import nnx
 from flax.nnx import variablelib
 from jax import numpy as jnp
+from llmrl.config import HlGaussConfig, LLMConfig, MseCriticConfig, ValueConfig
+from llmrl.model.layer import Qwen3Layer
 
 A = tp.TypeVar("A")
 
 from typing import Any, Protocol
-from einops import rearrange
-from flax import nnx
-import jax.numpy as jnp
-from jax.scipy.stats import norm
+
 import optax
+from einops import rearrange
+from jax.scipy.stats import norm
 
 
 class ValueRepresentation(Protocol):

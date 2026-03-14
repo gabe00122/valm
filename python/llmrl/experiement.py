@@ -1,11 +1,11 @@
 import datetime as dt
 import random
 import subprocess
-import fsspec
-from pydantic import BaseModel
-from coolname import generate_slug
 
+import fsspec
+from coolname import generate_slug
 from llmrl.config import Config, load_config
+from pydantic import BaseModel
 
 
 class ExperimentMeta(BaseModel):

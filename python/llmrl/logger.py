@@ -1,21 +1,18 @@
 import json
-import time
-from rich.live import Live
-from abc import ABC, abstractmethod
 import os
+import time
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, NamedTuple, MutableMapping, Callable, Mapping
+from typing import Any, Callable, Mapping, MutableMapping, NamedTuple
 
-from rich.console import Console
-from rich.table import Table
 import jax
-import numpy as np
-from tensorboardX import SummaryWriter
 import wandb
-
-from llmrl.config import LoggerConfig, Config
+from llmrl.config import Config
 from llmrl.experiement import Experiment
-
+from rich.console import Console
+from rich.live import Live
+from rich.table import Table
+from tensorboardX import SummaryWriter
 
 Metrics = dict[str, jax.Array | float | int]
 

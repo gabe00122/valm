@@ -1,8 +1,9 @@
-from flax import nnx
-import optax
 import json
+
+from flax import nnx
 from llmrl.config import load_config
 from llmrl.utils.optimizer import make_optimizer
+
 
 class DummyModel(nnx.Module):
     def __init__(self, rngs):

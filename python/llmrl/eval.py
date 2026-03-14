@@ -2,18 +2,16 @@ from dataclasses import dataclass
 from typing import Literal
 
 import numpy as np
-import orbax.checkpoint as ocp
 from flax import nnx
 from llmrl.agent.base import Agent
 from llmrl.agent.lite import LiteAgent
 from llmrl.agent.local import LocalAgent
 from llmrl.base_model_loader import load_base_model
 from llmrl.checkpointer import Checkpointer
-from llmrl.config import ArithmeticEnvConfig, Config, WordleEnvConfig
 from llmrl.env.base import Env
 from llmrl.env.make import make_env
 from llmrl.experiement import Experiment
-from llmrl.logger import BaseLogger, ConsoleLogger
+from llmrl.logger import ConsoleLogger
 from llmrl.model.value_network import ValueParam
 from llmrl.utils.performance import PerformanceTracker
 from rich.console import Console

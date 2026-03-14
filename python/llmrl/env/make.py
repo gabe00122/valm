@@ -1,5 +1,5 @@
 from types import SimpleNamespace
-from llmrl.env.base import Env
+
 from llmrl._envs import (
     ArithmeticEnv,
     BaseConversionEnv,
@@ -10,6 +10,7 @@ from llmrl._envs import (
     SudokuEnv,
     WordleEnv,
 )
+from llmrl.env.base import Env
 
 ENV_DEFAULTS = {
     "arithmetic": {"max_x": 100, "max_y": 100},

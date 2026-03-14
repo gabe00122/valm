@@ -1,4 +1,4 @@
-from .attention import KVCache, AttentionLayer
+from .attention import AttentionLayer, KVCache
 from .layer import Qwen3Layer
 from .mlp import MlpLayer
 from .qwen3 import Qwen3

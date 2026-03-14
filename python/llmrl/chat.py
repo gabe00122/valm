@@ -14,7 +14,7 @@ from llmrl.config import SamplingConfig
 from llmrl.experiement import Experiment
 from llmrl.model import Qwen3
 from llmrl.model.value_network import ValueParam
-from llmrl.util import batched_put, batched_put_where, batched_take
+from llmrl.util import batched_put_where, batched_take
 from rich.console import Console
 from rich.markdown import Markdown
 from transformers import PreTrainedTokenizerFast

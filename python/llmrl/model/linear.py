@@ -1,7 +1,7 @@
-from typing import Any
 import jax
-from jax import numpy as jnp
 from flax import nnx
+from jax import numpy as jnp
+
 
 class CustomLinear(nnx.Module):
     def __init__(self, in_features: int, out_features: int) -> None:

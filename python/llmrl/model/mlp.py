@@ -1,8 +1,7 @@
+import jax
 from flax import nnx
 from jax import numpy as jnp
-import jax
-
-from llmrl.config import LoraConfig, LLMConfig
+from llmrl.config import LLMConfig, LoraConfig
 from llmrl.model.util import load_param
 
 

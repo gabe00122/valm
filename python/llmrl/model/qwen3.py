@@ -1,15 +1,12 @@
-from llmrl.model.value_network import ValueParam
 from typing import Any
 
 import jax
 from flax import nnx
 from jax import numpy as jnp
 from llmrl.config import LLMConfig, LoraConfig, ValueConfig
-from llmrl.model.attention import KVCache
 from llmrl.model.layer import Qwen3Layer
-from llmrl.model.util import load_param
-from llmrl.model.value_network import ValueBackbone, ValueRepresentation
-from llmrl.model.util import wrap_param
+from llmrl.model.util import load_param, wrap_param
+from llmrl.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
 
 
 class Qwen3(nnx.Module):

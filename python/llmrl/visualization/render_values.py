@@ -2,10 +2,10 @@
 """Render values.np file to a video showing value function evolution over training."""
 
 import argparse
-import numpy as np
-import matplotlib.pyplot as plt
+
 import matplotlib.animation as animation
-from pathlib import Path
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 def render_values_video(
