@@ -42,7 +42,7 @@ class Qwen3(nnx.Module):
             rngs=rngs,
         )
 
-    def initalize_value_net(self, value_config: ValueConfig, *, rngs: nnx.Rngs):
+    def initialize_value_net(self, value_config: ValueConfig, *, rngs: nnx.Rngs):
         self.value_net = ValueBackbone(value_config, self._embed, rngs=rngs)
         wrap_param(self.value_net, ValueParam)
 

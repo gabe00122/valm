@@ -10,7 +10,7 @@ from llmrl.base_model_loader import load_base_model
 from llmrl.checkpointer import Checkpointer
 from llmrl.env.base import Env
 from llmrl.env.make import make_env
-from llmrl.experiement import Experiment
+from llmrl.experiment import Experiment
 from llmrl.logger import ConsoleLogger
 from llmrl.model.value_network import ValueParam
 from llmrl.utils.performance import PerformanceTracker
@@ -198,7 +198,7 @@ def eval_checkpoint(
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, _ = load_base_model(config.base_model, rngs)
     model.initialize_lora(config.lora, rngs=rngs)
-    model.initalize_value_net(config.value_net, rngs=rngs)
+    model.initialize_value_net(config.value_net, rngs=rngs)
 
     # Load checkpoint
     checkpointer = Checkpointer(experiment.checkpoints_url)

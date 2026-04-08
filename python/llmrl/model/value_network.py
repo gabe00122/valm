@@ -160,13 +160,13 @@ class ValueNetLayer(nnx.Module):
 
 class ValueBackbone(nnx.Module):
     def __init__(self, config: ValueConfig, latent_size: int, *, rngs: nnx.Rngs):
-        self._embeding_encode = ValueNetEncode(latent_size, config.laten_encoder_rank, config.backbone.embed, rngs=rngs)
+        self._embedding_encode = ValueNetEncode(latent_size, config.latent_encoder_rank, config.backbone.embed, rngs=rngs)
 
         self.layers = nnx.List([
             ValueNetLayer(
                 config=config.backbone,
                 latent_size=latent_size,
-                latent_encode_rank=config.laten_encoder_rank,
+                latent_encode_rank=config.latent_encoder_rank,
                 rngs=rngs,
             ) for _ in range(config.backbone.num_layers)
         ])
@@ -190,7 +190,7 @@ class ValueBackbone(nnx.Module):
         take_every = len(layer_latents) // len(self.layers)
         layer_latents = layer_latents[::take_every][:len(self.layers)]
 
-        x, rng_key = self._embeding_encode(x, rng_key=rng_key)
+        x, rng_key = self._embedding_encode(x, rng_key=rng_key)
 
         if carry is not None:
             out_carry = []

@@ -8,7 +8,7 @@ from typing import Any, Callable, Mapping, MutableMapping, NamedTuple
 import jax
 import wandb
 from llmrl.config import Config
-from llmrl.experiement import Experiment
+from llmrl.experiment import Experiment
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
@@ -114,12 +114,12 @@ class ConsoleLogger(BaseLogger):
 
 
 class JsonLogger(BaseLogger):
-    def __init__(self, experiement_path: str) -> None:
+    def __init__(self, experiment_path: str) -> None:
         self._file = None
-        self._experiement_path = f"{experiement_path}/logs.jsonl"
+        self._experiment_path = f"{experiment_path}/logs.jsonl"
 
     def start(self):
-        self._file = open(f"{self._experiement_path}.jsonl", "w")
+        self._file = open(f"{self._experiment_path}.jsonl", "w")
 
     def close(self):
         if self._file is not None:

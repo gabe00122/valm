@@ -7,7 +7,7 @@ from jax import numpy as jnp
 from llmrl.base_model_loader import load_base_model
 from llmrl.buffer import UpdateBatch, UpdateBuffer
 from llmrl.checkpointer import Checkpointer
-from llmrl.experiement import Experiment
+from llmrl.experiment import Experiment
 from llmrl.logger import create_logger
 from llmrl.model.value_network import ValueParam
 from llmrl.update_step import update_step
@@ -39,7 +39,7 @@ def train_value_cli(config_url: str, offline_data_url: str):
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
-    model.initalize_value_net(config.value_net, rngs=rngs)
+    model.initialize_value_net(config.value_net, rngs=rngs)
     print_value_param_count(model)
 
     data_dir = Path(offline_data_url)

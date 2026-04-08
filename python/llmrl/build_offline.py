@@ -9,7 +9,7 @@ from llmrl.agent.local import (
 )
 from llmrl.base_model_loader import load_base_model
 from llmrl.env.make import make_env
-from llmrl.experiement import Experiment
+from llmrl.experiment import Experiment
 from llmrl.logger import create_logger
 from llmrl.utils.performance import PerformanceTracker
 from rich.console import Console
@@ -37,7 +37,7 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
-    model.initalize_value_net(config.value_net, rngs=rngs)
+    model.initialize_value_net(config.value_net, rngs=rngs)
 
     eval_batch_size = config.eval_envs
     env = make_env(
