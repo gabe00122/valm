@@ -1,4 +1,4 @@
-# LLMRL
+# VALM
 
 A JAX-based research framework for online reinforcement learning with Large Language Models.
 
