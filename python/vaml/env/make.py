@@ -1,10 +1,10 @@
 from types import SimpleNamespace
 
-from llmrl._envs import (
+from vaml._envs import (
     ArithmeticEnv,
     WordleEnv,
 )
-from llmrl.env.base import Env
+from vaml.env.base import Env
 
 ENV_DEFAULTS = {
     "arithmetic": {"max_x": 100, "max_y": 100},

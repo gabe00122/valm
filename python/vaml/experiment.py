@@ -4,7 +4,7 @@ import subprocess
 
 import fsspec
 from coolname import generate_slug
-from llmrl.config import Config, load_config
+from vaml.config import Config, load_config
 from pydantic import BaseModel
 
 

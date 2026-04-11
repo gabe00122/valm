@@ -3,11 +3,11 @@ from typing import NamedTuple
 import jax
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.config import LLMConfig, LoraConfig
-from llmrl.model.lora import LoRAGeneral
-from llmrl.model.rope import apply_rope
-from llmrl.model.util import load_param
-from llmrl.util import batched_put
+from vaml.config import LLMConfig, LoraConfig
+from vaml.model.lora import LoRAGeneral
+from vaml.model.rope import apply_rope
+from vaml.model.util import load_param
+from vaml.util import batched_put
 
 
 class KVCache(NamedTuple):

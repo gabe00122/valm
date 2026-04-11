@@ -2,9 +2,9 @@ import distrax
 import jax
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.buffer import UpdateBatch
-from llmrl.config import LossConfig
-from llmrl.model.qwen3 import Qwen3
+from vaml.buffer import UpdateBatch
+from vaml.config import LossConfig
+from vaml.model.qwen3 import Qwen3
 
 
 def calculate_advantages(

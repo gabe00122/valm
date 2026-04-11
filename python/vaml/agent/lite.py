@@ -4,7 +4,7 @@ from typing import Any, override
 
 import numpy as np
 from litellm import ModelResponse, completion
-from llmrl.agent.base import Agent
+from vaml.agent.base import Agent
 
 
 class LiteAgent(Agent):

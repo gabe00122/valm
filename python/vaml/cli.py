@@ -1,12 +1,12 @@
 from typing import Annotated, Optional
 
 import typer
-from llmrl.buffer import UpdateBatch
-from llmrl.build_offline import build_offline as build_offline_fn
-from llmrl.train_rl import train_cli
-from llmrl.train_value import train_value_cli
-from llmrl.util import load_tokenizer
-from llmrl.utils.episode_to_jsonl import episode_to_jsonl as episode_to_jsonl_fn
+from vaml.buffer import UpdateBatch
+from vaml.build_offline import build_offline as build_offline_fn
+from vaml.train_rl import train_cli
+from vaml.train_value import train_value_cli
+from vaml.util import load_tokenizer
+from vaml.utils.episode_to_jsonl import episode_to_jsonl as episode_to_jsonl_fn
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 eval_app = typer.Typer(help="Evaluate agents against environments")
@@ -15,18 +15,27 @@ app.add_typer(eval_app, name="eval")
 
 @app.command()
 def play(
-    env: Annotated[str, typer.Argument(help="Environment name (arithmetic, wordle, countdown, spatial)")],
+    env: Annotated[
+        str,
+        typer.Argument(
+            help="Environment name (arithmetic, wordle, countdown, spatial)"
+        ),
+    ],
     seed: Annotated[int, typer.Option("--seed", "-s", help="Random seed")] = 42,
 ):
     """Play an environment interactively from the terminal."""
-    from llmrl.play import play as play_fn
+    from vaml.play import play as play_fn
+
     play_fn(env, seed)
 
 
 @app.command()
 def train(
     config_url: str,
-    value_net_id: Annotated[Optional[str], typer.Option("--value-net-id", help="Experiment token to start training from")] = None,
+    value_net_id: Annotated[
+        Optional[str],
+        typer.Option("--value-net-id", help="Experiment token to start training from"),
+    ] = None,
 ):
     train_cli(config_url, value_net_id)
 
@@ -38,9 +47,11 @@ def train_value(
 ):
     train_value_cli(config_url, offline_data_url)
 
+
 @app.command()
 def build_offline(config_url: str, output_path: str, file_size: int, file_count: int):
     build_offline_fn(config_url, output_path, file_size, file_count)
+
 
 @app.command()
 def episode_to_jsonl():
@@ -91,10 +102,10 @@ def eval_api_cmd(
     Evaluate an OpenRouter/LiteLLM model against an environment.
 
     Examples:
-        uv run llmrl eval openrouter openrouter/meta-llama/llama-3.3-8b-instruct:free --env arithmetic
-        uv run llmrl eval openrouter openrouter/google/gemma-3-4b-it:free --env wordle --episodes 50
+        uv run vaml eval openrouter openrouter/meta-llama/llama-3.3-8b-instruct:free --env arithmetic
+        uv run vaml eval openrouter openrouter/google/gemma-3-4b-it:free --env wordle --episodes 50
     """
-    from llmrl.eval import eval_api
+    from vaml.eval import eval_api
 
     if env not in ("arithmetic", "wordle"):
         raise typer.BadParameter(
@@ -134,10 +145,10 @@ def eval_checkpoint_cmd(
     Evaluate a trained model checkpoint against its configured environment.
 
     Examples:
-        uv run llmrl eval checkpoint winged-tortoise-of-glory
-        uv run llmrl eval checkpoint my-experiment --episodes 200 --step 1000
+        uv run vaml eval checkpoint winged-tortoise-of-glory
+        uv run vaml eval checkpoint my-experiment --episodes 200 --step 1000
     """
-    from llmrl.eval import eval_checkpoint
+    from vaml.eval import eval_checkpoint
 
     eval_checkpoint(
         experiment_name=experiment,

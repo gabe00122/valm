@@ -1,7 +1,7 @@
 
 import jax.numpy as jnp
 import numpy as np
-from llmrl.util import batched_put, batched_take
+from vaml.util import batched_put, batched_take
 
 
 def test_batched_put():

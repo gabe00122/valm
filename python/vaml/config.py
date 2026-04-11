@@ -48,9 +48,11 @@ class LoraConfig(BaseModel):
     attn: bool = False
     rank: int = 0
 
+
 class MseCriticConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     type: Literal["mse"] = "mse"
+
 
 class HlGaussConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -71,7 +73,7 @@ class ValueConfig(BaseModel):
 
 class LoggerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
-    project_name: str = "llmrl"
+    project_name: str = "vaml"
     use_tb: bool = False
     use_console: bool = True
     use_wandb: bool = False
@@ -103,6 +105,7 @@ class WarmupCosineConfig(BaseModel):
 
 
 ScheduleConfig = WarmupCosineConfig | None
+
 
 class OptimizerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)

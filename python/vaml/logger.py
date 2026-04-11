@@ -7,8 +7,8 @@ from typing import Any, Callable, Mapping, MutableMapping, NamedTuple
 
 import jax
 import wandb
-from llmrl.config import Config
-from llmrl.experiment import Experiment
+from vaml.config import Config
+from vaml.experiment import Experiment
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table

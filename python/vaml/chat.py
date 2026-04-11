@@ -8,13 +8,13 @@ import numpy as np
 from distrax import Categorical
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.base_model_loader import load_base_model
-from llmrl.checkpointer import Checkpointer
-from llmrl.config import SamplingConfig
-from llmrl.experiment import Experiment
-from llmrl.model import Qwen3
-from llmrl.model.value_network import ValueParam
-from llmrl.util import batched_put_where, batched_take
+from vaml.base_model_loader import load_base_model
+from vaml.checkpointer import Checkpointer
+from vaml.config import SamplingConfig
+from vaml.experiment import Experiment
+from vaml.model import Qwen3
+from vaml.model.value_network import ValueParam
+from vaml.util import batched_put_where, batched_take
 from rich.console import Console
 from rich.markdown import Markdown
 from transformers import PreTrainedTokenizerFast

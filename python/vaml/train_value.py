@@ -4,14 +4,14 @@ import jax
 import numpy as np
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.base_model_loader import load_base_model
-from llmrl.buffer import UpdateBatch, UpdateBuffer
-from llmrl.checkpointer import Checkpointer
-from llmrl.experiment import Experiment
-from llmrl.logger import create_logger
-from llmrl.model.value_network import ValueParam
-from llmrl.update_step import update_step
-from llmrl.utils.optimizer import make_optimizer
+from vaml.base_model_loader import load_base_model
+from vaml.buffer import UpdateBatch, UpdateBuffer
+from vaml.checkpointer import Checkpointer
+from vaml.experiment import Experiment
+from vaml.logger import create_logger
+from vaml.model.value_network import ValueParam
+from vaml.update_step import update_step
+from vaml.utils.optimizer import make_optimizer
 from rich.console import Console
 
 

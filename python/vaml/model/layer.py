@@ -1,10 +1,10 @@
 import jax
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.config import LLMConfig, LoraConfig
-from llmrl.model.attention import AttentionLayer, KVCache
-from llmrl.model.mlp import MlpLayer
-from llmrl.model.util import load_param
+from vaml.config import LLMConfig, LoraConfig
+from vaml.model.attention import AttentionLayer, KVCache
+from vaml.model.mlp import MlpLayer
+from vaml.model.util import load_param
 
 
 class Qwen3Layer(nnx.Module):

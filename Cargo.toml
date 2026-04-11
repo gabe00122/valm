@@ -1,5 +1,5 @@
 [package]
-name = "llmrl"
+name = "vaml"
 version = "0.1.0"
 edition = "2024"
 

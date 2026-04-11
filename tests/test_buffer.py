@@ -1,5 +1,5 @@
 import numpy as np
-from llmrl.buffer import CircularBuffer
+from vaml.buffer import CircularBuffer
 
 
 def test_push_and_pop():

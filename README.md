@@ -25,7 +25,7 @@ This project explores efficient multi-step RL for LLMs and investigates value ap
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd llmrl
+cd vaml
 
 # Install with uv (recommended)
 uv sync
@@ -46,27 +46,27 @@ huggingface-cli download Qwen/Qwen3-4B-Instruct-2507 \
 ### Train with Online RL
 
 ```bash
-uv run llmrl train configs/test.json
+uv run vaml train configs/test.json
 ```
 
 ### Train Value Network (Offline)
 
 ```bash
 # First, build offline data
-uv run llmrl build-offline configs/offline.json ./offline_data 100 100
+uv run vaml build-offline configs/offline.json ./offline_data 100 100
 
 # Then train value network
-uv run llmrl train-value configs/value-net.json ./offline_data
+uv run vaml train-value configs/value-net.json ./offline_data
 ```
 
 ### Evaluate Models
 
 ```bash
 # Evaluate an OpenRouter model
-uv run llmrl eval openrouter openrouter/meta-llama/llama-3.3-8b-instruct:free --env wordle
+uv run vaml eval openrouter openrouter/meta-llama/llama-3.3-8b-instruct:free --env wordle
 
 # Evaluate a trained checkpoint
-uv run llmrl eval checkpoint <experiment-name> --episodes 100
+uv run vaml eval checkpoint <experiment-name> --episodes 100
 ```
 
 ## Environments

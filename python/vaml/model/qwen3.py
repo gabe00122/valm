@@ -3,10 +3,10 @@ from typing import Any
 import jax
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.config import LLMConfig, LoraConfig, ValueConfig
-from llmrl.model.layer import Qwen3Layer
-from llmrl.model.util import load_param, wrap_param
-from llmrl.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
+from vaml.config import LLMConfig, LoraConfig, ValueConfig
+from vaml.model.layer import Qwen3Layer
+from vaml.model.util import load_param, wrap_param
+from vaml.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
 
 
 class Qwen3(nnx.Module):

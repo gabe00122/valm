@@ -1,6 +1,6 @@
 import optax
 from flax import nnx
-from llmrl.config import AdamWConfig, OptimizerConfig, SGDConfig, WarmupCosineConfig
+from vaml.config import AdamWConfig, OptimizerConfig, SGDConfig, WarmupCosineConfig
 
 
 def make_optimizer(model: nnx.Module, opt_config: OptimizerConfig, total_steps: int, wrt: nnx.filterlib.Filter) -> nnx.Optimizer:

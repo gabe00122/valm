@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Any
 
 from flax import nnx
-from llmrl.config import LLMConfig, SamplingConfig
-from llmrl.model.qwen3 import Qwen3
-from llmrl.util import load_tokenizer
+from vaml.config import LLMConfig, SamplingConfig
+from vaml.model.qwen3 import Qwen3
+from vaml.util import load_tokenizer
 from rich.progress import track
 from safetensors import safe_open
 

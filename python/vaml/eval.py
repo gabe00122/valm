@@ -3,17 +3,17 @@ from typing import Literal
 
 import numpy as np
 from flax import nnx
-from llmrl.agent.base import Agent
-from llmrl.agent.lite import LiteAgent
-from llmrl.agent.local import LocalAgent
-from llmrl.base_model_loader import load_base_model
-from llmrl.checkpointer import Checkpointer
-from llmrl.env.base import Env
-from llmrl.env.make import make_env
-from llmrl.experiment import Experiment
-from llmrl.logger import ConsoleLogger
-from llmrl.model.value_network import ValueParam
-from llmrl.utils.performance import PerformanceTracker
+from vaml.agent.base import Agent
+from vaml.agent.lite import LiteAgent
+from vaml.agent.local import LocalAgent
+from vaml.base_model_loader import load_base_model
+from vaml.checkpointer import Checkpointer
+from vaml.env.base import Env
+from vaml.env.make import make_env
+from vaml.experiment import Experiment
+from vaml.logger import ConsoleLogger
+from vaml.model.value_network import ValueParam
+from vaml.utils.performance import PerformanceTracker
 from rich.console import Console
 from rich.progress import (
     BarColumn,

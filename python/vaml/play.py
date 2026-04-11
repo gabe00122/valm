@@ -1,5 +1,5 @@
 import numpy as np
-from llmrl.env.make import make_env
+from vaml.env.make import make_env
 
 
 def play(env_name: str, seed: int = 42):

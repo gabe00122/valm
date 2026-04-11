@@ -1,6 +1,6 @@
 import json
 
-from llmrl.buffer import UpdateBatch
+from vaml.buffer import UpdateBatch
 from transformers import PreTrainedTokenizerFast
 
 

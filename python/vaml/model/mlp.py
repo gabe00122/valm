@@ -1,8 +1,8 @@
 import jax
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.config import LLMConfig, LoraConfig
-from llmrl.model.util import load_param
+from vaml.config import LLMConfig, LoraConfig
+from vaml.model.util import load_param
 
 
 class MlpLayer(nnx.Module):

@@ -4,8 +4,8 @@ import jax
 from flax import nnx
 from flax.nnx import variablelib
 from jax import numpy as jnp
-from llmrl.config import HlGaussConfig, LLMConfig, MseCriticConfig, ValueConfig
-from llmrl.model.layer import Qwen3Layer
+from vaml.config import HlGaussConfig, LLMConfig, MseCriticConfig, ValueConfig
+from vaml.model.layer import Qwen3Layer
 
 A = tp.TypeVar("A")
 

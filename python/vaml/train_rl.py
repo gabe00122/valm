@@ -1,18 +1,18 @@
 import numpy as np
 from flax import nnx
-from llmrl.agent.local import (
+from vaml.agent.local import (
     BufferedEpisodeListener,
     LocalAgent,
     Trainer,
 )
-from llmrl.base_model_loader import load_base_model
-from llmrl.checkpointer import Checkpointer
-from llmrl.env.make import make_env
-from llmrl.experiment import Experiment
-from llmrl.logger import MetricsAccumulator, create_logger
-from llmrl.model.value_network import ValueParam
-from llmrl.utils.optimizer import make_optimizer
-from llmrl.utils.performance import PerformanceTracker
+from vaml.base_model_loader import load_base_model
+from vaml.checkpointer import Checkpointer
+from vaml.env.make import make_env
+from vaml.experiment import Experiment
+from vaml.logger import MetricsAccumulator, create_logger
+from vaml.model.value_network import ValueParam
+from vaml.utils.optimizer import make_optimizer
+from vaml.utils.performance import PerformanceTracker
 from rich.console import Console
 
 

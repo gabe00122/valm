@@ -1038,62 +1038,6 @@ wheels = [
 ]
 
 [[package]]
-name = "llmrl"
-source = { editable = "." }
-dependencies = [
-    { name = "coolname" },
-    { name = "distrax" },
-    { name = "einops" },
-    { name = "flax" },
-    { name = "fsspec" },
-    { name = "huggingface-hub" },
-    { name = "jax", extra = ["cuda13"] },
-    { name = "jinja2" },
-    { name = "litellm" },
-    { name = "matplotlib" },
-    { name = "ml-dtypes" },
-    { name = "optax" },
-    { name = "pydantic" },
-    { name = "rich" },
-    { name = "safetensors" },
-    { name = "tensorboardx" },
-    { name = "transformers" },
-    { name = "typer" },
-    { name = "wandb" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "coolname", specifier = ">=2.2.0" },
-    { name = "distrax", specifier = ">=0.1.7" },
-    { name = "einops", specifier = ">=0.8.1" },
-    { name = "flax", specifier = ">=0.12.0" },
-    { name = "fsspec", specifier = ">=2025.10.0" },
-    { name = "huggingface-hub", specifier = ">=0.36.0" },
-    { name = "jax", extras = ["cuda13"], specifier = ">=0.8.2" },
-    { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "litellm", specifier = ">=1.80.5" },
-    { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "ml-dtypes", specifier = ">=0.5.3" },
-    { name = "optax", specifier = ">=0.2.6" },
-    { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "rich", specifier = ">=14.2.0" },
-    { name = "safetensors", specifier = ">=0.6.2" },
-    { name = "tensorboardx", specifier = ">=2.6.2.2" },
-    { name = "transformers", specifier = ">=4.57.1" },
-    { name = "typer", specifier = ">=0.21.1" },
-    { name = "wandb", specifier = ">=0.19.1" },
-]
-
-[package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.0.2" }]
-
-[[package]]
 name = "markdown-it-py"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2546,6 +2490,62 @@ sdist = { url = "https://files.pythonhosted.org/packages/c7/24/5f1b3bdffd70275f6
 wheels = [
     { url = "https://files.pythonhosted.org/packages/39/08/aaaad47bc4e9dc8c725e68f9d04865dbcb2052843ff09c97b08904852d84/urllib3-2.6.3-py3-none-any.whl", hash = "sha256:bf272323e553dfb2e87d9bfd225ca7b0f467b919d7bbd355436d3fd37cb0acd4", size = 131584, upload-time = "2026-01-07T16:24:42.685Z" },
 ]
+
+[[package]]
+name = "vaml"
+source = { editable = "." }
+dependencies = [
+    { name = "coolname" },
+    { name = "distrax" },
+    { name = "einops" },
+    { name = "flax" },
+    { name = "fsspec" },
+    { name = "huggingface-hub" },
+    { name = "jax", extra = ["cuda13"] },
+    { name = "jinja2" },
+    { name = "litellm" },
+    { name = "matplotlib" },
+    { name = "ml-dtypes" },
+    { name = "optax" },
+    { name = "pydantic" },
+    { name = "rich" },
+    { name = "safetensors" },
+    { name = "tensorboardx" },
+    { name = "transformers" },
+    { name = "typer" },
+    { name = "wandb" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "coolname", specifier = ">=2.2.0" },
+    { name = "distrax", specifier = ">=0.1.7" },
+    { name = "einops", specifier = ">=0.8.1" },
+    { name = "flax", specifier = ">=0.12.0" },
+    { name = "fsspec", specifier = ">=2025.10.0" },
+    { name = "huggingface-hub", specifier = ">=0.36.0" },
+    { name = "jax", extras = ["cuda13"], specifier = ">=0.8.2" },
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "litellm", specifier = ">=1.80.5" },
+    { name = "matplotlib", specifier = ">=3.10.8" },
+    { name = "ml-dtypes", specifier = ">=0.5.3" },
+    { name = "optax", specifier = ">=0.2.6" },
+    { name = "pydantic", specifier = ">=2.12.5" },
+    { name = "rich", specifier = ">=14.2.0" },
+    { name = "safetensors", specifier = ">=0.6.2" },
+    { name = "tensorboardx", specifier = ">=2.6.2.2" },
+    { name = "transformers", specifier = ">=4.57.1" },
+    { name = "typer", specifier = ">=0.21.1" },
+    { name = "wandb", specifier = ">=0.19.1" },
+]
+
+[package.metadata.requires-dev]
+dev = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "wandb"

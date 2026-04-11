@@ -6,9 +6,9 @@ import jax
 import numpy as np
 from flax import nnx
 from jax import numpy as jnp
-from llmrl.agent.base import Agent
-from llmrl.buffer import UpdateBatch, UpdateBuffer
-from llmrl.chat import (
+from vaml.agent.base import Agent
+from vaml.buffer import UpdateBatch, UpdateBuffer
+from vaml.chat import (
     GenerationState,
     append_prompt_tokens,
     append_user_prompts,
@@ -17,13 +17,13 @@ from llmrl.chat import (
     encode_input,
     generate,
 )
-from llmrl.checkpointer import Checkpointer
-from llmrl.config import Config
-from llmrl.logger import MetricsAccumulator
-from llmrl.model.qwen3 import Qwen3
-from llmrl.model.value_network import ValueParam
-from llmrl.update_step import update_step
-from llmrl.utils.performance import PerformanceTracker
+from vaml.checkpointer import Checkpointer
+from vaml.config import Config
+from vaml.logger import MetricsAccumulator
+from vaml.model.qwen3 import Qwen3
+from vaml.model.value_network import ValueParam
+from vaml.update_step import update_step
+from vaml.utils.performance import PerformanceTracker
 from transformers import PreTrainedTokenizerFast
 
 

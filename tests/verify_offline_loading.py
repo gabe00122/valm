@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from llmrl.buffer import UpdateBatch
+from vaml.buffer import UpdateBatch
 
 
 def create_dummy_data(data_dir: Path, num_files: int, episodes_per_file: int, seq_length: int):
