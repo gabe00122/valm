@@ -173,7 +173,7 @@ def _accum_merge(dst: MutableMapping[str, Any], update: Mapping[str, Any]) -> No
     for key, value in update.items():
         if isinstance(value, dict):
             child = dst.setdefault(key, {})
-            _accum_merge(dst[key], value)
+            _accum_merge(child, value)
         else:
             if hasattr(value, 'item'):
                 value = value.item()

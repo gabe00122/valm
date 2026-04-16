@@ -2,7 +2,7 @@
 name = "llmrl"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dynamic = ["version"]
 dependencies = [
     "distrax>=0.1.7",

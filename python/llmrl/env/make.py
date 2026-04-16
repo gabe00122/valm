@@ -2,12 +2,6 @@ from types import SimpleNamespace
 from llmrl.env.base import Env
 from llmrl._envs import (
     ArithmeticEnv,
-    BaseConversionEnv,
-    CountdownEnv,
-    DateArithEnv,
-    GraphEnv,
-    SpatialEnv,
-    SudokuEnv,
     WordleEnv,
 )
 
@@ -31,17 +25,5 @@ def make_env(env_name: str, num_agents: int, seed: int, settings) -> Env:
         return ArithmeticEnv(num_agents, seed, settings)
     elif env_name == "wordle":
         return WordleEnv(num_agents, seed, settings)
-    elif env_name == "countdown":
-        return CountdownEnv(num_agents, seed, settings)
-    elif env_name == "spatial":
-        return SpatialEnv(num_agents, seed, settings)
-    elif env_name == "base_conversion":
-        return BaseConversionEnv(num_agents, seed, settings)
-    elif env_name == "date_arith":
-        return DateArithEnv(num_agents, seed, settings)
-    elif env_name == "graph":
-        return GraphEnv(num_agents, seed, settings)
-    elif env_name == "sudoku":
-        return SudokuEnv(num_agents, seed, settings)
     else:
         raise ValueError(f"Unknown environment: {env_name}")

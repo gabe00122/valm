@@ -154,5 +154,5 @@ create_env_wrapper!(
     WordleEnv,
     WordleInstance,
     WordleSettings,
-    "Your job is to play wordle: Guess the 5-letter word in 6 tries. Feedback: G = Green (Correct), Y = Yellow (Wrong spot), X = Grey (Not in word). Your guess must be in all caps and the last word in your response."
+    "Your job is to play wordle: Guess the 5-letter word in 6 tries. Feedback: G = Green (Correct), Y = Yellow (Wrong spot), X = Grey (Not in word). Your guess must be the last word in your response."
 );

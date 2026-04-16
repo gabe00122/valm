@@ -31,7 +31,8 @@
         "project_name": "llmrl",
         "use_tb": false,
         "use_console": true,
-        "use_wandb": true
+        "use_wandb": true,
+        "use_jsonl": true
     },
     "policy_optimizer": {
         "opt": {
@@ -75,8 +76,8 @@
         "name": "wordle",
         "max_guesses": 6
     },
-    "eval_envs": 0,
-    "update_envs": 8,
+    "eval_envs": 32,
+    "update_envs": 4,
     "max_seq_length": 1024,
     "total_update_episodes": 40000,
     "checkpoint_every": 1000

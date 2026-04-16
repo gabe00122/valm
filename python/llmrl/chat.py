@@ -59,13 +59,14 @@ def encode_input(
     tokenizer: PreTrainedTokenizerFast,
     conversations: list[list[dict]],
     add_generation_prompt=True,
-) -> list[np.ndarray]:
-    return tokenizer.apply_chat_template(
+) -> np.ndarray:
+    output = tokenizer.apply_chat_template(
         conversations,
         add_generation_prompt=add_generation_prompt,
         return_tensors="np",
     )
 
+    return output['input_ids']
 
 def decode_responses(
     tokenizer: PreTrainedTokenizerFast,
