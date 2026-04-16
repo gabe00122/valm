@@ -1,4 +1,5 @@
 use std::borrow::Borrow;
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use itertools::Itertools;
@@ -14,11 +15,28 @@ pub trait EnvInstance {
 
     fn new(seed: u64, shared: Arc<Self::Shared>) -> Self;
     fn reset(&mut self) -> String;
-    fn step(&mut self, action: &str) -> (String, f32, bool);
+    fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>);
 }
 
 pub struct Envs<E> {
     envs: Vec<E>,
+}
+
+fn mean_metrics(metrics: Vec<HashMap<String, f32>>) -> HashMap<String, f32> {
+    let count = metrics.len() as f32;
+    let mut combined: HashMap<String, f32> = HashMap::new();
+
+    for m in metrics {
+        for (key, value) in m {
+            *combined.entry(key).or_insert(0.0) += value;
+        }
+    }
+
+    for v in combined.values_mut() {
+        *v /= count;
+    }
+
+    combined
 }
 
 impl<E, S> Envs<E>
@@ -48,14 +66,23 @@ where
             .collect()
     }
 
-    pub fn step<I, A>(&mut self, indices: I, actions: A) -> (Vec<String>, Vec<f32>, Vec<bool>)
+    pub fn step<I, A>(
+        &mut self,
+        indices: I,
+        actions: A,
+    ) -> (Vec<String>, Vec<f32>, Vec<bool>, HashMap<String, f32>)
     where
         I: IntoIterator,
         I::Item: Borrow<i32>,
         A: IntoIterator,
         A::Item: AsRef<str>,
     {
-        indices
+        let (obs, reward, done, metrics): (
+            Vec<String>,
+            Vec<f32>,
+            Vec<bool>,
+            Vec<HashMap<String, f32>>,
+        ) = indices
             .into_iter()
             .zip(actions)
             .map(|(index, action)| {
@@ -64,7 +91,9 @@ where
 
                 self.envs.get_mut(index as usize).unwrap().step(action)
             })
-            .multiunzip()
+            .multiunzip();
+
+        (obs, reward, done, mean_metrics(metrics))
     }
 }
 
@@ -102,15 +131,16 @@ macro_rules! create_env_wrapper {
                 Vec<String>,
                 Bound<'py, PyArray1<f32>>,
                 Bound<'py, PyArray1<bool>>,
+                HashMap<String, f32>,
             )> {
                 let indices = batch_indices.as_array();
 
-                let (obs, rewards, dones) = self.envs.step(&indices, &actions);
+                let (obs, rewards, dones, metrics) = self.envs.step(&indices, &actions);
 
                 let rewards = rewards.into_pyarray(py);
                 let dones = dones.into_pyarray(py);
 
-                Ok((obs, rewards, dones))
+                Ok((obs, rewards, dones, metrics))
             }
 
             fn instructions(&self) -> PyResult<&'static str> {

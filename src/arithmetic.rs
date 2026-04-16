@@ -1,5 +1,6 @@
 extern crate rand;
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::create_env_wrapper;
@@ -85,6 +86,12 @@ fn parse_response(re: &Regex, text: &str) -> Option<f32> {
     }
 }
 
+impl ArithmeticEnvInstance {
+    fn metrics(&self) -> HashMap<String, f32> {
+        HashMap::new()
+    }
+}
+
 impl EnvInstance for ArithmeticEnvInstance {
     type Shared = ArithmeticShared;
 
@@ -116,7 +123,7 @@ impl EnvInstance for ArithmeticEnvInstance {
         prompt
     }
 
-    fn step(&mut self, action: &str) -> (String, f32, bool) {
+    fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>) {
         let parsed = parse_response(&self.shared.number_re, action);
 
         let corrected = if let Some(p) = parsed {
@@ -127,7 +134,9 @@ impl EnvInstance for ArithmeticEnvInstance {
         let reward = if corrected { 1.0 } else { 0.0 };
         let done = true;
 
-        (self.reset(), reward, done)
+        let metrics = self.metrics();
+
+        (self.reset(), reward, done, metrics)
     }
 }
 

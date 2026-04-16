@@ -94,6 +94,10 @@ impl WordleInstance {
 
         (output.join(""), reward)
     }
+
+    fn metrics(&self) -> HashMap<String, f32> {
+        HashMap::new()
+    }
 }
 
 impl EnvInstance for WordleInstance {
@@ -121,7 +125,7 @@ impl EnvInstance for WordleInstance {
         "Make your first guess now".to_string()
     }
 
-    fn step(&mut self, action: &str) -> (String, f32, bool) {
+    fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>) {
         let guess = self
             .shared
             .guess_re
@@ -140,11 +144,13 @@ impl EnvInstance for WordleInstance {
             ("No guess was found".to_string(), 0.0, false)
         };
 
+        let metrics = self.metrics();
+
         self.guesses += 1;
         if word_found || self.guesses >= self.shared.settings.max_guesses {
-            (self.reset(), reward, true)
+            (self.reset(), reward, true, metrics)
         } else {
-            (obs, reward, false)
+            (obs, reward, false, metrics)
         }
     }
 }

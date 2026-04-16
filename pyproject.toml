@@ -1,5 +1,5 @@
 [project]
-name = "llmrl"
+name = "vaml"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -33,7 +33,7 @@ build-backend = "maturin"
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "python"
-module-name = "llmrl._envs"
+module-name = "vaml._envs"
 
 [dependency-groups]
 dev = [
@@ -41,7 +41,7 @@ dev = [
 ]
 
 [project.scripts]
-llmrl = "llmrl.cli:app"
+vaml = "vaml.cli:app"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

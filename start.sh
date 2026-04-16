@@ -25,5 +25,5 @@ if [[ "$DEV_MODE" == "true" ]]; then
     echo "Running in development mode..."
     sleep infinity
 else
-    uv run ./python/llmrl/train_rl.py
+    uv run ./python/vaml/train_rl.py
 fi

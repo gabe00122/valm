@@ -28,7 +28,7 @@
         }
     },
     "logger": {
-        "project_name": "llmrl",
+        "project_name": "vaml",
         "use_tb": false,
         "use_console": true,
         "use_wandb": true,
