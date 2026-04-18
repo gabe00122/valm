@@ -162,6 +162,10 @@ class BufferedEpisodeListener(EpisodeListener):
         self._listener = listener
         self._buffer = UpdateBuffer(buffer_size, batch_size, seq_length)
 
+    @property
+    def size(self) -> int:
+        return self._buffer.size
+
     def on_episodes(self, batch: UpdateBatch):
         self._buffer.store(batch)
         while self._buffer.has_batch:
@@ -241,7 +245,7 @@ class LocalAgent(Agent, ModelProvider):
             np.arange(self._config.eval_envs, dtype=np.int32),
             instruction_tokens,
         )
-        self._env_instruction_length = 0 #self._np_gen.context_length[0].item()
+        self._env_instruction_length = self._np_gen.context_length[0].item()
 
         # this can probably go away now
         self._gen = self._gen._replace(
@@ -253,9 +257,9 @@ class LocalAgent(Agent, ModelProvider):
         # token_delta = current_tokens - self._last_tokens
         # self._last_tokens = current_tokens
 
-        self._logger.add_counts({
-            "tokens": current_tokens
-        })
+        # self._logger.add_counts({
+        #     "tokens": current_tokens
+        # })
 
     @override
     def reset(self) -> None:
@@ -289,7 +293,8 @@ class LocalAgent(Agent, ModelProvider):
 
             with self._performance_tracker.time("reset"):
                 self._np_gen.context_length[done_idx] = self._env_instruction_length
-                self._np_gen.kv_cache_length[done_idx] = self._env_instruction_length
+                # force a re-revaluation
+                self._np_gen.kv_cache_length[done_idx] = 0 #self._env_instruction_length
                 self._rewards[done_idx] = 0.0
 
         with self._performance_tracker.time("encode"):

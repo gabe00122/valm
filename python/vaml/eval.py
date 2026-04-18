@@ -76,7 +76,7 @@ def _run_eval_loop(
 
         while len(episode_rewards) < num_episodes:
             env_indices, actions = agent.act(env_indices, obs, rewards, dones)
-            obs, rewards, dones = env.step(env_indices, actions)
+            obs, rewards, dones, _ = env.step(env_indices, actions)
 
             # Accumulate rewards for current episodes
             current_episode_rewards[env_indices] += rewards
@@ -112,11 +112,6 @@ def eval_api(
     num_episodes: int = 100,
     base_url: str | None = None,
     env_seed: int = 42,
-    # Environment-specific settings
-    arithmetic_max_x: int = 100,
-    arithmetic_max_y: int = 100,
-    wordle_max_guesses: int = 6,
-    wordle_words: list[str] | None = None,
 ) -> EvalResult:
     """
     Evaluate an OpenRouter/LiteLLM model against an environment.
@@ -128,10 +123,6 @@ def eval_api(
         num_episodes: Total number of episodes to run
         base_url: Optional custom base URL for the API
         env_seed: Random seed for the environment
-        arithmetic_max_x: Max X value for arithmetic env
-        arithmetic_max_y: Max Y value for arithmetic env
-        wordle_max_guesses: Max guesses for wordle env
-        wordle_words: Word list for wordle env
 
     Returns:
         EvalResult with evaluation statistics
@@ -197,26 +188,26 @@ def eval_checkpoint(
     # Load model
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, _ = load_base_model(config.base_model, rngs)
-    model.initialize_lora(config.lora, rngs=rngs)
+    # model.initialize_lora(config.lora, rngs=rngs)
     model.initialize_value_net(config.value_net, rngs=rngs)
 
     # Load checkpoint
-    checkpointer = Checkpointer(experiment.checkpoints_url)
-    if checkpoint_step is not None:
-        checkpointer.restore(
-            {"model": model},
-            checkpoint_step,
-            nnx.Any(nnx.LoRAParam, ValueParam),
-        )
-        console.print(f"[bold]Checkpoint step:[/bold] {checkpoint_step}")
-    else:
-        checkpointer.restore_latest(
-            {"model": model},
-            nnx.Any(nnx.LoRAParam, ValueParam),
-        )
-        console.print(
-            f"[bold]Checkpoint step:[/bold] latest ({checkpointer.mngr.latest_step()})"
-        )
+    # checkpointer = Checkpointer(experiment.checkpoints_url)
+    # if checkpoint_step is not None:
+    #     checkpointer.restore(
+    #         {"model": model},
+    #         checkpoint_step,
+    #         nnx.Any(nnx.LoRAParam, ValueParam),
+    #     )
+    #     console.print(f"[bold]Checkpoint step:[/bold] {checkpoint_step}")
+    # else:
+    #     checkpointer.restore_latest(
+    #         {"model": model},
+    #         nnx.Any(nnx.LoRAParam, ValueParam),
+    #     )
+    #     console.print(
+    #         f"[bold]Checkpoint step:[/bold] latest ({checkpointer.mngr.latest_step()})"
+    #     )
     console.print()
 
     # Create environment

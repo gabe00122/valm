@@ -13,6 +13,14 @@ from vaml.experiment import Experiment
 from vaml.logger import create_logger
 from vaml.utils.performance import PerformanceTracker
 from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 
 def _get_start(p: str):
@@ -33,7 +41,7 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
     config = experiment.config
     console = Console()
     performance_tracker = PerformanceTracker()
-    logger = create_logger(config, experiment.unique_token, console)
+    logger = create_logger(experiment, console)
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
@@ -57,7 +65,10 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
     saver = EpisodeSaver(output_path)
     saver.chunk_num = _get_start(output_path)
-    agent.episode_listener = BufferedEpisodeListener(file_size + config.eval_envs, file_size, config.max_seq_length, saver)
+    buffered_listener = BufferedEpisodeListener(
+        file_size + config.eval_envs, file_size, config.max_seq_length, saver
+    )
+    agent.episode_listener = buffered_listener
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)
     rewards = np.zeros((eval_batch_size,), dtype=np.float32)
@@ -65,8 +76,25 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
     obs = env.reset(env_indices)
 
-    while saver.chunk_num < file_count:
-        console.print(f"Chunk {saver.chunk_num}")
-        env_indices, actions = agent.act(env_indices, obs, rewards, dones)
-        with performance_tracker.time("env_step"):
-            obs, rewards, dones = env.step(env_indices, actions)
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("•"),
+        TimeElapsedColumn(),
+        TextColumn("•"),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        chunks_task = progress.add_task(
+            "Chunks     ", total=file_count, completed=saver.chunk_num
+        )
+        chunk_task = progress.add_task("Current    ", total=file_size)
+
+        while saver.chunk_num < file_count:
+            env_indices, actions = agent.act(env_indices, obs, rewards, dones)
+            with performance_tracker.time("env_step"):
+                obs, rewards, dones, _ = env.step(env_indices, actions)
+
+            progress.update(chunks_task, completed=saver.chunk_num)
+            progress.update(chunk_task, completed=buffered_listener.size)

@@ -20,7 +20,7 @@ def calculate_values(model_def, model_state, rng_key, context: jax.Array):
     model = nnx.merge(model_def, model_state)
     positions = jnp.arange(context.shape[0])
     _, values_repr, _, rng_key = model(context[None, :], positions[None, :], None, rng_key=rng_key)
-    values = model.get_value(values_repr)
+    values = values_repr.value()
     return jnp.squeeze(values, 0), rng_key
 
 
@@ -35,7 +35,7 @@ def train_value_cli(config_url: str, offline_data_url: str):
 
     config = experiment.config
     console = Console()
-    logger = create_logger(config, experiment.unique_token, console)
+    logger = create_logger(experiment, console)
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)

@@ -3,7 +3,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Any, override
 
 import numpy as np
-from litellm import ModelResponse, completion
+from vaml.agent.completion import completion, Message
 from vaml.agent.base import Agent
 
 
@@ -26,7 +26,7 @@ class LiteAgent(Agent):
         self._base_url = base_url
 
         self._instructions: str | None = None
-        self._messages: list[list[dict[str, Any]]] = []
+        self._messages: list[list[Message]] = []
 
         self._pending_futures = []
         self._executor = ThreadPoolExecutor(max_workers=agent_count)
@@ -44,25 +44,15 @@ class LiteAgent(Agent):
 
         if self._instructions is not None:
             for messages in self._messages:
-                messages.append({"role": "system", "content": self._instructions})
+                messages.append(Message(role="user", content=self._instructions))
 
-    def _complete_with_retry(self, id, messages) -> tuple[int, ModelResponse]:
-        reasoning_effort = "low"
-        for _ in range(3):
-            try:
-                return id, completion(
-                    messages=messages,
-                    model=self._model,
-                    base_url=self._base_url,
-                    reasoning_effort=reasoning_effort,
-                )
-            except Exception as e:
-                print(f"Error: {e}")
+    def _complete_with_retry(self, id, messages) -> tuple[int, Message]:
+        # reasoning_effort = "low"
         return id, completion(
             messages=messages,
-            model=self._model,
-            base_url=self._base_url,
-            reasoning_effort=reasoning_effort,
+            # model=self._model,
+            # base_url=self._base_url,
+            # reasoning_effort=reasoning_effort,
         )
 
     @override
@@ -92,13 +82,13 @@ class LiteAgent(Agent):
             self._messages[idx] = []
             if self._instructions is not None:
                 self._messages[idx].append(
-                    {"role": "system", "content": self._instructions}
+                    Message(role="user", content=self._instructions)
                 )
 
         # Process each agent in the batch
         action_texts: list[str] = []
         for idx, observation in zip(batch_indices, obs):
-            self._messages[idx].append({"role": "user", "content": observation})
+            self._messages[idx].append(Message(role="user", content=observation))
 
             self._pending_futures.append(
                 self._executor.submit(
@@ -114,11 +104,10 @@ class LiteAgent(Agent):
         action_indices = []
         for future in done_futures:
             idx, response = future.result()
-            content = response.choices[0].message.content or ""  # type: ignore[union-attr]
 
-            self._messages[idx].append({"role": "assistant", "content": content})
+            self._messages[idx].append(response)
             action_indices.append(idx)
-            action_texts.append(content)
+            action_texts.append(response.content)
 
         return np.array(action_indices, dtype=np.int32), action_texts
 

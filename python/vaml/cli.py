@@ -86,24 +86,13 @@ def eval_api_cmd(
     seed: Annotated[
         int, typer.Option("--seed", "-s", help="Environment random seed")
     ] = 42,
-    # Arithmetic env options
-    max_x: Annotated[
-        int, typer.Option("--max-x", help="Max X value for arithmetic env")
-    ] = 100,
-    max_y: Annotated[
-        int, typer.Option("--max-y", help="Max Y value for arithmetic env")
-    ] = 100,
-    # Wordle env options
-    max_guesses: Annotated[
-        int, typer.Option("--max-guesses", help="Max guesses for wordle env")
-    ] = 6,
 ):
     """
-    Evaluate an OpenRouter/LiteLLM model against an environment.
+    Evaluate an api based model against an environment.
 
     Examples:
-        uv run vaml eval openrouter openrouter/meta-llama/llama-3.3-8b-instruct:free --env arithmetic
-        uv run vaml eval openrouter openrouter/google/gemma-3-4b-it:free --env wordle --episodes 50
+        uv run vaml eval api openrouter/meta-llama/llama-3.3-8b-instruct:free --env arithmetic
+        uv run vaml eval api openrouter/google/gemma-3-4b-it:free --env wordle --episodes 50
     """
     from vaml.eval import eval_api
 
@@ -119,9 +108,6 @@ def eval_api_cmd(
         num_episodes=num_episodes,
         base_url=base_url,
         env_seed=seed,
-        arithmetic_max_x=max_x,
-        arithmetic_max_y=max_y,
-        wordle_max_guesses=max_guesses,
     )
 
 

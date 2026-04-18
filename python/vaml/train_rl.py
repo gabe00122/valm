@@ -90,7 +90,7 @@ def train_cli(
     while trainer.progress < 1.0:
         env_indices, actions = agent.act(env_indices, obs, rewards, dones)
         with performance_tracker.time("env_step"):
-            obs, rewards, dones = env.step(env_indices, actions)
+            obs, rewards, dones, _ = env.step(env_indices, actions)
 
         if trainer.progress > last_progress:
             last_progress = trainer.progress
