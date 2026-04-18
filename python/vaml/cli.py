@@ -67,10 +67,11 @@ def episode_to_jsonl():
 def eval_api_cmd(
     model: Annotated[
         str,
-        typer.Argument(
-            help="Model identifier (e.g., 'openrouter/meta-llama/llama-3.3-8b-instruct:free')"
+        typer.Option(
+            "--model",
+            help="Model identifier (e.g., 'openrouter/meta-llama/llama-3.3-8b-instruct:free')",
         ),
-    ],
+    ] = "blank",
     env: Annotated[
         str, typer.Option("--env", "-e", help="Environment name")
     ] = "arithmetic",
@@ -81,8 +82,11 @@ def eval_api_cmd(
         int, typer.Option("--episodes", "-ep", help="Number of episodes to run")
     ] = 100,
     base_url: Annotated[
-        Optional[str], typer.Option("--base-url", help="Custom API base URL")
-    ] = None,
+        str, typer.Option("--base-url", help="API base URL")
+    ] = "http://localhost:8080",
+    api_key: Annotated[
+        str, typer.Option("--api-key", help="API key")
+    ] = "no-key",
     seed: Annotated[
         int, typer.Option("--seed", "-s", help="Environment random seed")
     ] = 42,
@@ -91,8 +95,8 @@ def eval_api_cmd(
     Evaluate an api based model against an environment.
 
     Examples:
-        uv run vaml eval api openrouter/meta-llama/llama-3.3-8b-instruct:free --env arithmetic
-        uv run vaml eval api openrouter/google/gemma-3-4b-it:free --env wordle --episodes 50
+        uv run vaml eval api --model openrouter/meta-llama/llama-3.3-8b-instruct:free --env arithmetic
+        uv run vaml eval api --model openrouter/google/gemma-3-4b-it:free --env wordle --episodes 50
     """
     from vaml.eval import eval_api
 
@@ -107,6 +111,7 @@ def eval_api_cmd(
         num_envs=num_envs,
         num_episodes=num_episodes,
         base_url=base_url,
+        api_key=api_key,
         env_seed=seed,
     )
 

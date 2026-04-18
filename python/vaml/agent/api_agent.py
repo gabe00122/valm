@@ -3,15 +3,15 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Any, override
 
 import numpy as np
-from vaml.agent.completion import completion, Message
+from vaml.utils.api import completion, Message
 from vaml.agent.base import Agent
 
 
-class LiteAgent(Agent):
+class ApiAgent(Agent):
     """
-    A lightweight agent that uses LiteLLM to call base models from OpenRouter
-    or other API providers. This agent is designed for testing base models
-    against RL environments to establish baselines.
+    A lightweight agent that calls OpenAI-compatible APIs using multithreading.
+    This agent is designed for testing base models against RL environments to
+    establish baselines.
     """
 
     def __init__(
@@ -19,11 +19,13 @@ class LiteAgent(Agent):
         model: str,
         agent_count: int,
         *,
-        base_url: str | None = None,
+        base_url: str,
+        api_key: str,
     ) -> None:
         self._model = model
         self._agent_count = agent_count
         self._base_url = base_url
+        self._api_key = api_key
 
         self._instructions: str | None = None
         self._messages: list[list[Message]] = []
@@ -47,12 +49,11 @@ class LiteAgent(Agent):
                 messages.append(Message(role="user", content=self._instructions))
 
     def _complete_with_retry(self, id, messages) -> tuple[int, Message]:
-        # reasoning_effort = "low"
         return id, completion(
             messages=messages,
-            # model=self._model,
-            # base_url=self._base_url,
-            # reasoning_effort=reasoning_effort,
+            base_url=self._base_url,
+            api_key=self._api_key,
+            model=self._model,
         )
 
     @override

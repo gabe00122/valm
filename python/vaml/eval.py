@@ -4,7 +4,7 @@ from typing import Literal
 import numpy as np
 from flax import nnx
 from vaml.agent.base import Agent
-from vaml.agent.lite import LiteAgent
+from vaml.agent.api_agent import ApiAgent
 from vaml.agent.local import LocalAgent
 from vaml.base_model_loader import load_base_model
 from vaml.checkpointer import Checkpointer
@@ -108,10 +108,11 @@ def _run_eval_loop(
 def eval_api(
     model: str,
     env_name: Literal["arithmetic", "wordle"],
-    num_envs: int = 4,
-    num_episodes: int = 100,
-    base_url: str | None = None,
-    env_seed: int = 42,
+    num_envs: int,
+    num_episodes: int,
+    base_url: str,
+    api_key: str,
+    env_seed: int,
 ) -> EvalResult:
     """
     Evaluate an OpenRouter/LiteLLM model against an environment.
@@ -121,7 +122,8 @@ def eval_api(
         env_name: Environment to evaluate on ("arithmetic" or "wordle")
         num_envs: Number of parallel environments
         num_episodes: Total number of episodes to run
-        base_url: Optional custom base URL for the API
+        base_url: Base URL for the API
+        api_key: API key for the endpoint
         env_seed: Random seed for the environment
 
     Returns:
@@ -130,10 +132,11 @@ def eval_api(
     console = Console()
     env = make_env(env_name, num_envs, env_seed, None)
 
-    agent = LiteAgent(
+    agent = ApiAgent(
         model=model,
         agent_count=num_envs,
         base_url=base_url,
+        api_key=api_key,
     )
     agent.set_episode_instructions(env.instructions())
 
@@ -235,7 +238,7 @@ def eval_checkpoint(
 
     result = _run_eval_loop(agent, env, num_envs, num_episodes, console)
 
-    checkpointer.close()
+    # checkpointer.close()
 
     console.print()
     console.print("[bold green]Evaluation Complete[/bold green]")
