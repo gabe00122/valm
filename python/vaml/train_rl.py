@@ -1,12 +1,9 @@
 import numpy as np
 from flax import nnx
-from vaml.agent.local import (
-    BufferedEpisodeListener,
-    LocalAgent,
-    Trainer,
-)
+from vaml.agent.local import LocalAgent
 from vaml.base_model_loader import load_base_model
 from vaml.checkpointer import Checkpointer
+from vaml.episode_listener import BufferedEpisodeListener, Trainer
 from vaml.env.make import make_env
 from vaml.experiment import Experiment
 from vaml.logger import MetricsAccumulator, create_logger

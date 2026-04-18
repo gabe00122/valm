@@ -1,13 +1,13 @@
-import os
-from pathlib import Path
-from typing import NamedTuple, Protocol, override
+from typing import NamedTuple, override
 
 import jax
 import numpy as np
 from flax import nnx
 from jax import numpy as jnp
+from transformers import PreTrainedTokenizerFast
+
 from vaml.agent.base import Agent
-from vaml.buffer import UpdateBatch, UpdateBuffer
+from vaml.buffer import UpdateBatch
 from vaml.chat import (
     GenerationState,
     append_prompt_tokens,
@@ -17,159 +17,11 @@ from vaml.chat import (
     encode_input,
     generate,
 )
-from vaml.checkpointer import Checkpointer
 from vaml.config import Config
+from vaml.episode_listener.base import EpisodeListener
 from vaml.logger import MetricsAccumulator
 from vaml.model.qwen3 import Qwen3
-from vaml.model.value_network import ValueParam
-from vaml.update_step import update_step
 from vaml.utils.performance import PerformanceTracker
-from transformers import PreTrainedTokenizerFast
-
-
-class EpisodeListener(Protocol):
-    def on_episodes(self, batch: UpdateBatch): ...
-
-
-class ModelProvider(Protocol):
-    model_def: nnx.GraphDef
-    model_state: nnx.State
-
-
-class Trainer(EpisodeListener):
-    def __init__(
-        self,
-        model_provider: ModelProvider,
-        policy_opt: nnx.Optimizer,
-        value_opt: nnx.Optimizer,
-        rng_key: jax.Array,
-        checkpointer: Checkpointer,
-        performance: PerformanceTracker,
-        logger: MetricsAccumulator,
-        config: Config,
-    ):
-        self._model_provider = model_provider
-        self._policy_opt_def, self._policy_opt_state = nnx.split(policy_opt)
-        self._value_opt_def, self._value_opt_state = nnx.split(value_opt)
-        self._rng_key = rng_key
-
-        self._checkpointer = checkpointer
-        self._performance = performance
-        self._logger = logger
-        self._config = config
-        self._update_step = 0
-
-    def save_checkpoint(self):
-        policy_opt = nnx.merge(self._policy_opt_def, self._policy_opt_state)
-        value_opt = nnx.merge(self._value_opt_def, self._value_opt_state)
-        model = nnx.merge(
-            self._model_provider.model_def, self._model_provider.model_state
-        )
-        self._checkpointer.save(
-            {
-                "policy_opt": policy_opt,
-                "value_opt": value_opt,
-                "model": model
-            },
-            self._update_step,
-            nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt)
-        )
-
-    def restore_checkpoint(self, *, checkpointer: Checkpointer | None = None, wrt: nnx.filterlib.Filter | None = None):
-        policy_opt: nnx.Optimizer = nnx.merge(self._policy_opt_def, self._policy_opt_state)
-        value_opt: nnx.Optimizer = nnx.merge(self._value_opt_def, self._value_opt_state)
-        model = nnx.merge(
-            self._model_provider.model_def, self._model_provider.model_state
-        )
-
-        restore_filter = nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt)
-
-        if checkpointer is None:
-            step = self._checkpointer.restore_latest({"policy_opt": policy_opt, "value_opt": value_opt, "model": model}, restore_filter)
-            self._update_step = step
-            self._policy_opt_state = nnx.state(policy_opt)
-            self._value_opt_state = nnx.state(value_opt)
-        else:
-            # This should be the value_opt
-            checkpointer.restore_latest({"model": model}, ValueParam)
-            # self._value_opt_state = nnx.state(value_opt)
-
-        self._model_provider.model_state = nnx.state(model)
-
-    @property
-    def progress(self) -> float:
-        return self._update_step / self._config.total_update_episodes
-
-    def on_episodes(self, batch: UpdateBatch):
-        with self._performance.time("update_step"):
-            self._policy_opt_state, self._value_opt_state, new_model_state, metrics, self._rng_key = update_step(
-                self._policy_opt_def,
-                self._policy_opt_state,
-                self._value_opt_def,
-                self._value_opt_state,
-                self._model_provider.model_def,
-                self._model_provider.model_state,
-                self._rng_key,
-                batch,
-                self._config.loss,
-                False,
-            )
-
-        self._model_provider.model_state = new_model_state
-
-        # metrics["rewards"] = batch.rewards.sum() / batch.rewards.shape[0]
-        metrics["performance"] = self._performance.total_time_percentages()
-        self._performance.reset()
-
-        self._logger.add(metrics)
-        self._update_step += 1
-
-        # batch.save_npz("./episode_viewer/episodes.npz")
-
-        if self._update_step % self._config.checkpoint_every == 0:
-            self.save_checkpoint()
-
-
-class EpisodeSaver(EpisodeListener):
-    def __init__(self, directory: str):
-        self._directory = Path(directory)
-        self._directory.mkdir(parents=True, exist_ok=True)
-        self.chunk_num = 0
-
-    def on_episodes(self, batch: UpdateBatch):
-        file_name = os.path.join(self._directory, f"episodes_{self.chunk_num}.npz")
-        batch.save_npz(file_name, compressed=False)
-        self.chunk_num += 1
-
-
-class MultiEpisodeListener(EpisodeListener):
-    def __init__(self, listeners: list[EpisodeListener]):
-        self._listeners = listeners
-
-    def on_episodes(self, batch: UpdateBatch):
-        for listener in self._listeners:
-            listener.on_episodes(batch)
-
-
-class BufferedEpisodeListener(EpisodeListener):
-    def __init__(
-        self,
-        buffer_size: int,
-        batch_size: int,
-        seq_length: int,
-        listener: EpisodeListener,
-    ):
-        self._listener = listener
-        self._buffer = UpdateBuffer(buffer_size, batch_size, seq_length)
-
-    @property
-    def size(self) -> int:
-        return self._buffer.size
-
-    def on_episodes(self, batch: UpdateBatch):
-        self._buffer.store(batch)
-        while self._buffer.has_batch:
-            self._listener.on_episodes(self._buffer.take_batch())
 
 
 class NpGenData(NamedTuple):
@@ -196,7 +48,8 @@ def get_np_gen_data(gen: GenerationState) -> NpGenData:
     )
     return jax.tree.map(lambda x: np.array(x), jax.device_get(data))
 
-class LocalAgent(Agent, ModelProvider):
+
+class LocalAgent(Agent):
     def __init__(
         self,
         model: Qwen3,

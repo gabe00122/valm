@@ -2,12 +2,9 @@ from pathlib import Path
 
 import numpy as np
 from flax import nnx
-from vaml.agent.local import (
-    BufferedEpisodeListener,
-    EpisodeSaver,
-    LocalAgent,
-)
+from vaml.agent.local import LocalAgent
 from vaml.base_model_loader import load_base_model
+from vaml.episode_listener import BufferedEpisodeListener, EpisodeSaver
 from vaml.env.make import make_env
 from vaml.experiment import Experiment
 from vaml.logger import create_logger
