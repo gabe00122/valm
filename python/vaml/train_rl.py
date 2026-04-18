@@ -9,7 +9,6 @@ from vaml.experiment import Experiment
 from vaml.logger import MetricsAccumulator, create_logger
 from vaml.model.value_network import ValueParam
 from vaml.utils.optimizer import make_optimizer
-from vaml.utils.performance import PerformanceTracker
 from rich.console import Console
 
 
@@ -23,7 +22,6 @@ def train_cli(
 
     config = experiment.config
     console = Console()
-    performance_tracker = PerformanceTracker()
     logger = MetricsAccumulator(create_logger(experiment, console))
 
     rngs = nnx.Rngs(experiment.params_seed)
@@ -45,8 +43,6 @@ def train_cli(
         model,
         tokenizer,
         config,
-        logger,
-        performance_tracker,
         rngs.agent(),
     )
 
@@ -58,7 +54,6 @@ def train_cli(
         value_opt,
         rngs.trainer(),
         checkpointer,
-        performance_tracker,
         logger,
         config,
     )
@@ -96,8 +91,7 @@ def train_cli(
 
     while trainer.progress < 1.0:
         env_indices, actions = agent.act(env_indices, obs, rewards, dones)
-        with performance_tracker.time("env_step"):
-            obs, rewards, dones, _ = env.step(env_indices, actions)
+        obs, rewards, dones, _ = env.step(env_indices, actions)
 
         if trainer.progress > last_progress:
             last_progress = trainer.progress

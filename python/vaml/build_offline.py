@@ -8,7 +8,6 @@ from vaml.episode_listener import BufferedEpisodeListener, EpisodeSaver
 from vaml.env.make import make_env
 from vaml.experiment import Experiment
 from vaml.logger import create_logger
-from vaml.utils.performance import PerformanceTracker
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -37,7 +36,6 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
     config = experiment.config
     console = Console()
-    performance_tracker = PerformanceTracker()
     logger = create_logger(experiment, console)
 
     rngs = nnx.Rngs(experiment.params_seed)
@@ -53,8 +51,6 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
         model,
         tokenizer,
         config,
-        logger,
-        performance_tracker,
         rngs.agent(),
     )
 
@@ -90,8 +86,7 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
         while saver.chunk_num < file_count:
             env_indices, actions = agent.act(env_indices, obs, rewards, dones)
-            with performance_tracker.time("env_step"):
-                obs, rewards, dones, _ = env.step(env_indices, actions)
+            obs, rewards, dones, _ = env.step(env_indices, actions)
 
             progress.update(chunks_task, completed=saver.chunk_num)
             progress.update(chunk_task, completed=buffered_listener.size)

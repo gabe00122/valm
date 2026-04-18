@@ -19,9 +19,7 @@ from vaml.chat import (
 )
 from vaml.config import Config
 from vaml.episode_listener.base import EpisodeListener
-from vaml.logger import MetricsAccumulator
 from vaml.model.qwen3 import Qwen3
-from vaml.utils.performance import PerformanceTracker
 
 
 class NpGenData(NamedTuple):
@@ -55,8 +53,6 @@ class LocalAgent(Agent):
         model: Qwen3,
         tokenizer: PreTrainedTokenizerFast,
         config: Config,
-        logger: MetricsAccumulator,
-        performance_tracker: PerformanceTracker,
         rng_key: jax.Array,
     ):
         self.episode_listener: EpisodeListener | None = None
@@ -64,8 +60,6 @@ class LocalAgent(Agent):
         self.model_def, self.model_state = nnx.split(model)
         self._tokenizer = tokenizer
         self._config = config
-        self._logger = logger
-        self._performance_tracker = performance_tracker
 
         self._rng_key = rng_key
 
@@ -144,35 +138,31 @@ class LocalAgent(Agent):
                     )
                 )
 
-            with self._performance_tracker.time("reset"):
-                self._np_gen.context_length[done_idx] = self._env_instruction_length
-                # force a re-revaluation
-                self._np_gen.kv_cache_length[done_idx] = 0 #self._env_instruction_length
-                self._rewards[done_idx] = 0.0
+            self._np_gen.context_length[done_idx] = self._env_instruction_length
+            # force a re-revaluation
+            self._np_gen.kv_cache_length[done_idx] = 0 #self._env_instruction_length
+            self._rewards[done_idx] = 0.0
 
-        with self._performance_tracker.time("encode"):
-            append_user_prompts(
-                self._np_gen, batch_indices, self._tokenizer, obs
-            )
-            context, kv_cache_length, context_length, turn_start_positions = jax.device_put(
-                (self._np_gen.context, self._np_gen.kv_cache_length, self._np_gen.context_length, self._np_gen.turn_start_positions)
-            )
-            self._gen = self._gen._replace(
-                context=context,
-                turn_start_positions=turn_start_positions,
-                context_length=context_length,
-                kv_cache_length=kv_cache_length,
-                turn_finished=jnp.zeros_like(self._gen.turn_finished),
-            )
-            self._report_tps()
+        append_user_prompts(
+            self._np_gen, batch_indices, self._tokenizer, obs
+        )
+        context, kv_cache_length, context_length, turn_start_positions = jax.device_put(
+            (self._np_gen.context, self._np_gen.kv_cache_length, self._np_gen.context_length, self._np_gen.turn_start_positions)
+        )
+        self._gen = self._gen._replace(
+            context=context,
+            turn_start_positions=turn_start_positions,
+            context_length=context_length,
+            kv_cache_length=kv_cache_length,
+            turn_finished=jnp.zeros_like(self._gen.turn_finished),
+        )
+        self._report_tps()
 
-        with self._performance_tracker.time("generate"):
-            self._gen = generate(
-                self.model_def, self.model_state, "simple", self._gen, 4
-            )
-            self._np_gen = get_np_gen_data(self._gen)
+        self._gen = generate(
+            self.model_def, self.model_state, "simple", self._gen, 4
+        )
+        self._np_gen = get_np_gen_data(self._gen)
 
-        with self._performance_tracker.time("decode"):
-            response_indices, response = decode_responses(self._tokenizer, self._np_gen)
+        response_indices, response = decode_responses(self._tokenizer, self._np_gen)
 
         return response_indices, response

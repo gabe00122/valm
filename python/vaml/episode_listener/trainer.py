@@ -10,7 +10,6 @@ from vaml.episode_listener.base import EpisodeListener
 from vaml.logger import MetricsAccumulator
 from vaml.model.value_network import ValueParam
 from vaml.update_step import update_step
-from vaml.utils.performance import PerformanceTracker
 
 
 class ModelProvider(Protocol):
@@ -26,7 +25,6 @@ class Trainer(EpisodeListener):
         value_opt: nnx.Optimizer,
         rng_key: jax.Array,
         checkpointer: Checkpointer,
-        performance: PerformanceTracker,
         logger: MetricsAccumulator,
         config: Config,
     ):
@@ -36,7 +34,6 @@ class Trainer(EpisodeListener):
         self._rng_key = rng_key
 
         self._checkpointer = checkpointer
-        self._performance = performance
         self._logger = logger
         self._config = config
         self._update_step = 0
@@ -83,25 +80,22 @@ class Trainer(EpisodeListener):
         return self._update_step / self._config.total_update_episodes
 
     def on_episodes(self, batch: UpdateBatch):
-        with self._performance.time("update_step"):
-            self._policy_opt_state, self._value_opt_state, new_model_state, metrics, self._rng_key = update_step(
-                self._policy_opt_def,
-                self._policy_opt_state,
-                self._value_opt_def,
-                self._value_opt_state,
-                self._model_provider.model_def,
-                self._model_provider.model_state,
-                self._rng_key,
-                batch,
-                self._config.loss,
-                False,
-            )
+        self._policy_opt_state, self._value_opt_state, new_model_state, metrics, self._rng_key = update_step(
+            self._policy_opt_def,
+            self._policy_opt_state,
+            self._value_opt_def,
+            self._value_opt_state,
+            self._model_provider.model_def,
+            self._model_provider.model_state,
+            self._rng_key,
+            batch,
+            self._config.loss,
+            False,
+        )
 
         self._model_provider.model_state = new_model_state
 
         # metrics["rewards"] = batch.rewards.sum() / batch.rewards.shape[0]
-        metrics["performance"] = self._performance.total_time_percentages()
-        self._performance.reset()
 
         self._logger.add(metrics)
         self._update_step += 1

@@ -11,9 +11,7 @@ from vaml.checkpointer import Checkpointer
 from vaml.env.base import Env
 from vaml.env.make import make_env
 from vaml.experiment import Experiment
-from vaml.logger import ConsoleLogger
 from vaml.model.value_network import ValueParam
-from vaml.utils.performance import PerformanceTracker
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -223,15 +221,10 @@ def eval_checkpoint(
     )
 
     # Create agent
-    performance_tracker = PerformanceTracker()
-    logger = ConsoleLogger(experiment_name, console)
-
     agent = LocalAgent(
         model,
         tokenizer,
         config,
-        logger,
-        performance_tracker,
         rngs.agent(),
     )
     agent.set_episode_instructions(env.instructions())
