@@ -3,7 +3,7 @@ from flax import nnx
 from vaml.agent.local import LocalAgent
 from vaml.base_model_loader import load_base_model
 from vaml.checkpointer import Checkpointer
-from vaml.episode_listener import BufferedEpisodeListener, Trainer
+from vaml.episode_listener import BufferedEpisodeListener, Trainer, EpisodeSaver, MultiEpisodeListener
 from vaml.env.make import make_env
 from vaml.experiment import Experiment
 from vaml.logger import MetricsAccumulator, create_logger
@@ -68,12 +68,22 @@ def train_cli(
         with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
             trainer.restore_checkpoint(checkpointer=other_checkpointer, wrt=ValueParam)
 
-    agent.episode_listener = BufferedEpisodeListener(
+    rollout_log_size = 100
+    rollout_logger = BufferedEpisodeListener(
+        rollout_log_size + config.eval_envs,
+        rollout_log_size,
+        config.max_seq_length,
+        EpisodeSaver(experiment.rollout_dir),
+    )
+
+    trainer_listener = BufferedEpisodeListener(
         config.update_envs + config.eval_envs,
         config.update_envs,
         config.max_seq_length,
         trainer,
     )
+
+    agent.episode_listener = MultiEpisodeListener(rollout_logger, trainer_listener)
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)
     rewards = np.zeros((eval_batch_size,), dtype=np.float32)

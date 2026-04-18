@@ -110,7 +110,7 @@ class LocalAgent(Agent):
         # token_delta = current_tokens - self._last_tokens
         # self._last_tokens = current_tokens
 
-        # self._logger.add_counts({
+        # self._logger.add_rate({
         #     "tokens": current_tokens
         # })
 

@@ -36,6 +36,7 @@ class Experiment:
         self.config_path = f"{self.root}/config.json"
         self.meta_path = f"{self.root}/meta.json"
         self.ckpt_dir = f"{self.root}/checkpoints"
+        self.rollout_dir = f"{self.root}/rollouts"
 
         # seeds
         random.seed(self.config.seed)
@@ -47,6 +48,7 @@ class Experiment:
     def create_directories(self) -> None:
         """Create the directory tree and write config & metadata."""
         self.fs.makedirs(self.ckpt_dir, exist_ok=True)
+        self.fs.makedirs(self.rollout_dir, exist_ok=True)
 
         with self.fs.open(self.config_path, "w") as f:
             f.write(self.config.model_dump_json(indent=2))

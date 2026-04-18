@@ -190,31 +190,31 @@ def _tree_map(tree: Any, fn: Callable[[Any], Any]) -> Any:
 class MetricsAccumulator:
     def __init__(self, logger: BaseLogger):
         self._metrics = {}
-        self._counts = {}
+        self._rate_counts = {}
         self._logger = logger
         self._last_metrics = None
-        self._last_counts = None
+        self._last_rate_counts = None
 
     def add(self, metrics: Metrics):
         if self._last_metrics is not None:
             _accum_merge(self._metrics, self._last_metrics)
         self._last_metrics = metrics
 
-    def add_counts(self, counts: Metrics):
-        if self._last_counts is not None:
-            _accum_merge(self._counts, self._last_counts)
-        self._last_counts = counts
+    def add_rate(self, counts: Metrics):
+        if self._last_rate_counts is not None:
+            _accum_merge(self._rate_counts, self._last_rate_counts)
+        self._last_rate_counts = counts
 
     def flush(self, step: int):
         current_time = time.perf_counter()
         delta_time = current_time - self._last_flush_time
-        # self._last_flush_time = current_time
+        self._last_flush_time = current_time
 
         self._metrics = _tree_map(self._metrics, lambda x: x.total / x.count)
-        self._counts = _tree_map(self._counts, lambda x: x.total / delta_time)
-        self._logger.log_dict(self._metrics | self._counts, step)
+        self._rate_counts = _tree_map(self._rate_counts, lambda x: x.total / delta_time)
+        self._logger.log_dict(self._metrics | self._rate_counts, step)
         self._metrics.clear()
-        self._counts.clear()
+        self._rate_counts.clear()
 
     def start(self):
         self._last_flush_time = time.perf_counter()
