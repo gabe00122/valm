@@ -1,9 +1,7 @@
 import json
 import os
-import time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Mapping, MutableMapping, NamedTuple
 
 import jax
 import wandb
@@ -159,66 +157,3 @@ def create_logger(experiment: Experiment, console: Console) -> BaseLogger:
         loggers.append(JsonLogger(experiment.root))
 
     return MultiLogger(loggers)
-
-
-class MetricAccum(NamedTuple):
-    total: int | float
-    count: int
-
-
-def _accum_merge(dst: MutableMapping[str, Any], update: Mapping[str, Any]) -> None:
-    for key, value in update.items():
-        if isinstance(value, dict):
-            child = dst.setdefault(key, {})
-            _accum_merge(child, value)
-        else:
-            if hasattr(value, 'item'):
-                value = value.item()
-
-            acc = dst.get(key)
-            dst[key] = (
-                MetricAccum(value, 1) if acc is None else MetricAccum(acc.total + value, acc.count + 1)
-            )
-
-
-def _tree_map(tree: Any, fn: Callable[[Any], Any]) -> Any:
-    if isinstance(tree, Mapping):
-        return {key: _tree_map(value, fn) for key, value in tree.items()}
-    return fn(tree)
-
-
-class MetricsAccumulator:
-    def __init__(self, logger: BaseLogger):
-        self._metrics = {}
-        self._rate_counts = {}
-        self._logger = logger
-        self._last_metrics = None
-        self._last_rate_counts = None
-
-    def add(self, metrics: Metrics):
-        if self._last_metrics is not None:
-            _accum_merge(self._metrics, self._last_metrics)
-        self._last_metrics = metrics
-
-    def add_rate(self, counts: Metrics):
-        if self._last_rate_counts is not None:
-            _accum_merge(self._rate_counts, self._last_rate_counts)
-        self._last_rate_counts = counts
-
-    def flush(self, step: int):
-        current_time = time.perf_counter()
-        delta_time = current_time - self._last_flush_time
-        self._last_flush_time = current_time
-
-        self._metrics = _tree_map(self._metrics, lambda x: x.total / x.count)
-        self._rate_counts = _tree_map(self._rate_counts, lambda x: x.total / delta_time)
-        self._logger.log_dict(self._metrics | self._rate_counts, step)
-        self._metrics.clear()
-        self._rate_counts.clear()
-
-    def start(self):
-        self._last_flush_time = time.perf_counter()
-        self._logger.start()
-
-    def close(self):
-        self._logger.close()

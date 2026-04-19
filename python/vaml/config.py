@@ -5,8 +5,6 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 # Environment Config
-
-
 class ArithmeticEnvConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     name: Literal["arithmetic"] = "arithmetic"

@@ -7,7 +7,7 @@ from vaml.buffer import UpdateBatch
 from vaml.checkpointer import Checkpointer
 from vaml.config import Config
 from vaml.episode_listener.base import EpisodeListener
-from vaml.logger import MetricsAccumulator
+from vaml.logger import BaseLogger
 from vaml.model.value_network import ValueParam
 from vaml.update_step import update_step
 
@@ -25,7 +25,7 @@ class Trainer(EpisodeListener):
         value_opt: nnx.Optimizer,
         rng_key: jax.Array,
         checkpointer: Checkpointer,
-        logger: MetricsAccumulator,
+        logger: BaseLogger,
         config: Config,
     ):
         self._model_provider = model_provider
@@ -95,12 +95,8 @@ class Trainer(EpisodeListener):
 
         self._model_provider.model_state = new_model_state
 
-        # metrics["rewards"] = batch.rewards.sum() / batch.rewards.shape[0]
-
-        self._logger.add(metrics)
+        self._logger.log_dict(metrics, self._update_step)
         self._update_step += 1
-
-        # batch.save_npz("./episode_viewer/episodes.npz")
 
         if self._update_step % self._config.checkpoint_every == 0:
             self.save_checkpoint()

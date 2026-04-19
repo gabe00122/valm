@@ -74,8 +74,6 @@ class LocalAgent(Agent):
             (self._config.eval_envs, self._config.max_seq_length), dtype=np.float32
         )
 
-        self._last_tokens = 0
-
     def set_episode_instructions(self, instructions: str):
         instruction_tokens = encode_input(
             self._tokenizer,
@@ -98,15 +96,6 @@ class LocalAgent(Agent):
         self._gen = self._gen._replace(
             env_instruction_length=self._gen.context_length.copy(),
         )
-
-    def _report_tps(self):
-        current_tokens = self._gen.tokens_processed.item()
-        # token_delta = current_tokens - self._last_tokens
-        # self._last_tokens = current_tokens
-
-        # self._logger.add_rate({
-        #     "tokens": current_tokens
-        # })
 
     @override
     def reset(self) -> None:
@@ -156,7 +145,6 @@ class LocalAgent(Agent):
             kv_cache_length=kv_cache_length,
             turn_finished=jnp.zeros_like(self._gen.turn_finished),
         )
-        self._report_tps()
 
         self._gen = generate(
             self.model_def, self.model_state, "simple", self._gen, 4

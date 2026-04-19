@@ -143,10 +143,14 @@ impl EnvInstance for WordleInstance {
         } else {
             ("No guess was found".to_string(), 0.0, false)
         };
+        self.guesses += 1;
+
+        let remaining = self.shared.settings.max_guesses - self.guesses;
+        let guess_word = if remaining > 1 { "guesses" } else { "guess" };
+        let obs = format!("{}\nYou have {} {} left", obs, remaining, guess_word);
 
         let metrics = self.metrics();
 
-        self.guesses += 1;
         if word_found || self.guesses >= self.shared.settings.max_guesses {
             (self.reset(), reward, true, metrics)
         } else {
