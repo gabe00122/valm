@@ -43,6 +43,8 @@ def play(env_name: str, seed: int = 42):
         done = dones[0]
         total_reward += reward
 
+        console.print(metrics)
+
         if reward > 0:
             console.print(f"[bold yellow]reward[/bold yellow] [yellow]+{reward:.2f}[/yellow]")
 

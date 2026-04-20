@@ -110,6 +110,9 @@ class LocalAgent(Agent):
         dones: np.ndarray,
     ) -> tuple[np.ndarray, list[str]]:
         kv_cache_lengths = self._np_gen.kv_cache_length
+
+        # maybe we should save the rewards in the dense form and not the sparse form and
+        # also the list of turn transition ids to it can be expanded into the sparse form
         self._rewards[batch_indices, kv_cache_lengths[batch_indices]] = rewards
 
         done_idx = batch_indices[np.where(dones)]

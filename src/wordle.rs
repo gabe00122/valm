@@ -95,8 +95,14 @@ impl WordleInstance {
         (output.join(""), reward)
     }
 
-    fn metrics(&self) -> HashMap<String, f32> {
-        HashMap::new()
+    fn metrics(&self, word_found: bool) -> HashMap<String, f32> {
+        let mut map = HashMap::new();
+        map.insert(
+            String::from("word_found"),
+            if word_found { 1.0 } else { 0.0 },
+        );
+
+        map
     }
 }
 
@@ -149,7 +155,7 @@ impl EnvInstance for WordleInstance {
         let guess_word = if remaining > 1 { "guesses" } else { "guess" };
         let obs = format!("{}\nYou have {} {} left", obs, remaining, guess_word);
 
-        let metrics = self.metrics();
+        let metrics = self.metrics(word_found);
 
         if word_found || self.guesses >= self.shared.settings.max_guesses {
             (self.reset(), reward, true, metrics)
