@@ -3,8 +3,8 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Any, override
 
 import numpy as np
-from vaml.utils.api import completion, Message
 from vaml.agent.base import Agent
+from vaml.utils.api import Message, completion
 
 
 class ApiAgent(Agent):

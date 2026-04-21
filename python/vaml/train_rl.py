@@ -1,15 +1,20 @@
 import numpy as np
 from flax import nnx
+from rich.console import Console
 from vaml.agent.local import LocalAgent
 from vaml.base_model_loader import load_base_model
 from vaml.checkpointer import Checkpointer
-from vaml.episode_listener import BufferedEpisodeListener, Trainer, EpisodeSaver, MultiEpisodeListener
 from vaml.env.make import make_env
+from vaml.episode_listener import (
+    BufferedEpisodeListener,
+    EpisodeSaver,
+    MultiEpisodeListener,
+    Trainer,
+)
 from vaml.experiment import Experiment
 from vaml.logger import create_logger
 from vaml.model.value_network import ValueParam
 from vaml.utils.optimizer import make_optimizer
-from rich.console import Console
 
 
 def train_cli(

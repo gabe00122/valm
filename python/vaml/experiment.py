@@ -4,8 +4,8 @@ import subprocess
 
 import fsspec
 from coolname import generate_slug
-from vaml.config import Config, load_config
 from pydantic import BaseModel
+from vaml.config import Config, load_config
 
 
 class ExperimentMeta(BaseModel):

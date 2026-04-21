@@ -5,12 +5,12 @@ from pathlib import Path
 
 import jax
 import wandb
-from vaml.config import Config
-from vaml.experiment import Experiment
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 from tensorboardX import SummaryWriter
+from vaml.config import Config
+from vaml.experiment import Experiment
 
 Metrics = dict[str, jax.Array | float | int]
 

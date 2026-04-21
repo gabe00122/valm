@@ -4,6 +4,7 @@ import jax
 import numpy as np
 from flax import nnx
 from jax import numpy as jnp
+from rich.console import Console
 from vaml.base_model_loader import load_base_model
 from vaml.buffer import UpdateBatch, UpdateBuffer
 from vaml.checkpointer import Checkpointer
@@ -12,7 +13,6 @@ from vaml.logger import create_logger
 from vaml.model.value_network import ValueParam
 from vaml.update_step import update_step
 from vaml.utils.optimizer import make_optimizer
-from rich.console import Console
 
 
 @jax.jit(static_argnames=('model_def'))

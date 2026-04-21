@@ -2,7 +2,6 @@ from typing import Protocol
 
 import jax
 from flax import nnx
-
 from vaml.buffer import UpdateBatch
 from vaml.checkpointer import Checkpointer
 from vaml.config import Config

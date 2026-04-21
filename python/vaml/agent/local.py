@@ -5,7 +5,6 @@ import numpy as np
 from flax import nnx
 from jax import numpy as jnp
 from transformers import PreTrainedTokenizerFast
-
 from vaml.agent.base import Agent
 from vaml.buffer import UpdateBatch
 from vaml.chat import (

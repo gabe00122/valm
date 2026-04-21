@@ -1,7 +1,7 @@
 import json
 
-from vaml.buffer import UpdateBatch
 from transformers import PreTrainedTokenizerFast
+from vaml.buffer import UpdateBatch
 
 
 def episode_to_jsonl(

@@ -3,15 +3,6 @@ from typing import Literal
 
 import numpy as np
 from flax import nnx
-from vaml.agent.base import Agent
-from vaml.agent.api_agent import ApiAgent
-from vaml.agent.local import LocalAgent
-from vaml.base_model_loader import load_base_model
-from vaml.checkpointer import Checkpointer
-from vaml.env.base import Env
-from vaml.env.make import make_env
-from vaml.experiment import Experiment
-from vaml.model.value_network import ValueParam
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -20,6 +11,15 @@ from rich.progress import (
     TaskProgressColumn,
     TextColumn,
 )
+from vaml.agent.api_agent import ApiAgent
+from vaml.agent.base import Agent
+from vaml.agent.local import LocalAgent
+from vaml.base_model_loader import load_base_model
+from vaml.checkpointer import Checkpointer
+from vaml.env.base import Env
+from vaml.env.make import make_env
+from vaml.experiment import Experiment
+from vaml.model.value_network import ValueParam
 
 
 @dataclass

@@ -4,11 +4,11 @@ from pathlib import Path
 from typing import Any
 
 from flax import nnx
+from rich.progress import track
+from safetensors import safe_open
 from vaml.config import LLMConfig, SamplingConfig
 from vaml.model.qwen3 import Qwen3
 from vaml.util import load_tokenizer
-from rich.progress import track
-from safetensors import safe_open
 
 
 def parse_hf_llm_config(hf_config: Any | dict[str, Any]) -> LLMConfig:

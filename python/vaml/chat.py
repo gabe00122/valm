@@ -8,6 +8,9 @@ import numpy as np
 from distrax import Categorical
 from flax import nnx
 from jax import numpy as jnp
+from rich.console import Console
+from rich.markdown import Markdown
+from transformers import PreTrainedTokenizerFast
 from vaml.base_model_loader import load_base_model
 from vaml.checkpointer import Checkpointer
 from vaml.config import SamplingConfig
@@ -15,9 +18,6 @@ from vaml.experiment import Experiment
 from vaml.model import Qwen3
 from vaml.model.value_network import ValueParam
 from vaml.util import batched_put_where, batched_take
-from rich.console import Console
-from rich.markdown import Markdown
-from transformers import PreTrainedTokenizerFast
 
 # these should come from the tokenizer
 PAD_ID = 151643
