@@ -122,7 +122,7 @@ def update_step(
     batch_len, seq_len = rollout.context.shape
 
     seq_range = jnp.arange(seq_len, dtype=jnp.int32)
-    bounds_mask = seq_range[None, :] < rollout.kv_cache_lengths[:, None]
+    bounds_mask = seq_range[None, :] < rollout.length[:, None]
     policy_mask = jnp.logical_and(rollout.policy_mask, bounds_mask)
 
     values = jnp.where(bounds_mask, rollout.values, 0.0)
@@ -151,7 +151,7 @@ def update_step(
     value_opt.update(model, grad)
 
     # metrics["value"] = values.mean(where=bounds_mask)
-    metrics["episode_length"] = rollout.kv_cache_lengths.mean()
+    metrics["episode_length"] = rollout.length.mean()
 
     policy_opt_state = None if value_only else nnx.state(policy_opt)
     return policy_opt_state, nnx.state(value_opt), nnx.state(model), metrics, rng_key

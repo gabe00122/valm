@@ -11,7 +11,7 @@ def create_dummy_data(data_dir: Path, num_files: int, episodes_per_file: int, se
     for i in range(num_files):
         batch = UpdateBatch(
             context=np.zeros((episodes_per_file, seq_length), dtype=np.int32),
-            kv_cache_lengths=np.zeros((episodes_per_file,), dtype=np.int32),
+            length=np.zeros((episodes_per_file,), dtype=np.int32),
             log_probs=np.zeros((episodes_per_file, seq_length - 1), dtype=np.float32),
             values=np.zeros((episodes_per_file, seq_length), dtype=np.float32),
             rewards=np.zeros((episodes_per_file, seq_length), dtype=np.float32),

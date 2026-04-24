@@ -1,4 +1,4 @@
-from typing import NamedTuple, override
+from typing import NamedTuple, Protocol, override
 
 import jax
 import numpy as np
@@ -21,6 +21,40 @@ from vaml.episode_listener.base import EpisodeListener
 from vaml.model.qwen3 import Qwen3
 
 
+class EnvSpec(Protocol):
+    max_turns: int
+    metric_names: list[str]
+
+
+class TurnData:
+    def __init__(self, eval_envs: int, spec: EnvSpec):
+        self._turn_counts = np.zeros((eval_envs,), dtype=np.int32)
+        self._token_counts = np.zeros(
+            (eval_envs, spec.max_turns), dtype=np.int32
+        )
+        self._metrics = {
+            name: np.zeros((eval_envs, spec.max_turns), dtype=np.float32)
+            for name in spec.metric_names
+        }
+
+    def update(
+        self,
+        batch_idx: np.ndarray,
+        token_positions: np.ndarray,
+        updates: dict[str, np.ndarray],
+    ) -> None:
+        turns = self._turn_counts[batch_idx]
+        self._token_counts[batch_idx, turns] = token_positions
+
+        for name, values in updates.items():
+            self._metrics[name][batch_idx, turns] = values
+
+        self._turn_counts[batch_idx] += 1
+
+    def take(self, done_idx: np.ndarray) -> None:
+        self._turn_counts[done_idx] = 0
+
+
 class NpGenData(NamedTuple):
     kv_cache_length: jax.typing.ArrayLike
     context: jax.typing.ArrayLike
@@ -32,7 +66,7 @@ class NpGenData(NamedTuple):
     turn_finished: jax.typing.ArrayLike
 
 
-def get_np_gen_data(gen: GenerationState) -> NpGenData:
+def convert_to_np(gen: GenerationState) -> NpGenData:
     data = NpGenData(
         gen.kv_cache_length,
         gen.context,
@@ -41,7 +75,7 @@ def get_np_gen_data(gen: GenerationState) -> NpGenData:
         gen.policy_mask,
         gen.context_length,
         gen.turn_start_positions,
-        gen.turn_finished
+        gen.turn_finished,
     )
     return jax.tree.map(lambda x: np.array(x), jax.device_get(data))
 
@@ -65,12 +99,16 @@ class LocalAgent(Agent):
         shape = (self._config.eval_envs, self._config.max_seq_length)
         kv_cache = model.initialize_carry(*shape)
         self._gen = create_generation_state(
-            kv_cache, self._config.eval_envs, self._config.max_seq_length, self._rng_key
+            kv_cache,
+            self._config.eval_envs,
+            self._config.max_seq_length,
+            self._rng_key,
         )
-        self._np_gen = get_np_gen_data(self._gen)
+        self._np_gen = convert_to_np(self._gen)
 
         self._rewards = np.zeros(
-            (self._config.eval_envs, self._config.max_seq_length), dtype=np.float32
+            (self._config.eval_envs, self._config.max_seq_length),
+            dtype=np.float32,
         )
 
     def set_episode_instructions(self, instructions: str):
@@ -83,7 +121,7 @@ class LocalAgent(Agent):
             False,
         )
 
-        self._np_gen = get_np_gen_data(self._gen)
+        self._np_gen = convert_to_np(self._gen)
         append_prompt_tokens(
             self._np_gen,
             np.arange(self._config.eval_envs, dtype=np.int32),
@@ -91,7 +129,6 @@ class LocalAgent(Agent):
         )
         self._env_instruction_length = self._np_gen.context_length[0].item()
 
-        # this can probably go away now
         self._gen = self._gen._replace(
             env_instruction_length=self._gen.context_length.copy(),
         )
@@ -108,11 +145,11 @@ class LocalAgent(Agent):
         rewards: np.ndarray,
         dones: np.ndarray,
     ) -> tuple[np.ndarray, list[str]]:
-        kv_cache_lengths = self._np_gen.kv_cache_length
+        lengths = self._np_gen.kv_cache_length
 
         # maybe we should save the rewards in the dense form and not the sparse form and
         # also the list of turn transition ids to it can be expanded into the sparse form
-        self._rewards[batch_indices, kv_cache_lengths[batch_indices]] = rewards
+        self._rewards[batch_indices, lengths[batch_indices]] = rewards
 
         done_idx = batch_indices[np.where(dones)]
 
@@ -121,7 +158,7 @@ class LocalAgent(Agent):
                 self.episode_listener.on_episodes(
                     UpdateBatch(
                         self._np_gen.context[done_idx],
-                        kv_cache_lengths[done_idx],
+                        lengths[done_idx],
                         self._np_gen.log_probs[done_idx],
                         self._np_gen.values[done_idx],
                         self._rewards[done_idx],
@@ -131,14 +168,20 @@ class LocalAgent(Agent):
 
             self._np_gen.context_length[done_idx] = self._env_instruction_length
             # force a re-revaluation
-            self._np_gen.kv_cache_length[done_idx] = 0 #self._env_instruction_length
+            # self._env_instruction_length
+            self._np_gen.kv_cache_length[done_idx] = 0
             self._rewards[done_idx] = 0.0
 
-        append_user_prompts(
-            self._np_gen, batch_indices, self._tokenizer, obs
-        )
-        context, kv_cache_length, context_length, turn_start_positions = jax.device_put(
-            (self._np_gen.context, self._np_gen.kv_cache_length, self._np_gen.context_length, self._np_gen.turn_start_positions)
+        append_user_prompts(self._np_gen, batch_indices, self._tokenizer, obs)
+        context, kv_cache_length, context_length, turn_start_positions = (
+            jax.device_put(
+                (
+                    self._np_gen.context,
+                    self._np_gen.kv_cache_length,
+                    self._np_gen.context_length,
+                    self._np_gen.turn_start_positions,
+                )
+            )
         )
         self._gen = self._gen._replace(
             context=context,
@@ -151,8 +194,10 @@ class LocalAgent(Agent):
         self._gen = generate(
             self.model_def, self.model_state, "simple", self._gen, 4
         )
-        self._np_gen = get_np_gen_data(self._gen)
+        self._np_gen = convert_to_np(self._gen)
 
-        response_indices, response = decode_responses(self._tokenizer, self._np_gen)
+        response_indices, response = decode_responses(
+            self._tokenizer, self._np_gen
+        )
 
         return response_indices, response

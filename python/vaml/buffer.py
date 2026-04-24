@@ -4,8 +4,8 @@ import numpy as np
 
 
 class UpdateBatch(NamedTuple):
+    length: np.ndarray
     context: np.ndarray
-    kv_cache_lengths: np.ndarray
     log_probs: np.ndarray
     values: np.ndarray
     rewards: np.ndarray
@@ -43,7 +43,10 @@ class UpdateBatch(NamedTuple):
 
 class CircularBuffer:
     def __init__(
-        self, buffer_size: int, seq_shape: tuple[int, ...], dtype: np.typing.DTypeLike
+        self,
+        buffer_size: int,
+        seq_shape: tuple[int, ...],
+        dtype: np.typing.DTypeLike,
     ) -> None:
         self._buffer_size = buffer_size
 
@@ -91,12 +94,16 @@ class CircularBuffer:
 
 
 class UpdateBuffer:
-    def __init__(self, buffer_size: int, batch_size: int, seq_length: int) -> None:
+    def __init__(
+        self, buffer_size: int, batch_size: int, seq_length: int
+    ) -> None:
         self._batch_size = batch_size
 
+        self._length = CircularBuffer(buffer_size, (), np.int32)
         self._context = CircularBuffer(buffer_size, (seq_length,), np.int32)
-        self._kv_cache_lengths = CircularBuffer(buffer_size, (), np.int32)
-        self._log_probs = CircularBuffer(buffer_size, (seq_length - 1,), np.float32)
+        self._log_probs = CircularBuffer(
+            buffer_size, (seq_length - 1,), np.float32
+        )
         self._values = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._rewards = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._policy_mask = CircularBuffer(buffer_size, (seq_length,), np.bool_)
@@ -110,8 +117,8 @@ class UpdateBuffer:
         return self.size >= self._batch_size
 
     def store(self, batch: UpdateBatch):
+        self._length.push(batch.length)
         self._context.push(batch.context)
-        self._kv_cache_lengths.push(batch.kv_cache_lengths)
         self._log_probs.push(batch.log_probs)
         self._values.push(batch.values)
         self._rewards.push(batch.rewards)
@@ -119,8 +126,8 @@ class UpdateBuffer:
 
     def take_batch(self) -> UpdateBatch:
         return UpdateBatch(
+            length=self._length.pop_oldest(self._batch_size),
             context=self._context.pop_oldest(self._batch_size),
-            kv_cache_lengths=self._kv_cache_lengths.pop_oldest(self._batch_size),
             log_probs=self._log_probs.pop_oldest(self._batch_size),
             values=self._values.pop_oldest(self._batch_size),
             rewards=self._rewards.pop_oldest(self._batch_size),

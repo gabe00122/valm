@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use itertools::Itertools;
+use numpy::ndarray::Array1;
 use rand::prelude::*;
 
 pub trait EnvShared {
@@ -22,21 +23,22 @@ pub struct Envs<E> {
     envs: Vec<E>,
 }
 
-fn mean_metrics(metrics: Vec<HashMap<String, f32>>) -> HashMap<String, f32> {
-    let count = metrics.len() as f32;
-    let mut combined: HashMap<String, f32> = HashMap::new();
+fn collect_metrics(metrics: Vec<HashMap<String, f32>>) -> HashMap<String, Array1<f32>> {
+    let mut collected = HashMap::<String, Array1<f32>>::new();
+    let metrics_len = metrics.len();
+    let mut i = 0;
 
-    for m in metrics {
-        for (key, value) in m {
-            *combined.entry(key).or_insert(0.0) += value;
+    for env_result in metrics {
+        for (key, value) in env_result {
+            let array = collected
+                .entry(key)
+                .or_insert_with(|| Array1::zeros(metrics_len));
+            array[i] = value;
+            i += 1;
         }
     }
 
-    for v in combined.values_mut() {
-        *v /= count;
-    }
-
-    combined
+    collected
 }
 
 impl<E, S> Envs<E>
@@ -70,7 +72,12 @@ where
         &mut self,
         indices: I,
         actions: A,
-    ) -> (Vec<String>, Vec<f32>, Vec<bool>, HashMap<String, f32>)
+    ) -> (
+        Vec<String>,
+        Vec<f32>,
+        Vec<bool>,
+        HashMap<String, Array1<f32>>,
+    )
     where
         I: IntoIterator,
         I::Item: Borrow<i32>,
@@ -93,7 +100,7 @@ where
             })
             .multiunzip();
 
-        (obs, reward, done, mean_metrics(metrics))
+        (obs, reward, done, collect_metrics(metrics))
     }
 }
 
@@ -131,7 +138,7 @@ macro_rules! create_env_wrapper {
                 Vec<String>,
                 Bound<'py, PyArray1<f32>>,
                 Bound<'py, PyArray1<bool>>,
-                HashMap<String, f32>,
+                HashMap<String, Bound<'py, PyArray1<f32>>>,
             )> {
                 let indices = batch_indices.as_array();
 
@@ -139,6 +146,10 @@ macro_rules! create_env_wrapper {
 
                 let rewards = rewards.into_pyarray(py);
                 let dones = dones.into_pyarray(py);
+                let metrics = metrics
+                    .into_iter()
+                    .map(|(k, v)| (k, v.into_pyarray(py)))
+                    .collect();
 
                 Ok((obs, rewards, dones, metrics))
             }

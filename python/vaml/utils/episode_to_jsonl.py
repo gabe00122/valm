@@ -9,7 +9,7 @@ def episode_to_jsonl(
 ):
     with open(jsonl_path, "w", encoding="utf-8") as f:
         for i in range(episode.context.shape[0]):
-            length = episode.kv_cache_lengths[i] + 1
+            length = episode.length[i] + 1
             ids = episode.context[i, :length].tolist()
             text = tokenizer.decode(ids, skip_special_tokens=False)
             toks = tokenizer.convert_ids_to_tokens(ids)
