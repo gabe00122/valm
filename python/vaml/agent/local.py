@@ -30,11 +30,11 @@ class TurnData:
     def __init__(
         self,
         turn_counts: np.ndarray,
-        turn_indices: np.ndarray,
+        turn_start_positions: np.ndarray,
         metrics: dict[str, np.ndarray],
     ):
         self._turn_counts = turn_counts
-        self._turn_indices = turn_indices
+        self._turn_start_positions = turn_start_positions
         self._metrics = metrics
 
     @classmethod
@@ -42,21 +42,21 @@ class TurnData:
         cls, eval_envs: int, max_turns: int, metric_names: list[str]
     ) -> Self:
         turn_counts = np.zeros((eval_envs,), dtype=np.int32)
-        turn_positions = np.zeros((eval_envs, max_turns), dtype=np.int32)
+        turn_start_positions = np.zeros((eval_envs, max_turns), dtype=np.int32)
         metrics = {
             name: np.zeros((eval_envs, max_turns), dtype=np.float32)
             for name in metric_names
         }
-        return cls(turn_counts, turn_positions, metrics)
+        return cls(turn_counts, turn_start_positions, metrics)
 
     def update(
         self,
         batch_idx: np.ndarray,
-        token_positions: np.ndarray,
+        turn_start_positions: np.ndarray,
         updates: dict[str, np.ndarray],
     ) -> None:
         turns = self._turn_counts[batch_idx]
-        self._turn_indices[batch_idx, turns] = token_positions
+        self._turn_start_positions[batch_idx, turns] = turn_start_positions
 
         for name, values in updates.items():
             self._metrics[name][batch_idx, turns] = values
@@ -67,12 +67,12 @@ class TurnData:
         self, done_idx: np.ndarray
     ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
         turn_counts = self._turn_counts[done_idx]
-        turn_indices = self._turn_indices[done_idx]
+        turn_start_positions = self._turn_start_positions[done_idx]
         metrics = {name: m[done_idx] for name, m in self._metrics.items()}
 
         self._turn_counts[done_idx] = 0
 
-        return turn_counts, turn_indices, metrics
+        return turn_counts, turn_start_positions, metrics
 
 
 class NpGenData(NamedTuple):
@@ -188,19 +188,19 @@ class LocalAgent(Agent):
 
         if dones.any():
             if self.episode_listener is not None:
-                turn_count, turn_indices, metrics = self._turn_data.take(
+                turn_counts, turn_start_positions, metrics = self._turn_data.take(
                     done_idx
                 )
                 self.episode_listener.on_episodes(
                     UpdateBatch(
-                        length=lengths[done_idx],
+                        context_length=lengths[done_idx],
                         context=self._np_gen.context[done_idx],
                         log_probs=self._np_gen.log_probs[done_idx],
                         values=self._np_gen.values[done_idx],
                         rewards=self._rewards[done_idx],
                         policy_mask=self._np_gen.policy_mask[done_idx],
-                        turn_count=turn_count,
-                        turn_indices=turn_indices,
+                        turn_counts=turn_counts,
+                        turn_start_positions=turn_start_positions,
                         metrics=metrics,
                     )
                 )

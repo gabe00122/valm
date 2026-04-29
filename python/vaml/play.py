@@ -33,7 +33,7 @@ def play(env_name: str, seed: int = 42):
             action = Prompt.ask(
                 "[bold magenta]>[/bold magenta]", console=console
             )
-        except EOFError, KeyboardInterrupt:
+        except (EOFError, KeyboardInterrupt):
             console.print()
             break
 
