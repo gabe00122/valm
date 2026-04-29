@@ -95,6 +95,8 @@ impl ArithmeticEnvInstance {
 impl EnvInstance for ArithmeticEnvInstance {
     type Shared = ArithmeticShared;
 
+    const MAX_TURNS: usize = 1;
+
     fn new(seed: u64, shared: Arc<Self::Shared>) -> Self {
         ArithmeticEnvInstance {
             shared,
@@ -106,7 +108,7 @@ impl EnvInstance for ArithmeticEnvInstance {
         }
     }
 
-    fn reset(&mut self) -> String {
+    fn reset(&mut self) -> (String, HashMap<String, f32>) {
         let dist = Uniform::new(0.0, 10000.0).unwrap();
         let x: f32 = self.rng.sample::<f32, _>(dist).round();
         let y: f32 = self.rng.sample::<f32, _>(dist).round();
@@ -120,7 +122,7 @@ impl EnvInstance for ArithmeticEnvInstance {
         let op_prompt = op_str(op);
         let prompt = format!("{x} {op_prompt} {y} = ...");
 
-        prompt
+        (prompt, self.metrics())
     }
 
     fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>) {
@@ -134,9 +136,9 @@ impl EnvInstance for ArithmeticEnvInstance {
         let reward = if corrected { 1.0 } else { 0.0 };
         let done = true;
 
-        let metrics = self.metrics();
+        let (obs, metrics) = self.reset();
 
-        (self.reset(), reward, done, metrics)
+        (obs, reward, done, metrics)
     }
 }
 

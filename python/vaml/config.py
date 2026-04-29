@@ -1,4 +1,3 @@
-import json
 import random
 from typing import Literal
 
@@ -143,7 +142,7 @@ class Config(BaseModel):
 
 
 def load_config(json_config: str) -> Config:
-    config = Config.model_validate(json.loads(json_config), strict=True)
+    config = Config.model_validate_json(json_config, strict=True)
     if config.seed == "random":
         config = config.model_copy(update={"seed": random.getrandbits(31)})
 

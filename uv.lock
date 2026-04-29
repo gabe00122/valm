@@ -1692,7 +1692,7 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
-dev = [
+test = [
     { name = "pytest" },
 ]
 
@@ -1719,7 +1719,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "pytest", specifier = ">=9.0.2" }]
+test = [{ name = "pytest", specifier = ">=9.0.2" }]
 
 [[package]]
 name = "wadler-lindig"

@@ -1,6 +1,7 @@
 from typing import Protocol
 
 import jax
+import numpy as np
 from flax import nnx
 from vaml.buffer import UpdateBatch
 from vaml.checkpointer import Checkpointer
@@ -44,26 +45,40 @@ class Trainer(EpisodeListener):
             self._model_provider.model_def, self._model_provider.model_state
         )
         self._checkpointer.save(
-            {
-                "policy_opt": policy_opt,
-                "value_opt": value_opt,
-                "model": model
-            },
+            {"policy_opt": policy_opt, "value_opt": value_opt, "model": model},
             self._update_step,
-            nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt)
+            nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt),
         )
 
-    def restore_checkpoint(self, *, checkpointer: Checkpointer | None = None, wrt: nnx.filterlib.Filter | None = None):
-        policy_opt: nnx.Optimizer = nnx.merge(self._policy_opt_def, self._policy_opt_state)
-        value_opt: nnx.Optimizer = nnx.merge(self._value_opt_def, self._value_opt_state)
+    def restore_checkpoint(
+        self,
+        *,
+        checkpointer: Checkpointer | None = None,
+        wrt: nnx.filterlib.Filter | None = None,
+    ):
+        policy_opt: nnx.Optimizer = nnx.merge(
+            self._policy_opt_def, self._policy_opt_state
+        )
+        value_opt: nnx.Optimizer = nnx.merge(
+            self._value_opt_def, self._value_opt_state
+        )
         model = nnx.merge(
             self._model_provider.model_def, self._model_provider.model_state
         )
 
-        restore_filter = nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt)
+        restore_filter = nnx.filterlib.Any(
+            nnx.OptState, policy_opt.wrt, value_opt.wrt
+        )
 
         if checkpointer is None:
-            step = self._checkpointer.restore_latest({"policy_opt": policy_opt, "value_opt": value_opt, "model": model}, restore_filter)
+            step = self._checkpointer.restore_latest(
+                {
+                    "policy_opt": policy_opt,
+                    "value_opt": value_opt,
+                    "model": model,
+                },
+                restore_filter,
+            )
             self._update_step = step
             self._policy_opt_state = nnx.state(policy_opt)
             self._value_opt_state = nnx.state(value_opt)
@@ -79,7 +94,13 @@ class Trainer(EpisodeListener):
         return self._update_step / self._config.total_update_episodes
 
     def on_episodes(self, batch: UpdateBatch):
-        self._policy_opt_state, self._value_opt_state, new_model_state, metrics, self._rng_key = update_step(
+        (
+            self._policy_opt_state,
+            self._value_opt_state,
+            new_model_state,
+            metrics,
+            self._rng_key,
+        ) = update_step(
             self._policy_opt_def,
             self._policy_opt_state,
             self._value_opt_def,
@@ -91,6 +112,12 @@ class Trainer(EpisodeListener):
             self._config.loss,
             False,
         )
+
+        # summerize environment metrics
+        env_metrics = {
+            name: np.sum(values) for name, values in batch.metrics.items()
+        }
+        metrics["env"] = env_metrics
 
         self._model_provider.model_state = new_model_state
 

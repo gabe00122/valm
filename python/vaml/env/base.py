@@ -1,11 +1,15 @@
-from typing import Any, Protocol
+from typing import Protocol
 
 import numpy as np
 
 
 class Env(Protocol):
-    def reset(self, batch_indices: np.ndarray) -> list[str]: ...
+    max_turns: int
+
+    def reset(
+        self, batch_indices: np.ndarray
+    ) -> tuple[list[str], dict[str, np.ndarray]]: ...
     def step(
         self, batch_indices: np.ndarray, actions: list[str]
-    ) -> tuple[list[str], np.ndarray, np.ndarray, dict[str, Any]]: ...
+    ) -> tuple[list[str], np.ndarray, np.ndarray, dict[str, np.ndarray]]: ...
     def instructions(self) -> str: ...

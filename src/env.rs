@@ -14,8 +14,10 @@ pub trait EnvShared {
 pub trait EnvInstance {
     type Shared: EnvShared;
 
+    const MAX_TURNS: usize;
+
     fn new(seed: u64, shared: Arc<Self::Shared>) -> Self;
-    fn reset(&mut self) -> String;
+    fn reset(&mut self) -> (String, HashMap<String, f32>);
     fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>);
 }
 
@@ -57,15 +59,17 @@ where
         Self { envs }
     }
 
-    pub fn reset<I>(&mut self, indices: I) -> Vec<String>
+    pub fn reset<I>(&mut self, indices: I) -> (Vec<String>, HashMap<String, Array1<f32>>)
     where
         I: IntoIterator,
         I::Item: Borrow<i32>,
     {
-        indices
+        let (obs, metrics): (Vec<String>, Vec<HashMap<String, f32>>) = indices
             .into_iter()
             .map(|i| self.envs.get_mut(*i.borrow() as usize).unwrap().reset())
-            .collect()
+            .unzip();
+
+        (obs, collect_metrics(metrics))
     }
 
     pub fn step<I, A>(
@@ -123,10 +127,18 @@ macro_rules! create_env_wrapper {
 
             fn reset<'py>(
                 &mut self,
+                py: Python<'py>,
                 batch_indices: PyReadonlyArray1<'py, i32>,
-            ) -> PyResult<Vec<String>> {
+            ) -> PyResult<(Vec<String>, HashMap<String, Bound<'py, PyArray1<f32>>>)> {
                 let indices = batch_indices.as_array();
-                Ok(self.envs.reset(indices))
+                let (obs, metrics) = self.envs.reset(indices);
+
+                let metrics = metrics
+                    .into_iter()
+                    .map(|(k, v)| (k, v.into_pyarray(py)))
+                    .collect();
+
+                Ok((obs, metrics))
             }
 
             fn step<'py>(
@@ -156,6 +168,11 @@ macro_rules! create_env_wrapper {
 
             fn instructions(&self) -> PyResult<&'static str> {
                 Ok($instr)
+            }
+
+            #[getter]
+            fn max_turns(&self) -> usize {
+                <$rust_env as EnvInstance>::MAX_TURNS
             }
         }
     };

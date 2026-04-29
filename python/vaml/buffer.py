@@ -11,6 +11,10 @@ class UpdateBatch(NamedTuple):
     rewards: np.ndarray
     policy_mask: np.ndarray
 
+    turn_count: np.ndarray
+    turn_indices: np.ndarray
+    metrics: dict[str, np.ndarray]
+
     def save_npz(
         self,
         file,
@@ -19,6 +23,7 @@ class UpdateBatch(NamedTuple):
     ):
         """Save the batch to an .npz file."""
 
+        # todo: implement save and load for metrics
         payload = self._asdict()
         if compressed:
             np.savez_compressed(file, **payload)
@@ -95,7 +100,12 @@ class CircularBuffer:
 
 class UpdateBuffer:
     def __init__(
-        self, buffer_size: int, batch_size: int, seq_length: int
+        self,
+        buffer_size: int,
+        batch_size: int,
+        seq_length: int,
+        max_turns: int,
+        metric_names: list[str],
     ) -> None:
         self._batch_size = batch_size
 
@@ -107,6 +117,13 @@ class UpdateBuffer:
         self._values = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._rewards = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._policy_mask = CircularBuffer(buffer_size, (seq_length,), np.bool_)
+
+        self._turn_count = CircularBuffer(buffer_size, (max_turns,), np.int32)
+        self._turn_indices = CircularBuffer(buffer_size, (max_turns,), np.int32)
+        self._metrics = {
+            name: CircularBuffer(buffer_size, (max_turns,), np.float32)
+            for name in metric_names
+        }
 
     @property
     def size(self) -> int:
@@ -124,6 +141,11 @@ class UpdateBuffer:
         self._rewards.push(batch.rewards)
         self._policy_mask.push(batch.policy_mask)
 
+        self._turn_count.push(batch.turn_count)
+        self._turn_indices.push(batch.turn_indices)
+        for name, buffer in self._metrics.items():
+            buffer.push(batch.metrics[name])
+
     def take_batch(self) -> UpdateBatch:
         return UpdateBatch(
             length=self._length.pop_oldest(self._batch_size),
@@ -132,4 +154,10 @@ class UpdateBuffer:
             values=self._values.pop_oldest(self._batch_size),
             rewards=self._rewards.pop_oldest(self._batch_size),
             policy_mask=self._policy_mask.pop_oldest(self._batch_size),
+            turn_count=self._turn_count.pop_oldest(self._batch_size),
+            turn_indices=self._turn_indices.pop_oldest(self._batch_size),
+            metrics={
+                name: buffer.pop_oldest(self._batch_size)
+                for name, buffer in self._metrics.items()
+            },
         )

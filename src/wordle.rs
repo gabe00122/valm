@@ -109,6 +109,8 @@ impl WordleInstance {
 impl EnvInstance for WordleInstance {
     type Shared = WordleShared;
 
+    const MAX_TURNS: usize = 6;
+
     fn new(seed: u64, shared: Arc<Self::Shared>) -> Self {
         let rng = SmallRng::seed_from_u64(seed);
 
@@ -122,13 +124,13 @@ impl EnvInstance for WordleInstance {
         }
     }
 
-    fn reset(&mut self) -> String {
+    fn reset(&mut self) -> (String, HashMap<String, f32>) {
         self.guesses = 0;
         self.secret_word_index = self.rng.random_range(0..self.shared.words.len());
         self.got_yellow = [false; 5];
         self.got_green = [false; 5];
 
-        "Make your first guess now".to_string()
+        ("Make your first guess now".to_string(), self.metrics(false))
     }
 
     fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>) {
@@ -158,7 +160,7 @@ impl EnvInstance for WordleInstance {
         let metrics = self.metrics(word_found);
 
         if word_found || self.guesses >= self.shared.settings.max_guesses {
-            (self.reset(), reward, true, metrics)
+            (self.reset().0, reward, true, metrics)
         } else {
             (obs, reward, false, metrics)
         }

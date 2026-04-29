@@ -10,6 +10,7 @@ from vaml.env.make import make_env
 def play(env_name: str, seed: int = 42):
     console = Console()
     env = make_env(env_name, 1, seed, None)
+    console.print(env.max_turns)
 
     console.print(Rule(f"[bold cyan]{env_name.upper()}[/bold cyan]"))
     console.print(
@@ -23,15 +24,16 @@ def play(env_name: str, seed: int = 42):
     console.print("[dim]Type 'quit' to exit.[/dim]\n")
 
     idx = np.array([0], dtype=np.int32)
-    obs = env.reset(idx)
-    console.print(obs[0])
+    obs, metrics = env.reset(idx)
 
     total_reward = 0.0
 
     while True:
         try:
-            action = Prompt.ask("[bold magenta]>[/bold magenta]", console=console)
-        except (EOFError, KeyboardInterrupt):
+            action = Prompt.ask(
+                "[bold magenta]>[/bold magenta]", console=console
+            )
+        except EOFError, KeyboardInterrupt:
             console.print()
             break
 
@@ -46,7 +48,9 @@ def play(env_name: str, seed: int = 42):
         console.print(metrics)
 
         if reward > 0:
-            console.print(f"[bold yellow]reward[/bold yellow] [yellow]+{reward:.2f}[/yellow]")
+            console.print(
+                f"[bold yellow]reward[/bold yellow] [yellow]+{reward:.2f}[/yellow]"
+            )
 
         if done:
             color = "green" if total_reward > 0 else "red"

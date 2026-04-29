@@ -11,6 +11,7 @@ class Agent(Protocol):
         obs: list[str],
         rewards: np.ndarray,
         dones: np.ndarray,
+        metrics: dict[str, np.ndarray],
     ) -> tuple[np.ndarray, list[str]]: ...
     def close(self) -> None:
         pass

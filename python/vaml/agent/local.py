@@ -1,4 +1,4 @@
-from typing import NamedTuple, Protocol, override
+from typing import NamedTuple, Protocol, Self, override
 
 import jax
 import numpy as np
@@ -27,15 +27,27 @@ class EnvSpec(Protocol):
 
 
 class TurnData:
-    def __init__(self, eval_envs: int, spec: EnvSpec):
-        self._turn_counts = np.zeros((eval_envs,), dtype=np.int32)
-        self._token_counts = np.zeros(
-            (eval_envs, spec.max_turns), dtype=np.int32
-        )
-        self._metrics = {
-            name: np.zeros((eval_envs, spec.max_turns), dtype=np.float32)
-            for name in spec.metric_names
+    def __init__(
+        self,
+        turn_counts: np.ndarray,
+        turn_indices: np.ndarray,
+        metrics: dict[str, np.ndarray],
+    ):
+        self._turn_counts = turn_counts
+        self._turn_indices = turn_indices
+        self._metrics = metrics
+
+    @classmethod
+    def create(
+        cls, eval_envs: int, max_turns: int, metric_names: list[str]
+    ) -> Self:
+        turn_counts = np.zeros((eval_envs,), dtype=np.int32)
+        turn_positions = np.zeros((eval_envs, max_turns), dtype=np.int32)
+        metrics = {
+            name: np.zeros((eval_envs, max_turns), dtype=np.float32)
+            for name in metric_names
         }
+        return cls(turn_counts, turn_positions, metrics)
 
     def update(
         self,
@@ -44,30 +56,38 @@ class TurnData:
         updates: dict[str, np.ndarray],
     ) -> None:
         turns = self._turn_counts[batch_idx]
-        self._token_counts[batch_idx, turns] = token_positions
+        self._turn_indices[batch_idx, turns] = token_positions
 
         for name, values in updates.items():
             self._metrics[name][batch_idx, turns] = values
 
         self._turn_counts[batch_idx] += 1
 
-    def take(self, done_idx: np.ndarray) -> None:
+    def take(
+        self, done_idx: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
+        turn_counts = self._turn_counts[done_idx]
+        turn_indices = self._turn_indices[done_idx]
+        metrics = {name: m[done_idx] for name, m in self._metrics.items()}
+
         self._turn_counts[done_idx] = 0
+
+        return turn_counts, turn_indices, metrics
 
 
 class NpGenData(NamedTuple):
-    kv_cache_length: jax.typing.ArrayLike
-    context: jax.typing.ArrayLike
-    log_probs: jax.typing.ArrayLike
-    values: jax.typing.ArrayLike
-    policy_mask: jax.typing.ArrayLike
-    context_length: jax.typing.ArrayLike
-    turn_start_positions: jax.typing.ArrayLike
-    turn_finished: jax.typing.ArrayLike
+    kv_cache_length: np.ndarray
+    context: np.ndarray
+    log_probs: np.ndarray
+    values: np.ndarray
+    policy_mask: np.ndarray
+    context_length: np.ndarray
+    turn_start_positions: np.ndarray
+    turn_finished: np.ndarray
 
 
 def convert_to_np(gen: GenerationState) -> NpGenData:
-    data = NpGenData(
+    data = (
         gen.kv_cache_length,
         gen.context,
         gen.log_probs,
@@ -77,7 +97,9 @@ def convert_to_np(gen: GenerationState) -> NpGenData:
         gen.turn_start_positions,
         gen.turn_finished,
     )
-    return jax.tree.map(lambda x: np.array(x), jax.device_get(data))
+    return NpGenData(
+        **jax.tree.map(lambda x: np.array(x), jax.device_get(data))
+    )
 
 
 class LocalAgent(Agent):
@@ -86,9 +108,14 @@ class LocalAgent(Agent):
         model: Qwen3,
         tokenizer: PreTrainedTokenizerFast,
         config: Config,
+        max_turns: int,
+        metric_names: list[str],
         rng_key: jax.Array,
     ):
         self.episode_listener: EpisodeListener | None = None
+        self._turn_data = TurnData.create(
+            config.eval_envs, max_turns, metric_names
+        )
 
         self.model_def, self.model_state = nnx.split(model)
         self._tokenizer = tokenizer
@@ -144,25 +171,37 @@ class LocalAgent(Agent):
         obs: list[str],
         rewards: np.ndarray,
         dones: np.ndarray,
+        metrics: dict[str, np.ndarray],
     ) -> tuple[np.ndarray, list[str]]:
         lengths = self._np_gen.kv_cache_length
 
         # maybe we should save the rewards in the dense form and not the sparse form and
         # also the list of turn transition ids to it can be expanded into the sparse form
         self._rewards[batch_indices, lengths[batch_indices]] = rewards
+        self._turn_data.update(
+            batch_indices,
+            self._np_gen.context_length,
+            metrics,
+        )
 
         done_idx = batch_indices[np.where(dones)]
 
         if dones.any():
             if self.episode_listener is not None:
+                turn_count, turn_indices, metrics = self._turn_data.take(
+                    done_idx
+                )
                 self.episode_listener.on_episodes(
                     UpdateBatch(
-                        self._np_gen.context[done_idx],
-                        lengths[done_idx],
-                        self._np_gen.log_probs[done_idx],
-                        self._np_gen.values[done_idx],
-                        self._rewards[done_idx],
-                        self._np_gen.policy_mask[done_idx],
+                        length=lengths[done_idx],
+                        context=self._np_gen.context[done_idx],
+                        log_probs=self._np_gen.log_probs[done_idx],
+                        values=self._np_gen.values[done_idx],
+                        rewards=self._rewards[done_idx],
+                        policy_mask=self._np_gen.policy_mask[done_idx],
+                        turn_count=turn_count,
+                        turn_indices=turn_indices,
+                        metrics=metrics,
                     )
                 )
 

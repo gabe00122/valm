@@ -36,16 +36,32 @@ def train_cli(
 
     eval_batch_size = config.eval_envs
     env = make_env(
-        config.env.name, eval_batch_size, experiment.environments_seed, config.env
+        config.env.name,
+        eval_batch_size,
+        experiment.environments_seed,
+        config.env,
     )
 
-    policy_opt = make_optimizer(model, config.policy_optimizer, config.total_update_episodes, nnx.LoRAParam)
-    value_opt = make_optimizer(model, config.value_optimizer, config.total_update_episodes, ValueParam)
+    env_indices = np.arange(eval_batch_size, dtype=np.int32)
+    obs, metrics = env.reset(env_indices)
+    metric_names = list(metrics.keys())
+
+    policy_opt = make_optimizer(
+        model,
+        config.policy_optimizer,
+        config.total_update_episodes,
+        nnx.LoRAParam,
+    )
+    value_opt = make_optimizer(
+        model, config.value_optimizer, config.total_update_episodes, ValueParam
+    )
 
     agent = LocalAgent(
         model,
         tokenizer,
         config,
+        env.max_turns,
+        metric_names,
         rngs.agent(),
     )
 
@@ -64,7 +80,9 @@ def train_cli(
     if value_net_id is not None:
         other_exp = Experiment.load(value_net_id)
         with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
-            trainer.restore_checkpoint(checkpointer=other_checkpointer, wrt=ValueParam)
+            trainer.restore_checkpoint(
+                checkpointer=other_checkpointer, wrt=ValueParam
+            )
 
     rollout_log_size = 100
     rollout_logger = BufferedEpisodeListener(
@@ -81,19 +99,20 @@ def train_cli(
         trainer,
     )
 
-    agent.episode_listener = MultiEpisodeListener(rollout_logger, trainer_listener)
+    agent.episode_listener = MultiEpisodeListener(
+        rollout_logger, trainer_listener
+    )
 
-    env_indices = np.arange(eval_batch_size, dtype=np.int32)
     rewards = np.zeros((eval_batch_size,), dtype=np.float32)
     dones = np.zeros((eval_batch_size,), dtype=np.bool_)
-
-    obs = env.reset(env_indices)
 
     logger.start()
 
     while trainer.progress < 1.0:
-        env_indices, actions = agent.act(env_indices, obs, rewards, dones)
-        obs, rewards, dones, _ = env.step(env_indices, actions)
+        env_indices, actions = agent.act(
+            env_indices, obs, rewards, dones, metrics
+        )
+        obs, rewards, dones, metrics = env.step(env_indices, actions)
 
     logger.close()
     checkpointer.close()
