@@ -4,7 +4,7 @@ import numpy as np
 
 
 class UpdateBatch(NamedTuple):
-    length: np.ndarray
+    context_length: np.ndarray
     context: np.ndarray
     log_probs: np.ndarray
     values: np.ndarray
@@ -25,6 +25,11 @@ class UpdateBatch(NamedTuple):
 
         # todo: implement save and load for metrics
         payload = self._asdict()
+        del payload["metrics"]
+
+        for name, value in self.metrics.values():
+            payload[f"metrics_{name}"] = value
+
         if compressed:
             np.savez_compressed(file, **payload)
         else:
@@ -41,9 +46,17 @@ class UpdateBatch(NamedTuple):
             if missing:
                 raise KeyError(f"Missing keys in {file}: {missing}")
 
-            arrays = {k: data[k] for k in cls._fields}
+        data = {}
+        metrics = {}
 
-        return cls(**arrays)
+        for key in cls._fields:
+            value = data[key]
+            if key.startswith("metrics_"):
+                metrics[key] = value
+            else:
+                data[key] = value
+
+        return cls(metrics=metrics, **data)
 
 
 class CircularBuffer:
@@ -119,7 +132,9 @@ class UpdateBuffer:
         self._policy_mask = CircularBuffer(buffer_size, (seq_length,), np.bool_)
 
         self._turn_counts = CircularBuffer(buffer_size, (max_turns,), np.int32)
-        self._turn_start_positions = CircularBuffer(buffer_size, (max_turns,), np.int32)
+        self._turn_start_positions = CircularBuffer(
+            buffer_size, (max_turns,), np.int32
+        )
         self._metrics = {
             name: CircularBuffer(buffer_size, (max_turns,), np.float32)
             for name in metric_names
@@ -155,7 +170,9 @@ class UpdateBuffer:
             rewards=self._rewards.pop_oldest(self._batch_size),
             policy_mask=self._policy_mask.pop_oldest(self._batch_size),
             turn_counts=self._turn_counts.pop_oldest(self._batch_size),
-            turn_start_positions=self._turn_start_positions.pop_oldest(self._batch_size),
+            turn_start_positions=self._turn_start_positions.pop_oldest(
+                self._batch_size
+            ),
             metrics={
                 name: buffer.pop_oldest(self._batch_size)
                 for name, buffer in self._metrics.items()

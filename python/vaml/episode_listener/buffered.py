@@ -11,6 +11,7 @@ class BufferedEpisodeListener(EpisodeListener):
         listener: EpisodeListener,
     ):
         self._listener = listener
+        # TODO: need to update this too
         self._buffer = UpdateBuffer(buffer_size, batch_size, seq_length)
 
     @property

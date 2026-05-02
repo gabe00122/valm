@@ -1,6 +1,6 @@
 import concurrent.futures
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Any, override
+from typing import override
 
 import numpy as np
 from vaml.agent.base import Agent
@@ -46,7 +46,9 @@ class ApiAgent(Agent):
 
         if self._instructions is not None:
             for messages in self._messages:
-                messages.append(Message(role="user", content=self._instructions))
+                messages.append(
+                    Message(role="user", content=self._instructions)
+                )
 
     def _complete_with_retry(self, id, messages) -> tuple[int, Message]:
         return id, completion(
@@ -89,7 +91,9 @@ class ApiAgent(Agent):
         # Process each agent in the batch
         action_texts: list[str] = []
         for idx, observation in zip(batch_indices, obs):
-            self._messages[idx].append(Message(role="user", content=observation))
+            self._messages[idx].append(
+                Message(role="user", content=observation)
+            )
 
             self._pending_futures.append(
                 self._executor.submit(
