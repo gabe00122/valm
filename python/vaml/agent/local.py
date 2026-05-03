@@ -1,4 +1,4 @@
-from typing import NamedTuple, Protocol, Self, override
+from typing import Protocol, Self, override
 
 import jax
 import numpy as np
@@ -8,7 +8,6 @@ from transformers import PreTrainedTokenizerFast
 from vaml.agent.base import Agent
 from vaml.buffer import UpdateBatch
 from vaml.chat import (
-    GenerationState,
     append_prompt_tokens,
     append_user_prompts,
     create_generation_state,
@@ -71,31 +70,6 @@ class TurnData:
         self._turn_counts[done_idx] = 0
 
         return turn_counts, turn_start_positions, metrics
-
-
-class NpGenData(NamedTuple):
-    kv_cache_length: np.ndarray
-    context: np.ndarray
-    log_probs: np.ndarray
-    values: np.ndarray
-    policy_mask: np.ndarray
-    context_length: np.ndarray
-    turn_start_positions: np.ndarray
-    turn_finished: np.ndarray
-
-
-def convert_to_np(gen: GenerationState) -> NpGenData:
-    data = (
-        gen.kv_cache_length,
-        gen.context,
-        gen.log_probs,
-        gen.values,
-        gen.policy_mask,
-        gen.context_length,
-        gen.turn_start_positions,
-        gen.turn_finished,
-    )
-    return NpGenData(**jax.tree.map(lambda x: np.array(x), jax.device_get(data)))
 
 
 class LocalAgent(Agent):

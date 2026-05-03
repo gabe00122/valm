@@ -6,6 +6,7 @@ from typing import Any
 from flax import nnx
 from rich.progress import track
 from safetensors import safe_open
+from transformers import TokenizersBackend
 from vaml.config import LLMConfig, SamplingConfig
 from vaml.model.qwen3 import Qwen3
 from vaml.util import load_tokenizer
@@ -76,7 +77,9 @@ def load_safetensors(file_path: str):
     return params
 
 
-def load_base_model(model_name: str, rngs: nnx.Rngs):
+def load_base_model(
+    model_name: str, rngs: nnx.Rngs
+) -> tuple[Qwen3, TokenizersBackend, SamplingConfig]:
     model_path = f"base-models/{model_name}"
     config = load_hf_llm_config(f"{model_path}/config.json")
     params = load_safetensors(model_path)

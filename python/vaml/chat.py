@@ -10,7 +10,7 @@ from flax import nnx
 from jax import numpy as jnp
 from rich.console import Console
 from rich.markdown import Markdown
-from transformers import PreTrainedTokenizerFast
+from transformers import BatchEncoding, PreTrainedTokenizerFast
 from vaml.config import SamplingConfig
 from vaml.model import Qwen3
 from vaml.util import batched_put_where, batched_take
@@ -51,6 +51,49 @@ class GenerationState(NamedTuple):
     tokens_processed: jax.Array
 
 
+class NpGenData(NamedTuple):
+    kv_cache_length: np.ndarray
+    context: np.ndarray
+    log_probs: np.ndarray
+    values: np.ndarray
+    policy_mask: np.ndarray
+    context_length: np.ndarray
+    turn_start_positions: np.ndarray
+    turn_finished: np.ndarray
+
+
+def convert_to_np(gen: GenerationState) -> NpGenData:
+    data = (
+        gen.kv_cache_length,
+        gen.context,
+        gen.log_probs,
+        gen.values,
+        gen.policy_mask,
+        gen.context_length,
+        gen.turn_start_positions,
+        gen.turn_finished,
+    )
+    return NpGenData(*jax.tree.map(lambda x: np.array(x), jax.device_get(data)))
+
+
+def update_gen_state(gen: GenerationState, update: NpGenData) -> GenerationState:
+    context, kv_cache_length, context_length, turn_start_positions = jax.device_put(
+        (
+            update.context,
+            update.kv_cache_length,
+            update.context_length,
+            update.turn_start_positions,
+        )
+    )
+    return gen._replace(
+        context=context,
+        turn_start_positions=turn_start_positions,
+        context_length=context_length,
+        kv_cache_length=kv_cache_length,
+        turn_finished=jnp.zeros_like(gen.turn_finished),
+    )
+
+
 class ResponseData(Protocol):
     context: Any
     context_length: Any
@@ -63,10 +106,13 @@ def encode_input(
     conversations: list[list[dict]],
     add_generation_prompt=True,
 ) -> np.ndarray:
-    output = tokenizer.apply_chat_template(
-        conversations,
-        add_generation_prompt=add_generation_prompt,
-        return_tensors="np",
+    output = cast(
+        BatchEncoding,
+        tokenizer.apply_chat_template(
+            conversations,
+            add_generation_prompt=add_generation_prompt,
+            return_tensors="np",
+        ),
     )
 
     return cast(np.ndarray, cast(Any, output)["input_ids"])
@@ -284,21 +330,20 @@ def chat(
     *,
     system_prompt: str | None = None,
 ):
+    kv_cache = model.initialize_carry(batch_size, seq_length)
     model_def, model_state = nnx.split(model)
 
-    rng_key = rngs.sample()
-    kv_cache = model.initialize_carry(batch_size, seq_length)
-
-    gen = create_generation_state(kv_cache, batch_size, seq_length, rng_key)
+    gen = create_generation_state(kv_cache, batch_size, seq_length, rngs.sample())
+    np_gen = convert_to_np(gen)
 
     batch_indices = np.arange(batch_size, dtype=np.int32)
 
-    if system_prompt is not None:
-        text = [
-            [{"role": "system", "content": system_prompt}] for _ in range(batch_size)
-        ]
-        prompt_tokens = encode_input(tokenizer, text, add_generation_prompt=False)
-        gen = append_prompt_tokens(gen, batch_indices, prompt_tokens)
+    # if system_prompt is not None:
+    #     text = [
+    #         [{"role": "system", "content": system_prompt}] for _ in range(batch_size)
+    #     ]
+    #     prompt_tokens = encode_input(tokenizer, text, add_generation_prompt=False)
+    #     gen = append_prompt_tokens(gen, batch_indices, prompt_tokens)
 
     while True:
         prompt = console.input("Prompt: ")
@@ -312,14 +357,40 @@ def chat(
 
         start_time = time.time()
         start_tokens = gen.kv_cache_length[0].item()
-        gen = append_prompt_tokens(gen, batch_indices, prompt_tokens)
+        append_prompt_tokens(np_gen, batch_indices, prompt_tokens)
+        gen = update_gen_state(gen, np_gen)
         gen: GenerationState = generate(model_def, model_state, "simple", gen)
+        np_gen = convert_to_np(gen)
+
         end_tokens = gen.kv_cache_length[0].item()
         end_time = time.time()
 
-        _, output_text = decode_responses(tokenizer, gen)
+        _, output_text = decode_responses(tokenizer, np_gen)
         console.print("--------")
         console.print(Markdown(output_text[0]))
         console.print(
             f"TPS: {(end_tokens - start_tokens) / (end_time - start_time):.2}"
         )
+
+
+def main():
+    from vaml.base_model_loader import load_base_model
+
+    console = Console()
+
+    rngs = nnx.Rngs(0)
+    model, tokenizer, sampling = load_base_model("qwen3-0.6b", rngs)
+
+    chat(
+        console,
+        model,
+        tokenizer,
+        sampling,
+        batch_size=1,
+        seq_length=1024,
+        rngs=rngs,
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -17,6 +17,8 @@ class Qwen3(nnx.Module):
         rngs: nnx.Rngs,
     ):
         super().__init__()
+        self.value_net = None
+
         self._embed = config.embed
         self._head_dim = config.head_dim
         self._rope_theta = config.rope_theta
@@ -77,7 +79,9 @@ class Qwen3(nnx.Module):
         carry: Any = None,
         *,
         rng_key: jax.Array,
-    ) -> tuple[jax.Array, ValueRepresentation, Any, jax.Array]:
+    ) -> tuple[jax.Array, ValueRepresentation | None, Any, jax.Array]:
+        value_repr = None
+
         x = self.embeddings(tokens)
 
         if carry is not None:
