@@ -14,6 +14,8 @@ from vaml.chat import (
     decode_responses,
     encode_input,
     generate,
+    convert_to_np,
+    update_gen_state,
 )
 from vaml.config import Config
 from vaml.episode_listener.base import EpisodeListener
@@ -124,10 +126,6 @@ class LocalAgent(Agent):
         )
         self._env_instruction_length = self._np_gen.context_length[0].item()
 
-        self._gen = self._gen._replace(
-            env_instruction_length=self._gen.context_length.copy(),
-        )
-
     @override
     def reset(self) -> None:
         pass
@@ -180,22 +178,8 @@ class LocalAgent(Agent):
             self._rewards[done_idx] = 0.0
 
         append_user_prompts(self._np_gen, batch_indices, self._tokenizer, obs)
-        context, kv_cache_length, context_length, turn_start_positions = jax.device_put(
-            (
-                self._np_gen.context,
-                self._np_gen.kv_cache_length,
-                self._np_gen.context_length,
-                self._np_gen.turn_start_positions,
-            )
-        )
-        self._gen = self._gen._replace(
-            context=context,
-            turn_start_positions=turn_start_positions,
-            context_length=context_length,
-            kv_cache_length=kv_cache_length,
-            turn_finished=jnp.zeros_like(self._gen.turn_finished),
-        )
 
+        self._gen = update_gen_state(self._gen, self._np_gen)
         self._gen = generate(self.model_def, self.model_state, "simple", self._gen, 4)
         self._np_gen = convert_to_np(self._gen)
 
