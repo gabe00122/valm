@@ -34,9 +34,7 @@ def train(
     config_url: str,
     value_net_id: Annotated[
         Optional[str],
-        typer.Option(
-            "--value-net-id", help="Experiment token to start training from"
-        ),
+        typer.Option("--value-net-id", help="Experiment token to start training from"),
     ] = None,
 ):
     train_cli(config_url, value_net_id)
@@ -51,9 +49,7 @@ def train_value(
 
 
 @app.command()
-def build_offline(
-    config_url: str, output_path: str, file_size: int, file_count: int
-):
+def build_offline(config_url: str, output_path: str, file_size: int, file_count: int):
     build_offline_fn(config_url, output_path, file_size, file_count)
 
 
@@ -82,9 +78,7 @@ def eval_api_cmd(
     ] = "arithmetic",
     num_envs: Annotated[
         int,
-        typer.Option(
-            "--num-envs", "-n", help="Number of parallel environments"
-        ),
+        typer.Option("--num-envs", "-n", help="Number of parallel environments"),
     ] = 4,
     num_episodes: Annotated[
         int, typer.Option("--episodes", "-ep", help="Number of episodes to run")
@@ -92,9 +86,7 @@ def eval_api_cmd(
     base_url: Annotated[
         str, typer.Option("--base-url", help="API base URL")
     ] = "http://localhost:8080",
-    api_key: Annotated[
-        str, typer.Option("--api-key", help="API key")
-    ] = "no-key",
+    api_key: Annotated[str, typer.Option("--api-key", help="API key")] = "no-key",
     seed: Annotated[
         int, typer.Option("--seed", "-s", help="Environment random seed")
     ] = 42,
@@ -123,9 +115,7 @@ def eval_api_cmd(
 def eval_checkpoint_cmd(
     experiment: Annotated[
         str,
-        typer.Argument(
-            help="Experiment name (e.g., 'winged-tortoise-of-glory')"
-        ),
+        typer.Argument(help="Experiment name (e.g., 'winged-tortoise-of-glory')"),
     ],
     num_episodes: Annotated[
         int, typer.Option("--episodes", "-ep", help="Number of episodes to run")

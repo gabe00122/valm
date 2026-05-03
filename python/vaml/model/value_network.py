@@ -54,9 +54,7 @@ class HlGaussValueRepresentation:
 
         targets = jnp.clip(target, self.config.min, self.config.max)
 
-        cdf_evals = norm.cdf(
-            supports, loc=targets[:, None], scale=self.config.sigma
-        )
+        cdf_evals = norm.cdf(supports, loc=targets[:, None], scale=self.config.sigma)
 
         z = cdf_evals[:, -1] - cdf_evals[:, 0]
 
@@ -184,9 +182,7 @@ class ValueNetLayer(nnx.Module):
 
 
 class ValueBackbone(nnx.Module):
-    def __init__(
-        self, config: ValueConfig, latent_size: int, *, rngs: nnx.Rngs
-    ):
+    def __init__(self, config: ValueConfig, latent_size: int, *, rngs: nnx.Rngs):
         self._embedding_encode = ValueNetEncode(
             latent_size,
             config.latent_encoder_rank,
@@ -215,9 +211,7 @@ class ValueBackbone(nnx.Module):
         )
 
         if isinstance(config.head, HlGaussConfig):
-            self._head = HlGaussHead(
-                config.backbone.embed, config.head, rngs=rngs
-            )
+            self._head = HlGaussHead(config.backbone.embed, config.head, rngs=rngs)
         elif isinstance(config.head, MseCriticConfig):
             self._head = MseHead(config.backbone.embed, rngs=rngs)
 
@@ -238,9 +232,7 @@ class ValueBackbone(nnx.Module):
 
         if carry is not None:
             out_carry = []
-            for layer, latent, carry_in in zip(
-                self.layers, layer_latents, carry
-            ):
+            for layer, latent, carry_in in zip(self.layers, layer_latents, carry):
                 x, carry_out, rng_key = layer(
                     x, latent, positions, carry_in, rng_key=rng_key
                 )
@@ -258,6 +250,5 @@ class ValueBackbone(nnx.Module):
 
     def initialize_carry(self, batch_size: int, seq_length: int):
         return tuple(
-            layer.initialize_carry(batch_size, seq_length)
-            for layer in self.layers
+            layer.initialize_carry(batch_size, seq_length) for layer in self.layers
         )

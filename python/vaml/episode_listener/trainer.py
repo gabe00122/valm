@@ -59,16 +59,12 @@ class Trainer(EpisodeListener):
         policy_opt: nnx.Optimizer = nnx.merge(
             self._policy_opt_def, self._policy_opt_state
         )
-        value_opt: nnx.Optimizer = nnx.merge(
-            self._value_opt_def, self._value_opt_state
-        )
+        value_opt: nnx.Optimizer = nnx.merge(self._value_opt_def, self._value_opt_state)
         model = nnx.merge(
             self._model_provider.model_def, self._model_provider.model_state
         )
 
-        restore_filter = nnx.filterlib.Any(
-            nnx.OptState, policy_opt.wrt, value_opt.wrt
-        )
+        restore_filter = nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt)
 
         if checkpointer is None:
             step = self._checkpointer.restore_latest(
@@ -114,9 +110,7 @@ class Trainer(EpisodeListener):
         )
 
         # summerize environment metrics
-        env_metrics = {
-            name: np.sum(values) for name, values in batch.metrics.items()
-        }
+        env_metrics = {name: np.sum(values) for name, values in batch.metrics.items()}
         metrics["env"] = env_metrics
 
         self._model_provider.model_state = new_model_state

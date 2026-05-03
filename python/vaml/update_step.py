@@ -47,7 +47,9 @@ def loss_fn(
 
     positions = jnp.repeat(jnp.arange(seq_len, dtype=jnp.int32)[None, :], batch_len, 0)
 
-    logits, value_repr, _, rng_key = model(jnp.asarray(rollout.context), positions, rng_key=rng_key)
+    logits, value_repr, _, rng_key = model(
+        jnp.asarray(rollout.context), positions, rng_key=rng_key
+    )
     values = value_repr.value()
     policy = distrax.Categorical(logits=logits[:, :-1])
 
@@ -56,11 +58,11 @@ def loss_fn(
     log_ratio = log_prob - rollout.log_probs
     pg_ratio = jnp.exp(log_ratio)
     td_lambda = jnp.minimum(pg_ratio, config.gae_lambda)
-    advantages, targets = calculate_advantages(jnp.asarray(rollout.rewards), values, td_discount, td_lambda)
-
-    value_loss = value_repr[:, :-1].loss(targets).mean(
-        where=bounds_mask[:, :-1]
+    advantages, targets = calculate_advantages(
+        jnp.asarray(rollout.rewards), values, td_discount, td_lambda
     )
+
+    value_loss = value_repr[:, :-1].loss(targets).mean(where=bounds_mask[:, :-1])
     entropy = policy.entropy().mean(where=policy_mask[:, :-1])
     entropy_loss = 0.0001 * -entropy
 
@@ -71,7 +73,7 @@ def loss_fn(
         "entropy": policy.entropy().mean(where=policy_mask[:, :-1]),
         "approx_kl": (pg_ratio - 1 - log_ratio).mean(where=policy_mask[:, :-1]),
         "td_lambda": td_lambda.mean(where=policy_mask[:, :-1]),
-        "rewards": rollout.rewards.sum() / rollout.rewards.shape[0]
+        "rewards": rollout.rewards.sum() / rollout.rewards.shape[0],
     }
 
     if not value_only:
@@ -91,14 +93,22 @@ def loss_fn(
         _, true_targets = calculate_advantages(
             jnp.asarray(rollout.rewards), values, td_discount, jnp.ones_like(td_lambda)
         )
-        value_error = jnp.mean(jnp.abs(values[:, :-1] - true_targets), where=bounds_mask[:, :-1])
+        value_error = jnp.mean(
+            jnp.abs(values[:, :-1] - true_targets), where=bounds_mask[:, :-1]
+        )
         metrics = {**metrics, "value_error": value_error}
 
     return loss, (metrics, rng_key)
 
 
 @jax.jit(
-    static_argnames=("policy_opt_def", "value_opt_def", "model_def", "config", "value_only"),
+    static_argnames=(
+        "policy_opt_def",
+        "value_opt_def",
+        "model_def",
+        "config",
+        "value_only",
+    ),
     donate_argnames=("policy_opt_state", "value_opt_state", "model_state"),
 )
 def update_step(
@@ -137,7 +147,7 @@ def update_step(
     #     jnp.asarray(rollout.rewards), values, td_discount, gae_lambda
     # )
 
-    wrt =  value_opt.wrt
+    wrt = value_opt.wrt
     if not value_only:
         wrt = nnx.Any(policy_opt.wrt, wrt)
 

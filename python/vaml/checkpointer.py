@@ -14,14 +14,18 @@ class Checkpointer:
             directory = Path(directory).absolute().as_posix()
         self.mngr = ocp.CheckpointManager(directory)
 
-    def save(self, data: dict[str, Any], global_step: int, param_filter: Filter = nnx.Param):
+    def save(
+        self, data: dict[str, Any], global_step: int, param_filter: Filter = nnx.Param
+    ):
         data_state = {}
         for key, value in data.items():
             data_state[key] = ocp.args.StandardSave(nnx.state(value, param_filter))
 
         self.mngr.save(global_step, args=ocp.args.Composite(**data_state))
 
-    def restore(self, data: dict[str, Any], step: int, param_filter: Filter = nnx.Param):
+    def restore(
+        self, data: dict[str, Any], step: int, param_filter: Filter = nnx.Param
+    ):
         device = jax.devices()[0]
         mesh = Mesh((device,), ("batch",))
 
@@ -33,7 +37,9 @@ class Checkpointer:
                 restorable_keys.append(key)
                 value_state = nnx.state(value, param_filter)
                 abstract_state = jax.tree.map(
-                    lambda x, s: jax.ShapeDtypeStruct(shape=x.shape, dtype=x.dtype, sharding=s),
+                    lambda x, s: jax.ShapeDtypeStruct(
+                        shape=x.shape, dtype=x.dtype, sharding=s
+                    ),
                     value_state,
                     nnx.get_named_sharding(value_state, mesh),
                 )

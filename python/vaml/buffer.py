@@ -128,17 +128,13 @@ class UpdateBuffer:
 
         self._context_length = CircularBuffer(buffer_size, (), np.int32)
         self._context = CircularBuffer(buffer_size, (seq_length,), np.int32)
-        self._log_probs = CircularBuffer(
-            buffer_size, (seq_length - 1,), np.float32
-        )
+        self._log_probs = CircularBuffer(buffer_size, (seq_length - 1,), np.float32)
         self._values = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._rewards = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._policy_mask = CircularBuffer(buffer_size, (seq_length,), np.bool_)
 
         self._turn_counts = CircularBuffer(buffer_size, (max_turns,), np.int32)
-        self._turn_start_positions = CircularBuffer(
-            buffer_size, (max_turns,), np.int32
-        )
+        self._turn_start_positions = CircularBuffer(buffer_size, (max_turns,), np.int32)
         self._metrics = {
             name: CircularBuffer(buffer_size, (max_turns,), np.float32)
             for name in metric_names

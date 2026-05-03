@@ -108,13 +108,9 @@ def sample(config: SamplingConfig, logits, rng_key):
     cumsum = jnp.cumsum(topk_probs, axis=-1) - topk_probs
     masked_topk_logits = jnp.where(cumsum < config.top_p, topk_logits, -jnp.inf)
 
-    sample_in_topk = jax.random.categorical(
-        rng_key, masked_topk_logits, axis=-1
-    )
+    sample_in_topk = jax.random.categorical(rng_key, masked_topk_logits, axis=-1)
     sample_in_topk = jnp.expand_dims(sample_in_topk, axis=-1)
-    sampled_ids = jnp.take_along_axis(
-        topk_idx, sample_in_topk, axis=-1
-    ).squeeze(-1)
+    sampled_ids = jnp.take_along_axis(topk_idx, sample_in_topk, axis=-1).squeeze(-1)
 
     return sampled_ids
 
@@ -172,18 +168,14 @@ def append_user_prompts(
     tokenizer: PreTrainedTokenizerFast,
     prompts: list[str],
 ):
-    conversation_turns = [
-        [{"role": "user", "content": content}] for content in prompts
-    ]
+    conversation_turns = [[{"role": "user", "content": content}] for content in prompts]
     prompt_tokens = encode_input(tokenizer, conversation_turns)
 
     append_prompt_tokens(state, batch_indices, prompt_tokens)
 
 
 @jax.jit(donate_argnums=(0,))
-def reset_episodes(
-    state: GenerationState, done_mask: jax.Array
-) -> GenerationState:
+def reset_episodes(state: GenerationState, done_mask: jax.Array) -> GenerationState:
     return state._replace(
         context_length=jnp.where(
             done_mask, state.env_instruction_length, state.context_length
@@ -232,12 +224,8 @@ def generate(
         log_prob = cast(jax.Array, dist.log_prob(sample_tokens))
 
         # store everything
-        over_start_position = (
-            carry.kv_cache_length + 1 >= carry.turn_start_positions
-        )
-        turn_finished = carry.turn_finished | (
-            carry.kv_cache_length + 2 >= seq_length
-        )
+        over_start_position = carry.kv_cache_length + 1 >= carry.turn_start_positions
+        turn_finished = carry.turn_finished | (carry.kv_cache_length + 2 >= seq_length)
         use_sample = ~turn_finished & over_start_position
 
         kv_cache_length = jnp.where(
@@ -267,9 +255,7 @@ def generate(
 
         tokens_processed = carry.tokens_processed + jnp.sum(~turn_finished)
 
-        turn_finished = turn_finished | (
-            (in_tokens == EOS_1) & over_start_position
-        )
+        turn_finished = turn_finished | ((in_tokens == EOS_1) & over_start_position)
 
         return carry._replace(
             kv_cache=kv_cache,
@@ -309,12 +295,9 @@ def chat(
 
     if system_prompt is not None:
         text = [
-            [{"role": "system", "content": system_prompt}]
-            for _ in range(batch_size)
+            [{"role": "system", "content": system_prompt}] for _ in range(batch_size)
         ]
-        prompt_tokens = encode_input(
-            tokenizer, text, add_generation_prompt=False
-        )
+        prompt_tokens = encode_input(tokenizer, text, add_generation_prompt=False)
         gen = append_prompt_tokens(gen, batch_indices, prompt_tokens)
 
     while True:
@@ -324,9 +307,7 @@ def chat(
             gen = reset_generation_state(gen)
             continue
 
-        text = [
-            [{"role": "user", "content": prompt}] for _ in range(batch_size)
-        ]
+        text = [[{"role": "user", "content": prompt}] for _ in range(batch_size)]
         prompt_tokens = encode_input(tokenizer, text)
 
         start_time = time.time()

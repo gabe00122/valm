@@ -71,9 +71,7 @@ def _run_eval_loop(
         task = progress.add_task("Evaluating...", total=num_episodes)
 
         while len(episode_rewards) < num_episodes:
-            env_indices, actions = agent.act(
-                env_indices, obs, rewards, dones, metrics
-            )
+            env_indices, actions = agent.act(env_indices, obs, rewards, dones, metrics)
             obs, rewards, dones, metrics = env.step(env_indices, actions)
 
             # Accumulate rewards for current episodes
@@ -87,9 +85,7 @@ def _run_eval_loop(
                     current_episode_rewards[idx] = 0.0
 
             if dones.any():
-                console.print(
-                    f"Episode rewards: {np.array(episode_rewards).mean()}"
-                )
+                console.print(f"Episode rewards: {np.array(episode_rewards).mean()}")
                 progress.update(task, completed=len(episode_rewards))
 
     agent.close()

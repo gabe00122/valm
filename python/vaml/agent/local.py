@@ -38,9 +38,7 @@ class TurnData:
         self._metrics = metrics
 
     @classmethod
-    def create(
-        cls, eval_envs: int, max_turns: int, metric_names: list[str]
-    ) -> Self:
+    def create(cls, eval_envs: int, max_turns: int, metric_names: list[str]) -> Self:
         turn_counts = np.zeros((eval_envs,), dtype=np.int32)
         turn_start_positions = np.zeros((eval_envs, max_turns), dtype=np.int32)
         metrics = {
@@ -97,9 +95,7 @@ def convert_to_np(gen: GenerationState) -> NpGenData:
         gen.turn_start_positions,
         gen.turn_finished,
     )
-    return NpGenData(
-        **jax.tree.map(lambda x: np.array(x), jax.device_get(data))
-    )
+    return NpGenData(**jax.tree.map(lambda x: np.array(x), jax.device_get(data)))
 
 
 class LocalAgent(Agent):
@@ -113,9 +109,7 @@ class LocalAgent(Agent):
         rng_key: jax.Array,
     ):
         self.episode_listener: EpisodeListener | None = None
-        self._turn_data = TurnData.create(
-            config.eval_envs, max_turns, metric_names
-        )
+        self._turn_data = TurnData.create(config.eval_envs, max_turns, metric_names)
 
         self.model_def, self.model_state = nnx.split(model)
         self._tokenizer = tokenizer
@@ -212,14 +206,12 @@ class LocalAgent(Agent):
             self._rewards[done_idx] = 0.0
 
         append_user_prompts(self._np_gen, batch_indices, self._tokenizer, obs)
-        context, kv_cache_length, context_length, turn_start_positions = (
-            jax.device_put(
-                (
-                    self._np_gen.context,
-                    self._np_gen.kv_cache_length,
-                    self._np_gen.context_length,
-                    self._np_gen.turn_start_positions,
-                )
+        context, kv_cache_length, context_length, turn_start_positions = jax.device_put(
+            (
+                self._np_gen.context,
+                self._np_gen.kv_cache_length,
+                self._np_gen.context_length,
+                self._np_gen.turn_start_positions,
             )
         )
         self._gen = self._gen._replace(
@@ -230,13 +222,9 @@ class LocalAgent(Agent):
             turn_finished=jnp.zeros_like(self._gen.turn_finished),
         )
 
-        self._gen = generate(
-            self.model_def, self.model_state, "simple", self._gen, 4
-        )
+        self._gen = generate(self.model_def, self.model_state, "simple", self._gen, 4)
         self._np_gen = convert_to_np(self._gen)
 
-        response_indices, response = decode_responses(
-            self._tokenizer, self._np_gen
-        )
+        response_indices, response = decode_responses(self._tokenizer, self._np_gen)
 
         return response_indices, response

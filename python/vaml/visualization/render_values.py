@@ -33,7 +33,7 @@ def render_values_video(
     print(f"  Sequence length: {seq_length}")
 
     # Find the global min/max for consistent y-axis
-    vmin, vmax = -0.1, 1 #values.min(), values.max()
+    vmin, vmax = -0.1, 1  # values.min(), values.max()
     margin = (vmax - vmin) * 0.1
     ymin, ymax = vmin - margin, vmax + margin
 

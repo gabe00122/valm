@@ -26,7 +26,7 @@ def json_normalize(data: dict, sep: str = ".") -> dict:
             if isinstance(x, jax.Array):
                 x = x.item()
 
-            out[name[:-len(sep)]] = x
+            out[name[: -len(sep)]] = x
 
     flatten(data)
     return out
@@ -98,7 +98,7 @@ class ConsoleLogger(BaseLogger):
         for key in keys:
             value = data[key]
             if hasattr(value, "item"):
-                 value = value.item()
+                value = value.item()
             values.append(f"{value:.6f}" if isinstance(value, float) else value)
 
         table = Table()
@@ -133,7 +133,11 @@ class JsonLogger(BaseLogger):
 
 class WandbLogger(BaseLogger):
     def __init__(self, unique_token: str, settings: Config):
-        wandb.init(project=settings.logger.project_name, name=unique_token, config=settings.model_dump())
+        wandb.init(
+            project=settings.logger.project_name,
+            name=unique_token,
+            config=settings.model_dump(),
+        )
 
     def log_dict(self, data: Metrics, step: int) -> None:
         normalized_data = json_normalize(data)

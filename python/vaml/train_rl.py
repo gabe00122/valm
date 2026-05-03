@@ -81,9 +81,7 @@ def train_cli(
     if value_net_id is not None:
         other_exp = Experiment.load(value_net_id)
         with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
-            trainer.restore_checkpoint(
-                checkpointer=other_checkpointer, wrt=ValueParam
-            )
+            trainer.restore_checkpoint(checkpointer=other_checkpointer, wrt=ValueParam)
 
     rollout_log_size = 100
     rollout_logger = BufferedEpisodeListener(
@@ -104,9 +102,7 @@ def train_cli(
         trainer,
     )
 
-    agent.episode_listener = MultiEpisodeListener(
-        rollout_logger, trainer_listener
-    )
+    agent.episode_listener = MultiEpisodeListener(rollout_logger, trainer_listener)
 
     rewards = np.zeros((eval_batch_size,), dtype=np.float32)
     dones = np.zeros((eval_batch_size,), dtype=np.bool_)
@@ -114,9 +110,7 @@ def train_cli(
     logger.start()
 
     while trainer.progress < 1.0:
-        env_indices, actions = agent.act(
-            env_indices, obs, rewards, dones, metrics
-        )
+        env_indices, actions = agent.act(env_indices, obs, rewards, dones, metrics)
         obs, rewards, dones, metrics = env.step(env_indices, actions)
 
     logger.close()

@@ -27,9 +27,7 @@ def make_optimizer(
             decay_steps=total_steps,
         )
     else:
-        raise ValueError(
-            f"Unsupported schedule type: {type(opt_config.schedule)}"
-        )
+        raise ValueError(f"Unsupported schedule type: {type(opt_config.schedule)}")
 
     if isinstance(opt_config.opt, SGDConfig):
         tx = optax.sgd(

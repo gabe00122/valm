@@ -8,6 +8,7 @@ class Message(BaseModel):
     role: Literal["user", "assistant"]
     content: str
 
+
 def completion(
     messages: list[Message],
     base_url: str,
@@ -18,9 +19,12 @@ def completion(
 
     response = httpx.post(
         f"{base_url}/v1/chat/completions",
-        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
         json={"model": model, "messages": message_dicts},
-        timeout=None
+        timeout=None,
     )
     response_json = response.json()
     response_message = response_json["choices"][0]["message"]

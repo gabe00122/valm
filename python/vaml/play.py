@@ -30,10 +30,8 @@ def play(env_name: str, seed: int = 42):
 
     while True:
         try:
-            action = Prompt.ask(
-                "[bold magenta]>[/bold magenta]", console=console
-            )
-        except (EOFError, KeyboardInterrupt):
+            action = Prompt.ask("[bold magenta]>[/bold magenta]", console=console)
+        except EOFError, KeyboardInterrupt:
             console.print()
             break
 

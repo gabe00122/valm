@@ -15,11 +15,13 @@ from vaml.update_step import update_step
 from vaml.utils.optimizer import make_optimizer
 
 
-@jax.jit(static_argnames=('model_def'))
+@jax.jit(static_argnames=("model_def"))
 def calculate_values(model_def, model_state, rng_key, context: jax.Array):
     model = nnx.merge(model_def, model_state)
     positions = jnp.arange(context.shape[0])
-    _, values_repr, _, rng_key = model(context[None, :], positions[None, :], None, rng_key=rng_key)
+    _, values_repr, _, rng_key = model(
+        context[None, :], positions[None, :], None, rng_key=rng_key
+    )
     values = values_repr.value()
     return jnp.squeeze(values, 0), rng_key
 
@@ -44,7 +46,9 @@ def train_value_cli(config_url: str, offline_data_url: str):
 
     data_dir = Path(offline_data_url)
     if not data_dir.exists() or not data_dir.is_dir():
-        raise ValueError(f"offline_data_url {offline_data_url} does not exist or is not a directory.")
+        raise ValueError(
+            f"offline_data_url {offline_data_url} does not exist or is not a directory."
+        )
 
     data_files = sorted(list(data_dir.glob("*.npz")))
     if not data_files:
@@ -115,6 +119,10 @@ def train_value_cli(config_url: str, offline_data_url: str):
     with Checkpointer(experiment.checkpoints_url) as checkpointer:
         opt = nnx.merge(value_opt_def, value_opt_state)
         model = nnx.merge(model_def, model_state)
-        checkpointer.save({"value_opt": opt, "model": model}, step, nnx.filterlib.Any(nnx.OptState, ValueParam))
+        checkpointer.save(
+            {"value_opt": opt, "model": model},
+            step,
+            nnx.filterlib.Any(nnx.OptState, ValueParam),
+        )
 
     logger.close()

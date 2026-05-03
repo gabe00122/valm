@@ -30,9 +30,7 @@ def _get_start(p: str):
     return max_num
 
 
-def build_offline(
-    config_url: str, output_path: str, file_size: int, file_count: int
-):
+def build_offline(config_url: str, output_path: str, file_size: int, file_count: int):
     experiment = Experiment.from_config_file(config_url)
 
     config = experiment.config
@@ -96,9 +94,7 @@ def build_offline(
         chunk_task = progress.add_task("Current    ", total=file_size)
 
         while saver.chunk_num < file_count:
-            env_indices, actions = agent.act(
-                env_indices, obs, rewards, dones, metrics
-            )
+            env_indices, actions = agent.act(env_indices, obs, rewards, dones, metrics)
             obs, rewards, dones, metrics = env.step(env_indices, actions)
 
             progress.update(chunks_task, completed=saver.chunk_num)

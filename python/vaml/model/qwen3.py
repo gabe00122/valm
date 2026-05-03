@@ -29,10 +29,15 @@ class Qwen3(nnx.Module):
             rngs=rngs,
         )
 
-        self.layers = nnx.List([Qwen3Layer(
-            config=config,
-            rngs=rngs,
-        ) for _ in range(config.num_layers)])
+        self.layers = nnx.List(
+            [
+                Qwen3Layer(
+                    config=config,
+                    rngs=rngs,
+                )
+                for _ in range(config.num_layers)
+            ]
+        )
 
         self.final_norm = nnx.RMSNorm(
             config.embed,
@@ -88,7 +93,9 @@ class Qwen3(nnx.Module):
             base_carry = tuple(out_carry)
 
             if self.value_net is not None:
-                value_repr, value_carry, rng_key = self.value_net(latents, positions, value_carry, rng_key=rng_key)
+                value_repr, value_carry, rng_key = self.value_net(
+                    latents, positions, value_carry, rng_key=rng_key
+                )
             carry = base_carry, value_carry
         else:
             latents = [x]
@@ -97,7 +104,9 @@ class Qwen3(nnx.Module):
                 latents.append(x)
 
             if self.value_net is not None:
-                value_repr, _, rng_key = self.value_net(latents, positions, rng_key=rng_key)
+                value_repr, _, rng_key = self.value_net(
+                    latents, positions, rng_key=rng_key
+                )
 
         x = self.final_norm(x)
         logits = x @ self.embeddings.embedding.T
@@ -107,7 +116,12 @@ class Qwen3(nnx.Module):
         return logits, value_repr, carry, rng_key
 
     def initialize_carry(self, batch_size: int, seq_length: int):
-        base_carry = tuple(layer.initialize_carry(batch_size, seq_length) for layer in self.layers)
-        value_carry = self.value_net.initialize_carry(batch_size, seq_length) if self.value_net is not None else None
+        base_carry = tuple(
+            layer.initialize_carry(batch_size, seq_length) for layer in self.layers
+        )
+        value_carry = (
+            self.value_net.initialize_carry(batch_size, seq_length)
+            if self.value_net is not None
+            else None
+        )
         return base_carry, value_carry
-
