@@ -82,40 +82,48 @@ class Qwen3(nnx.Module):
     ) -> tuple[jax.Array, ValueRepresentation | None, Any, jax.Array]:
         value_repr = None
 
-        x = self.embeddings(tokens)
+        with jax.named_scope("qwen3_embeddings"):
+            x = self.embeddings(tokens)
 
         if carry is not None:
             base_carry, value_carry = carry
 
             out_carry = []
             latents = [x]
-            for layer, carry_in in zip(self.layers, base_carry):
-                x, layer_carry_out = layer(x, positions, carry_in)
+            for i, (layer, carry_in) in enumerate(zip(self.layers, base_carry)):
+                with jax.named_scope(f"qwen3_layer_{i:02d}"):
+                    x, layer_carry_out = layer(x, positions, carry_in)
                 out_carry.append(layer_carry_out)
                 latents.append(x)
 
             base_carry = tuple(out_carry)
 
             if self.value_net is not None:
-                value_repr, value_carry, rng_key = self.value_net(
-                    latents, positions, value_carry, rng_key=rng_key
-                )
+                with jax.named_scope("qwen3_value_net"):
+                    value_repr, value_carry, rng_key = self.value_net(
+                        latents, positions, value_carry, rng_key=rng_key
+                    )
             carry = base_carry, value_carry
         else:
             latents = [x]
-            for layer in self.layers:
-                x, _ = jax.checkpoint(layer)(x, positions)
+            for i, layer in enumerate(self.layers):
+                with jax.named_scope(f"qwen3_layer_{i:02d}"):
+                    x, _ = jax.checkpoint(layer)(x, positions)
                 latents.append(x)
 
             if self.value_net is not None:
-                value_repr, _, rng_key = self.value_net(
-                    latents, positions, rng_key=rng_key
-                )
+                with jax.named_scope("qwen3_value_net"):
+                    value_repr, _, rng_key = self.value_net(
+                        latents, positions, rng_key=rng_key
+                    )
 
-        x = self.final_norm(x)
-        logits = x @ self.embeddings.embedding.T
+        with jax.named_scope("qwen3_final_norm"):
+            x = self.final_norm(x)
+        with jax.named_scope("qwen3_lm_head"):
+            logits = x @ self.embeddings.embedding.T
 
-        logits = logits.astype(jnp.float32)
+        with jax.named_scope("qwen3_logits_to_float32"):
+            logits = logits.astype(jnp.float32)
 
         return logits, value_repr, carry, rng_key
 

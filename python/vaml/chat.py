@@ -18,6 +18,7 @@ from vaml.util import batched_put_where, batched_take
 # these should come from the tokenizer
 STOP_TOKEN = 151645
 
+
 class GenerationState(NamedTuple):
     kv_cache: Any
 
@@ -220,59 +221,68 @@ def generate(
     B, seq_length = gen.context.shape
 
     def cond(carry: GenerationState):
-        # todo: this could infinite loop
-        return jnp.sum(carry.turn_finished) < wait_for
+        with jax.named_scope("chat_generate_cond"):
+            # todo: this could infinite loop
+            return jnp.sum(carry.turn_finished) < wait_for
 
     def body(carry: GenerationState):
-        in_tokens = batched_take(carry.context, carry.kv_cache_length)
+        with jax.named_scope("chat_read_current_token"):
+            in_tokens = batched_take(carry.context, carry.kv_cache_length)
 
-        logits, value_repr, kv_cache, rng_key = model(
-            in_tokens[..., None],  # add time axis
-            carry.kv_cache_length[..., None],
-            carry.kv_cache,
-            rng_key=carry.rng_key,
-        )
-        logits = logits.squeeze(-2)  # remove time axis
-        # value = model.get_value(value_repr).squeeze(-1)
+        with jax.named_scope("chat_model_forward"):
+            logits, value_repr, kv_cache, rng_key = model(
+                in_tokens[..., None],  # add time axis
+                carry.kv_cache_length[..., None],
+                carry.kv_cache,
+                rng_key=carry.rng_key,
+            )
+            logits = logits.squeeze(-2)  # remove time axis
+            # value = model.get_value(value_repr).squeeze(-1)
 
-        rng_key, sample_key = jax.random.split(rng_key)
-        dist = Categorical(logits=logits)
-        sample_tokens: jax.Array = dist.sample(seed=sample_key)
-        log_prob = cast(jax.Array, dist.log_prob(sample_tokens))
+        with jax.named_scope("chat_sample_token"):
+            rng_key, sample_key = jax.random.split(rng_key)
+            dist = Categorical(logits=logits)
+            sample_tokens: jax.Array = dist.sample(seed=sample_key)
+            log_prob = cast(jax.Array, dist.log_prob(sample_tokens))
 
-        # store everything
-        over_start_position = carry.kv_cache_length + 1 >= carry.turn_start_positions
-        turn_finished = carry.turn_finished | (carry.kv_cache_length + 2 >= seq_length)
-        use_sample = ~turn_finished & over_start_position
+        with jax.named_scope("chat_update_lengths_and_masks"):
+            over_start_position = carry.kv_cache_length + 1 >= carry.turn_start_positions
+            turn_finished = carry.turn_finished | (
+                carry.kv_cache_length + 2 >= seq_length
+            )
+            use_sample = ~turn_finished & over_start_position
 
-        kv_cache_length = jnp.where(
-            turn_finished, carry.kv_cache_length, carry.kv_cache_length + 1
-        )
-        context_length = jnp.where(
-            turn_finished,
-            carry.context_length,
-            jnp.maximum(carry.context_length, carry.kv_cache_length + 2),
-        )
+            kv_cache_length = jnp.where(
+                turn_finished, carry.kv_cache_length, carry.kv_cache_length + 1
+            )
+            context_length = jnp.where(
+                turn_finished,
+                carry.context_length,
+                jnp.maximum(carry.context_length, carry.kv_cache_length + 2),
+            )
 
-        context = batched_put_where(
-            carry.context, kv_cache_length, sample_tokens, use_sample
-        )
-        log_probs = batched_put_where(
-            carry.log_probs, carry.kv_cache_length, log_prob, use_sample
-        )
-        # we want to track values even for prompt tokens, hence no use_sample check
-        # values = batched_put_where(
-        #     carry.values, carry.kv_cache_length, value, ~turn_finished
-        # )
+        with jax.named_scope("chat_write_generation_state"):
+            context = batched_put_where(
+                carry.context, kv_cache_length, sample_tokens, use_sample
+            )
+            log_probs = batched_put_where(
+                carry.log_probs, carry.kv_cache_length, log_prob, use_sample
+            )
+            # we want to track values even for prompt tokens, hence no use_sample check
+            # values = batched_put_where(
+            #     carry.values, carry.kv_cache_length, value, ~turn_finished
+            # )
 
-        # we might be able to drop the ~turn_finished filter here
-        policy_mask = batched_put_where(
-            carry.policy_mask, carry.kv_cache_length, use_sample, ~turn_finished
-        )
+            # we might be able to drop the ~turn_finished filter here
+            policy_mask = batched_put_where(
+                carry.policy_mask, carry.kv_cache_length, use_sample, ~turn_finished
+            )
 
-        tokens_processed = carry.tokens_processed + jnp.sum(~turn_finished)
-
-        turn_finished = turn_finished | ((in_tokens == STOP_TOKEN) & over_start_position)
+        with jax.named_scope("chat_finish_checks"):
+            tokens_processed = carry.tokens_processed + jnp.sum(~turn_finished)
+            turn_finished = turn_finished | (
+                (in_tokens == STOP_TOKEN) & over_start_position
+            )
 
         return carry._replace(
             kv_cache=kv_cache,

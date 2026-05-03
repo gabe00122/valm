@@ -1,7 +1,9 @@
 import argparse
 import json
 import time
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 from typing import Any, Literal, Sequence
 
 import jax
@@ -193,6 +195,39 @@ def _block_until_ready(tree: Any) -> None:
     )
 
 
+def _trace_annotation(name: str, profile_enabled: bool, **kwargs):
+    if not profile_enabled:
+        return nullcontext()
+    return jax.profiler.TraceAnnotation(name, **kwargs)
+
+
+def _step_annotation(name: str, step_num: int, profile_enabled: bool):
+    if not profile_enabled:
+        return nullcontext()
+    return jax.profiler.StepTraceAnnotation(name, step_num=step_num)
+
+
+def _profile_trace(
+    profile_dir: str | None,
+    *,
+    create_perfetto_trace: bool,
+    host_tracer_level: int,
+    python_tracer_level: int,
+):
+    if profile_dir is None:
+        return nullcontext()
+
+    Path(profile_dir).mkdir(parents=True, exist_ok=True)
+    profiler_options = jax.profiler.ProfileOptions()
+    profiler_options.host_tracer_level = host_tracer_level
+    profiler_options.python_tracer_level = python_tracer_level
+    return jax.profiler.trace(
+        profile_dir,
+        create_perfetto_trace=create_perfetto_trace,
+        profiler_options=profiler_options,
+    )
+
+
 def _leaf_nbytes(leaf: Any) -> int:
     value = getattr(leaf, "value", leaf)
     nbytes = getattr(value, "nbytes", None)
@@ -356,63 +391,76 @@ def _run_turn(
     turn: int,
     prompt_kind: PromptKind,
     decode: bool,
+    profile_enabled: bool,
 ) -> tuple[Any, NpGenData, TurnMetrics]:
     prompts = _build_prompts(batch_size, turn, prompt_kind)
     conversation_turns = [[{"role": "user", "content": content}] for content in prompts]
 
-    start = time.perf_counter()
-    prompt_tokens = encode_input(tokenizer, conversation_turns)
-    tokenize_s = time.perf_counter() - start
+    with _trace_annotation("tokenize_prompts", profile_enabled):
+        start = time.perf_counter()
+        prompt_tokens = encode_input(tokenizer, conversation_turns)
+        tokenize_s = time.perf_counter() - start
 
     prompt_token_count = sum(_token_lengths(prompt_tokens))
     before_prompt_lengths = np_gen.context_length.copy()
 
-    start = time.perf_counter()
-    append_prompt_tokens(np_gen, batch_indices, prompt_tokens)
-    append_np_s = time.perf_counter() - start
+    with _trace_annotation("append_prompts_numpy", profile_enabled):
+        start = time.perf_counter()
+        append_prompt_tokens(np_gen, batch_indices, prompt_tokens)
+        append_np_s = time.perf_counter() - start
 
     after_prompt_lengths = np_gen.context_length.copy()
     appended_prompt_tokens = int(np.sum(after_prompt_lengths - before_prompt_lengths))
     truncated_prompt_tokens = max(prompt_token_count - appended_prompt_tokens, 0)
 
-    start = time.perf_counter()
-    gen = update_gen_state(gen, np_gen)
-    _block_until_ready(
-        (
-            gen.context,
-            gen.kv_cache_length,
-            gen.context_length,
-            gen.turn_start_positions,
-            gen.turn_finished,
+    with _trace_annotation("numpy_to_jax_transfer", profile_enabled):
+        start = time.perf_counter()
+        gen = update_gen_state(gen, np_gen)
+        _block_until_ready(
+            (
+                gen.context,
+                gen.kv_cache_length,
+                gen.context_length,
+                gen.turn_start_positions,
+                gen.turn_finished,
+            )
         )
-    )
-    np_to_jax_s = time.perf_counter() - start
+        np_to_jax_s = time.perf_counter() - start
 
     start_tokens = int(jax.device_get(gen.tokens_processed))
 
-    start = time.perf_counter()
-    gen = generate(model_def, model_state, "simple", gen, wait_for)
-    _block_until_ready(gen)
-    jit_s = time.perf_counter() - start
+    with _trace_annotation(
+        "jitted_generate",
+        profile_enabled,
+        prompt_kind=prompt_kind,
+        wait_for=wait_for,
+    ):
+        start = time.perf_counter()
+        gen = generate(model_def, model_state, "simple", gen, wait_for)
+        _block_until_ready(gen)
+        jit_s = time.perf_counter() - start
 
-    start = time.perf_counter()
-    end_tokens = int(jax.device_get(gen.tokens_processed))
-    metrics_sync_s = time.perf_counter() - start
+    with _trace_annotation("metrics_scalar_sync", profile_enabled):
+        start = time.perf_counter()
+        end_tokens = int(jax.device_get(gen.tokens_processed))
+        metrics_sync_s = time.perf_counter() - start
 
     model_tokens = end_tokens - start_tokens
 
-    start = time.perf_counter()
-    np_gen = convert_to_np(gen)
-    jax_to_np_s = time.perf_counter() - start
+    with _trace_annotation("jax_to_numpy_transfer", profile_enabled):
+        start = time.perf_counter()
+        np_gen = convert_to_np(gen)
+        jax_to_np_s = time.perf_counter() - start
 
     generated_tokens = int(np.sum(np_gen.context_length - after_prompt_lengths))
 
-    start = time.perf_counter()
-    completed = 0
-    if decode:
-        response_indices, _ = decode_responses(tokenizer, np_gen)
-        completed = int(response_indices.shape[0])
-    decode_s = time.perf_counter() - start
+    with _trace_annotation("decode_responses", profile_enabled):
+        start = time.perf_counter()
+        completed = 0
+        if decode:
+            response_indices, _ = decode_responses(tokenizer, np_gen)
+            completed = int(response_indices.shape[0])
+        decode_s = time.perf_counter() - start
 
     return gen, np_gen, TurnMetrics(
         turn=turn,
@@ -444,6 +492,10 @@ def run_benchmark(
     warmup_turns: int,
     seed: int,
     decode: bool,
+    profile_dir: str | None,
+    profile_perfetto_trace: bool,
+    profile_host_tracer_level: int,
+    profile_python_tracer_level: int,
 ) -> tuple[BenchmarkTotals, list[TurnMetrics], MemoryBreakdown]:
     model_def, model_state = nnx.split(model)
     _block_until_ready(model_state)
@@ -454,6 +506,7 @@ def run_benchmark(
     batch_indices = np.arange(batch_size, dtype=np.int32)
     gen = None
     np_gen = None
+    profile_enabled = profile_dir is not None
 
     warmup_totals = BenchmarkTotals()
     if warmup_turns > 0:
@@ -475,6 +528,7 @@ def run_benchmark(
                 turn=turn,
                 prompt_kind=prompt_kind,
                 decode=False,
+                profile_enabled=False,
             )
             warmup_totals.jit_s += metrics.jit_s
             if np.all(np_gen.context_length >= seq_length):
@@ -503,41 +557,49 @@ def run_benchmark(
     )
     turn_metrics: list[TurnMetrics] = []
 
-    start_wall = time.perf_counter()
-    for turn in range(turns):
-        prompt_kind = _prompt_kind(turn, prompt_set)
-        gen, np_gen, metrics = _run_turn(
-            tokenizer=tokenizer,
-            model_def=model_def,
-            model_state=model_state,
-            gen=gen,
-            np_gen=np_gen,
-            batch_indices=batch_indices,
-            batch_size=batch_size,
-            wait_for=wait_for,
-            turn=turn,
-            prompt_kind=prompt_kind,
-            decode=decode,
-        )
-        turn_metrics.append(metrics)
+    with _profile_trace(
+        profile_dir,
+        create_perfetto_trace=profile_perfetto_trace,
+        host_tracer_level=profile_host_tracer_level,
+        python_tracer_level=profile_python_tracer_level,
+    ):
+        start_wall = time.perf_counter()
+        for turn in range(turns):
+            prompt_kind = _prompt_kind(turn, prompt_set)
+            with _step_annotation("chat_benchmark_turn", turn, profile_enabled):
+                gen, np_gen, metrics = _run_turn(
+                    tokenizer=tokenizer,
+                    model_def=model_def,
+                    model_state=model_state,
+                    gen=gen,
+                    np_gen=np_gen,
+                    batch_indices=batch_indices,
+                    batch_size=batch_size,
+                    wait_for=wait_for,
+                    turn=turn,
+                    prompt_kind=prompt_kind,
+                    decode=decode,
+                    profile_enabled=profile_enabled,
+                )
+            turn_metrics.append(metrics)
 
-        totals.turns += 1
-        totals.prompt_tokens += metrics.prompt_tokens
-        totals.truncated_prompt_tokens += metrics.truncated_prompt_tokens
-        totals.model_tokens += metrics.model_tokens
-        totals.generated_tokens += metrics.generated_tokens
-        totals.completed += metrics.completed
-        totals.tokenize_s += metrics.tokenize_s
-        totals.append_np_s += metrics.append_np_s
-        totals.np_to_jax_s += metrics.np_to_jax_s
-        totals.jit_s += metrics.jit_s
-        totals.metrics_sync_s += metrics.metrics_sync_s
-        totals.jax_to_np_s += metrics.jax_to_np_s
-        totals.decode_s += metrics.decode_s
+            totals.turns += 1
+            totals.prompt_tokens += metrics.prompt_tokens
+            totals.truncated_prompt_tokens += metrics.truncated_prompt_tokens
+            totals.model_tokens += metrics.model_tokens
+            totals.generated_tokens += metrics.generated_tokens
+            totals.completed += metrics.completed
+            totals.tokenize_s += metrics.tokenize_s
+            totals.append_np_s += metrics.append_np_s
+            totals.np_to_jax_s += metrics.np_to_jax_s
+            totals.jit_s += metrics.jit_s
+            totals.metrics_sync_s += metrics.metrics_sync_s
+            totals.jax_to_np_s += metrics.jax_to_np_s
+            totals.decode_s += metrics.decode_s
 
-        if np.all(np_gen.context_length >= seq_length):
-            totals.stopped_early = turn + 1 < turns
-            break
+            if np.all(np_gen.context_length >= seq_length):
+                totals.stopped_early = turn + 1 < turns
+                break
 
     totals.wall_s = time.perf_counter() - start_wall
     memory.snapshots.extend(_device_memory_snapshots("after_benchmark"))
@@ -610,6 +672,10 @@ def print_report(
     totals: BenchmarkTotals,
     turn_metrics: list[TurnMetrics],
     memory: MemoryBreakdown,
+    profile_dir: str | None,
+    profile_perfetto_trace: bool,
+    profile_host_tracer_level: int,
+    profile_python_tracer_level: int,
 ) -> None:
     console.print(
         f"Model: {model_name} | batch={batch_size} | seq={seq_length} | "
@@ -684,6 +750,14 @@ def print_report(
 
     print_memory_report(console, memory)
 
+    if profile_dir is not None:
+        console.print(
+            f"JAX profiler trace written to {profile_dir} "
+            f"(perfetto_trace={profile_perfetto_trace}, "
+            f"host_tracer_level={profile_host_tracer_level}, "
+            f"python_tracer_level={profile_python_tracer_level})."
+        )
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -726,6 +800,33 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print machine-readable metrics after the human-readable report.",
     )
+    parser.add_argument(
+        "--profile-dir",
+        default=None,
+        help="Write a JAX profiler trace for the measured turns to this directory.",
+    )
+    parser.add_argument(
+        "--profile-perfetto-trace",
+        action="store_true",
+        help="Also emit a Perfetto trace file in --profile-dir.",
+    )
+    parser.add_argument(
+        "--profile-host-tracer-level",
+        type=int,
+        default=1,
+        choices=(0, 1, 2, 3),
+        help=(
+            "JAX host tracer level. 1 keeps user annotations with much less noise; "
+            "2 is JAX's verbose default."
+        ),
+    )
+    parser.add_argument(
+        "--profile-python-tracer-level",
+        type=int,
+        default=0,
+        choices=(0, 1),
+        help="JAX Python tracer level. 0 avoids huge Python stack traces.",
+    )
     return parser.parse_args()
 
 
@@ -760,6 +861,10 @@ def main() -> None:
         warmup_turns=args.warmup_turns,
         seed=args.seed,
         decode=not args.no_decode,
+        profile_dir=args.profile_dir,
+        profile_perfetto_trace=args.profile_perfetto_trace,
+        profile_host_tracer_level=args.profile_host_tracer_level,
+        profile_python_tracer_level=args.profile_python_tracer_level,
     )
 
     print_report(
@@ -773,6 +878,10 @@ def main() -> None:
         totals=totals,
         turn_metrics=turn_metrics,
         memory=memory,
+        profile_dir=args.profile_dir,
+        profile_perfetto_trace=args.profile_perfetto_trace,
+        profile_host_tracer_level=args.profile_host_tracer_level,
+        profile_python_tracer_level=args.profile_python_tracer_level,
     )
 
     if args.json:
@@ -789,6 +898,10 @@ def main() -> None:
                         "warmup_turns": args.warmup_turns,
                         "seed": args.seed,
                         "decode": not args.no_decode,
+                        "profile_dir": args.profile_dir,
+                        "profile_perfetto_trace": args.profile_perfetto_trace,
+                        "profile_host_tracer_level": args.profile_host_tracer_level,
+                        "profile_python_tracer_level": args.profile_python_tracer_level,
                     },
                     "totals": asdict(totals)
                     | {
