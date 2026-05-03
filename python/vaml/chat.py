@@ -11,12 +11,8 @@ from jax import numpy as jnp
 from rich.console import Console
 from rich.markdown import Markdown
 from transformers import PreTrainedTokenizerFast
-from vaml.base_model_loader import load_base_model
-from vaml.checkpointer import Checkpointer
 from vaml.config import SamplingConfig
-from vaml.experiment import Experiment
 from vaml.model import Qwen3
-from vaml.model.value_network import ValueParam
 from vaml.util import batched_put_where, batched_take
 
 # these should come from the tokenizer
@@ -66,7 +62,8 @@ def encode_input(
         return_tensors="np",
     )
 
-    return output['input_ids']
+    return output["input_ids"]
+
 
 def decode_responses(
     tokenizer: PreTrainedTokenizerFast,
@@ -80,7 +77,9 @@ def decode_responses(
     context_length = np.asarray(gen.context_length)
 
     output = [
-        tokenizer.decode(context[b, turn_start_positions[b] : context_length[b] - 1])
+        tokenizer.decode(
+            context[b, turn_start_positions[b] : context_length[b] - 1]
+        )
         for b in indices
     ]
 
@@ -99,9 +98,13 @@ def sample(config: SamplingConfig, logits, rng_key):
     cumsum = jnp.cumsum(topk_probs, axis=-1) - topk_probs
     masked_topk_logits = jnp.where(cumsum < config.top_p, topk_logits, -jnp.inf)
 
-    sample_in_topk = jax.random.categorical(rng_key, masked_topk_logits, axis=-1)
+    sample_in_topk = jax.random.categorical(
+        rng_key, masked_topk_logits, axis=-1
+    )
     sample_in_topk = jnp.expand_dims(sample_in_topk, axis=-1)
-    sampled_ids = jnp.take_along_axis(topk_idx, sample_in_topk, axis=-1).squeeze(-1)
+    sampled_ids = jnp.take_along_axis(
+        topk_idx, sample_in_topk, axis=-1
+    ).squeeze(-1)
 
     return sampled_ids
 
@@ -133,7 +136,9 @@ def reset_generation_state(state: GenerationState) -> GenerationState:
 
 
 # state should be NpGenData
-def append_prompt_tokens(state, batch_indices: np.ndarray, prompts: list[np.ndarray]):
+def append_prompt_tokens(
+    state, batch_indices: np.ndarray, prompts: list[np.ndarray]
+):
     for i, prompt in zip(batch_indices, prompts):
         start = state.context_length[i].item()
         end = start + prompt.shape[0]
@@ -147,6 +152,7 @@ def append_prompt_tokens(state, batch_indices: np.ndarray, prompts: list[np.ndar
         state.turn_start_positions[i] = safe_end
         state.context_length[i] = safe_end
 
+
 # state should be NpGenData
 def append_user_prompts(
     state,
@@ -154,14 +160,18 @@ def append_user_prompts(
     tokenizer: PreTrainedTokenizerFast,
     prompts: list[str],
 ):
-    conversation_turns = [[{"role": "user", "content": content}] for content in prompts]
+    conversation_turns = [
+        [{"role": "user", "content": content}] for content in prompts
+    ]
     prompt_tokens = encode_input(tokenizer, conversation_turns)
 
     append_prompt_tokens(state, batch_indices, prompt_tokens)
 
 
 @jax.jit(donate_argnums=(0,))
-def reset_episodes(state: GenerationState, done_mask: jax.Array) -> GenerationState:
+def reset_episodes(
+    state: GenerationState, done_mask: jax.Array
+) -> GenerationState:
     return state._replace(
         context_length=jnp.where(
             done_mask, state.env_instruction_length, state.context_length
@@ -174,7 +184,8 @@ def reset_episodes(state: GenerationState, done_mask: jax.Array) -> GenerationSt
 
 
 @jax.jit(
-    static_argnames=("model_def", "sampling", "wait_for"), donate_argnames=("gen",)
+    static_argnames=("model_def", "sampling", "wait_for"),
+    donate_argnames=("gen",),
 )
 def generate(
     model_def,
@@ -209,8 +220,12 @@ def generate(
         log_prob: jax.Array = dist.log_prob(sample_tokens)
 
         # store everything
-        over_start_position = carry.kv_cache_length + 1 >= carry.turn_start_positions
-        turn_finished = carry.turn_finished | (carry.kv_cache_length + 2 >= seq_length)
+        over_start_position = (
+            carry.kv_cache_length + 1 >= carry.turn_start_positions
+        )
+        turn_finished = carry.turn_finished | (
+            carry.kv_cache_length + 2 >= seq_length
+        )
         use_sample = ~turn_finished & over_start_position
 
         kv_cache_length = jnp.where(
@@ -240,7 +255,9 @@ def generate(
 
         tokens_processed = carry.tokens_processed + jnp.sum(~turn_finished)
 
-        turn_finished = turn_finished | ((in_tokens == EOS_1) & over_start_position)
+        turn_finished = turn_finished | (
+            (in_tokens == EOS_1) & over_start_position
+        )
 
         return carry._replace(
             kv_cache=kv_cache,
@@ -280,9 +297,12 @@ def chat(
 
     if system_prompt is not None:
         text = [
-            [{"role": "system", "content": system_prompt}] for _ in range(batch_size)
+            [{"role": "system", "content": system_prompt}]
+            for _ in range(batch_size)
         ]
-        prompt_tokens = encode_input(tokenizer, text, add_generation_prompt=False)
+        prompt_tokens = encode_input(
+            tokenizer, text, add_generation_prompt=False
+        )
         gen = append_prompt_tokens(gen, batch_indices, prompt_tokens)
 
     while True:
@@ -292,7 +312,9 @@ def chat(
             gen = reset_generation_state(gen)
             continue
 
-        text = [[{"role": "user", "content": prompt}] for _ in range(batch_size)]
+        text = [
+            [{"role": "user", "content": prompt}] for _ in range(batch_size)
+        ]
         prompt_tokens = encode_input(tokenizer, text)
 
         start_time = time.time()
@@ -308,35 +330,3 @@ def chat(
         console.print(
             f"TPS: {(end_tokens - start_tokens) / (end_time - start_time):.2}"
         )
-
-
-def main():
-    experiment = Experiment.load("winged-tortoise-of-glory")
-    config = experiment.config
-
-    rngs = nnx.Rngs(experiment.params_seed)
-    model, tokenizer, sampling = load_base_model(config.base_model, rngs)
-    model.initialize_lora(config.lora, rngs=rngs)
-
-    checkpointer = Checkpointer(experiment.checkpoints_url)
-    checkpointer.restore_latest(
-        {"opt": orbax.checkpoint.PLACEHOLDER, "model": model},
-        nnx.Any(ValueParam, nnx.LoRAParam),
-    )
-
-    batch_size = 1
-    seq_length = 16384  # 512
-    chat(
-        Console(),
-        model,
-        tokenizer,
-        sampling,
-        batch_size,
-        seq_length,
-        rngs,
-        system_prompt="Solve the arithmetic expression using +, -, * or /. Show your work if needed, but end with only the numeric result on its own line. Always output with decimals such as 123.456",
-    )
-
-
-if __name__ == "__main__":
-    main()

@@ -89,6 +89,8 @@ def train_cli(
         rollout_log_size + config.eval_envs,
         rollout_log_size,
         config.max_seq_length,
+        env.max_turns,
+        metric_names,
         EpisodeSaver(experiment.rollout_dir),
     )
 
@@ -96,6 +98,8 @@ def train_cli(
         config.update_envs + config.eval_envs,
         config.update_envs,
         config.max_seq_length,
+        env.max_turns,
+        metric_names,
         trainer,
     )
 

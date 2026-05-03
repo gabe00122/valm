@@ -15,11 +15,9 @@ from vaml.agent.api_agent import ApiAgent
 from vaml.agent.base import Agent
 from vaml.agent.local import LocalAgent
 from vaml.base_model_loader import load_base_model
-from vaml.checkpointer import Checkpointer
 from vaml.env.base import Env
 from vaml.env.make import make_env
 from vaml.experiment import Experiment
-from vaml.model.value_network import ValueParam
 
 
 @dataclass
@@ -87,7 +85,9 @@ def _run_eval_loop(
                     current_episode_rewards[idx] = 0.0
 
             if dones.any():
-                console.print(f"Episode rewards: {np.array(episode_rewards).mean()}")
+                console.print(
+                    f"Episode rewards: {np.array(episode_rewards).mean()}"
+                )
                 progress.update(task, completed=len(episode_rewards))
 
     agent.close()

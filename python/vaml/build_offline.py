@@ -16,7 +16,6 @@ from vaml.base_model_loader import load_base_model
 from vaml.env.make import make_env
 from vaml.episode_listener import BufferedEpisodeListener, EpisodeSaver
 from vaml.experiment import Experiment
-from vaml.logger import create_logger
 
 
 def _get_start(p: str):
@@ -31,12 +30,13 @@ def _get_start(p: str):
     return max_num
 
 
-def build_offline(config_url: str, output_path: str, file_size: int, file_count: int):
+def build_offline(
+    config_url: str, output_path: str, file_size: int, file_count: int
+):
     experiment = Experiment.from_config_file(config_url)
 
     config = experiment.config
     console = Console()
-    logger = create_logger(experiment, console)
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
@@ -44,7 +44,10 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
     eval_batch_size = config.eval_envs
     env = make_env(
-        config.env.name, eval_batch_size, experiment.environments_seed, config.env
+        config.env.name,
+        eval_batch_size,
+        experiment.environments_seed,
+        config.env,
     )
 
     agent = LocalAgent(

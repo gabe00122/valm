@@ -1,9 +1,19 @@
 import optax
 from flax import nnx
-from vaml.config import AdamWConfig, OptimizerConfig, SGDConfig, WarmupCosineConfig
+from vaml.config import (
+    AdamWConfig,
+    OptimizerConfig,
+    SGDConfig,
+    WarmupCosineConfig,
+)
 
 
-def make_optimizer(model: nnx.Module, opt_config: OptimizerConfig, total_steps: int, wrt: nnx.filterlib.Filter) -> nnx.Optimizer:
+def make_optimizer(
+    model: nnx.Module,
+    opt_config: OptimizerConfig,
+    total_steps: int,
+    wrt: nnx.filterlib.Filter,
+) -> nnx.Optimizer:
     if opt_config.schedule is None:
         tx_lr = opt_config.opt.lr
     elif isinstance(opt_config.schedule, WarmupCosineConfig):
@@ -15,7 +25,9 @@ def make_optimizer(model: nnx.Module, opt_config: OptimizerConfig, total_steps: 
             decay_steps=total_steps,
         )
     else:
-        raise ValueError(f"Unsupported schedule type: {type(config.schedule)}")
+        raise ValueError(
+            f"Unsupported schedule type: {type(opt_config.schedule)}"
+        )
 
     if isinstance(opt_config.opt, SGDConfig):
         tx = optax.sgd(

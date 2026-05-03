@@ -65,6 +65,7 @@ class ApiAgent(Agent):
         obs: list[str],
         rewards: np.ndarray,
         dones: np.ndarray,
+        metrics: dict[str, np.ndarray],
     ) -> tuple[np.ndarray, list[str]]:
         """
         Process observations and return actions for the specified batch indices.

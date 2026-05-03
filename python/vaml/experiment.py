@@ -27,7 +27,9 @@ class Experiment:
 
         # build the URL once
         self.experiment_url = f"{base_dir.rstrip('/')}/{self.unique_token}"
-        self.checkpoints_url = f"{base_dir.rstrip('/')}/{self.unique_token}/checkpoints"
+        self.checkpoints_url = (
+            f"{base_dir.rstrip('/')}/{self.unique_token}/checkpoints"
+        )
 
         # filesystem handle reused everywhere
         self.fs, self.root = fsspec.url_to_fs(self.experiment_url)
@@ -110,6 +112,10 @@ def generate_unique_token() -> str:
 
 def get_git_hash() -> str:
     try:
-        return subprocess.check_output(["git", "rev-parse", "HEAD"]).strip().decode()
-    except:
+        return (
+            subprocess.check_output(["git", "rev-parse", "HEAD"])
+            .strip()
+            .decode()
+        )
+    except subprocess.CalledProcessError, FileNotFoundError:
         return ""
