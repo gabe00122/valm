@@ -46,6 +46,7 @@ def train_cli(
     obs, metrics = env.reset(env_indices)
     metric_names = list(metrics.keys())
 
+    assert config.policy_optimizer is not None
     policy_opt = make_optimizer(
         model,
         config.policy_optimizer,

@@ -1,3 +1,5 @@
+from typing import cast
+
 import optax
 from flax import nnx
 from vaml.config import (
@@ -51,6 +53,6 @@ def make_optimizer(
 
     return nnx.Optimizer(
         model=model,
-        tx=tx,
+        tx=cast(optax.GradientTransformation, tx),
         wrt=wrt,
     )

@@ -10,12 +10,15 @@ def create_dummy_data(data_dir: Path, num_files: int, episodes_per_file: int, se
     data_dir.mkdir(parents=True, exist_ok=True)
     for i in range(num_files):
         batch = UpdateBatch(
+            context_length=np.zeros((episodes_per_file,), dtype=np.int32),
             context=np.zeros((episodes_per_file, seq_length), dtype=np.int32),
-            length=np.zeros((episodes_per_file,), dtype=np.int32),
             log_probs=np.zeros((episodes_per_file, seq_length - 1), dtype=np.float32),
             values=np.zeros((episodes_per_file, seq_length), dtype=np.float32),
             rewards=np.zeros((episodes_per_file, seq_length), dtype=np.float32),
             policy_mask=np.zeros((episodes_per_file, seq_length), dtype=np.bool_),
+            turn_counts=np.zeros((episodes_per_file,), dtype=np.int32),
+            turn_start_positions=np.zeros((episodes_per_file, 1), dtype=np.int32),
+            metrics={},
         )
         batch.save_npz(data_dir / f"episodes_{i}.npz")
 

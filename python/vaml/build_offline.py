@@ -50,10 +50,16 @@ def build_offline(
         config.env,
     )
 
+    env_indices = np.arange(eval_batch_size, dtype=np.int32)
+    obs, metrics = env.reset(env_indices)
+    metric_names = list(metrics.keys())
+
     agent = LocalAgent(
         model,
         tokenizer,
         config,
+        env.max_turns,
+        metric_names,
         rngs.agent(),
     )
 
@@ -62,15 +68,17 @@ def build_offline(
     saver = EpisodeSaver(output_path)
     saver.chunk_num = _get_start(output_path)
     buffered_listener = BufferedEpisodeListener(
-        file_size + config.eval_envs, file_size, config.max_seq_length, saver
+        file_size + config.eval_envs,
+        file_size,
+        config.max_seq_length,
+        env.max_turns,
+        metric_names,
+        saver,
     )
     agent.episode_listener = buffered_listener
 
-    env_indices = np.arange(eval_batch_size, dtype=np.int32)
     rewards = np.zeros((eval_batch_size,), dtype=np.float32)
     dones = np.zeros((eval_batch_size,), dtype=np.bool_)
-
-    obs = env.reset(env_indices)
 
     with Progress(
         TextColumn("[progress.description]{task.description}"),
@@ -88,8 +96,10 @@ def build_offline(
         chunk_task = progress.add_task("Current    ", total=file_size)
 
         while saver.chunk_num < file_count:
-            env_indices, actions = agent.act(env_indices, obs, rewards, dones)
-            obs, rewards, dones, _ = env.step(env_indices, actions)
+            env_indices, actions = agent.act(
+                env_indices, obs, rewards, dones, metrics
+            )
+            obs, rewards, dones, metrics = env.step(env_indices, actions)
 
             progress.update(chunks_task, completed=saver.chunk_num)
             progress.update(chunk_task, completed=buffered_listener.size)

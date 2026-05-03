@@ -1,4 +1,4 @@
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 import typer
 from vaml.buffer import UpdateBatch
@@ -34,7 +34,9 @@ def train(
     config_url: str,
     value_net_id: Annotated[
         Optional[str],
-        typer.Option("--value-net-id", help="Experiment token to start training from"),
+        typer.Option(
+            "--value-net-id", help="Experiment token to start training from"
+        ),
     ] = None,
 ):
     train_cli(config_url, value_net_id)
@@ -49,7 +51,9 @@ def train_value(
 
 
 @app.command()
-def build_offline(config_url: str, output_path: str, file_size: int, file_count: int):
+def build_offline(
+    config_url: str, output_path: str, file_size: int, file_count: int
+):
     build_offline_fn(config_url, output_path, file_size, file_count)
 
 
@@ -73,10 +77,14 @@ def eval_api_cmd(
         ),
     ] = "blank",
     env: Annotated[
-        str, typer.Option("--env", "-e", help="Environment name")
+        Literal["arithmetic", "wordle"],
+        typer.Option("--env", "-e", help="Environment name"),
     ] = "arithmetic",
     num_envs: Annotated[
-        int, typer.Option("--num-envs", "-n", help="Number of parallel environments")
+        int,
+        typer.Option(
+            "--num-envs", "-n", help="Number of parallel environments"
+        ),
     ] = 4,
     num_episodes: Annotated[
         int, typer.Option("--episodes", "-ep", help="Number of episodes to run")
@@ -100,14 +108,9 @@ def eval_api_cmd(
     """
     from vaml.eval import eval_api
 
-    if env not in ("arithmetic", "wordle"):
-        raise typer.BadParameter(
-            f"Unknown environment: {env}. Must be 'arithmetic' or 'wordle'."
-        )
-
     eval_api(
         model=model,
-        env_name=env,  # type: ignore[arg-type]
+        env_name=env,
         num_envs=num_envs,
         num_episodes=num_episodes,
         base_url=base_url,
@@ -119,7 +122,10 @@ def eval_api_cmd(
 @eval_app.command("checkpoint")
 def eval_checkpoint_cmd(
     experiment: Annotated[
-        str, typer.Argument(help="Experiment name (e.g., 'winged-tortoise-of-glory')")
+        str,
+        typer.Argument(
+            help="Experiment name (e.g., 'winged-tortoise-of-glory')"
+        ),
     ],
     num_episodes: Annotated[
         int, typer.Option("--episodes", "-ep", help="Number of episodes to run")
@@ -129,7 +135,8 @@ def eval_checkpoint_cmd(
         typer.Option("--step", "-s", help="Checkpoint step (default: latest)"),
     ] = None,
     base_dir: Annotated[
-        str, typer.Option("--base-dir", "-d", help="Base directory for experiments")
+        str,
+        typer.Option("--base-dir", "-d", help="Base directory for experiments"),
     ] = "results",
 ):
     """

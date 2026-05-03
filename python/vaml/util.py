@@ -1,4 +1,5 @@
 import os
+from typing import cast
 
 import jax
 from jax import numpy as jnp
@@ -9,7 +10,10 @@ from zipp import Path
 def load_tokenizer(
     tokenizer_path: str | os.PathLike[str] | Path,
 ) -> PreTrainedTokenizerFast:
-    return AutoTokenizer.from_pretrained(tokenizer_path)
+    return cast(
+        PreTrainedTokenizerFast,
+        AutoTokenizer.from_pretrained(tokenizer_path),
+    )
 
 
 def batched_put(target: jax.Array, indices: jax.Array, values: jax.Array) -> jax.Array:

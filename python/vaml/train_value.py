@@ -54,7 +54,15 @@ def train_value_cli(config_url: str, offline_data_url: str):
     num_episodes_per_file = first_batch.context.shape[0]
     buffer_size = config.update_envs + num_episodes_per_file
 
-    buffer = UpdateBuffer(buffer_size, config.update_envs, config.max_seq_length)
+    max_turns = first_batch.turn_start_positions.shape[1]
+    metric_names = list(first_batch.metrics.keys())
+    buffer = UpdateBuffer(
+        buffer_size,
+        config.update_envs,
+        config.max_seq_length,
+        max_turns,
+        metric_names,
+    )
     buffer.store(first_batch)
 
     total_updates = (len(data_files) * num_episodes_per_file) // config.update_envs

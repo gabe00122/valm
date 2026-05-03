@@ -1,19 +1,23 @@
+from collections.abc import Mapping
 from typing import NamedTuple
 
+import jax
 import numpy as np
+
+type ArrayData = np.ndarray | jax.Array
 
 
 class UpdateBatch(NamedTuple):
-    context_length: np.ndarray
-    context: np.ndarray
-    log_probs: np.ndarray
-    values: np.ndarray
-    rewards: np.ndarray
-    policy_mask: np.ndarray
+    context_length: ArrayData
+    context: ArrayData
+    log_probs: ArrayData
+    values: ArrayData
+    rewards: ArrayData
+    policy_mask: ArrayData
 
-    turn_counts: np.ndarray
-    turn_start_positions: np.ndarray
-    metrics: dict[str, np.ndarray]
+    turn_counts: ArrayData
+    turn_start_positions: ArrayData
+    metrics: Mapping[str, ArrayData]
 
     def save_npz(
         self,
@@ -23,10 +27,9 @@ class UpdateBatch(NamedTuple):
     ):
         """Save the batch to an .npz file."""
 
-        # todo: implement save and load for metrics
         payload = self._asdict()
-        del payload["metrics"]
 
+        del payload["metrics"]
         for name, value in self.metrics.values():
             payload[f"metrics_{name}"] = value
 
@@ -74,7 +77,8 @@ class CircularBuffer:
 
         self._data = np.zeros((buffer_size, *seq_shape), dtype=dtype)
 
-    def push(self, data: np.ndarray):
+    def push(self, data: ArrayData):
+        data = np.asarray(data)
         start = self._end
         end = start + data.shape[0]
 

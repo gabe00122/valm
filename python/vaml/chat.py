@@ -1,5 +1,5 @@
 import time
-from typing import Any, Literal, NamedTuple
+from typing import Any, Literal, NamedTuple, Protocol, Sequence, cast
 
 import jax
 import numpy as np
@@ -51,6 +51,13 @@ class GenerationState(NamedTuple):
     tokens_processed: jax.Array
 
 
+class ResponseData(Protocol):
+    context: Any
+    context_length: Any
+    turn_start_positions: Any
+    turn_finished: Any
+
+
 def encode_input(
     tokenizer: PreTrainedTokenizerFast,
     conversations: list[list[dict]],
@@ -62,12 +69,12 @@ def encode_input(
         return_tensors="np",
     )
 
-    return output["input_ids"]
+    return cast(np.ndarray, cast(Any, output)["input_ids"])
 
 
 def decode_responses(
     tokenizer: PreTrainedTokenizerFast,
-    gen: GenerationState,
+    gen: ResponseData,
 ) -> tuple[np.ndarray, list[str]]:
     (indices,) = np.where(gen.turn_finished)
     indices = indices.astype(np.int32)
@@ -76,12 +83,15 @@ def decode_responses(
     turn_start_positions = np.asarray(gen.turn_start_positions)
     context_length = np.asarray(gen.context_length)
 
-    output = [
-        tokenizer.decode(
-            context[b, turn_start_positions[b] : context_length[b] - 1]
-        )
-        for b in indices
-    ]
+    output = cast(
+        list[str],
+        [
+            tokenizer.decode(
+                context[b, turn_start_positions[b] : context_length[b] - 1]
+            )
+            for b in indices
+        ],
+    )
 
     return indices, output
 
@@ -137,7 +147,7 @@ def reset_generation_state(state: GenerationState) -> GenerationState:
 
 # state should be NpGenData
 def append_prompt_tokens(
-    state, batch_indices: np.ndarray, prompts: list[np.ndarray]
+    state, batch_indices: np.ndarray, prompts: np.ndarray | Sequence[np.ndarray]
 ):
     for i, prompt in zip(batch_indices, prompts):
         start = state.context_length[i].item()
@@ -151,6 +161,8 @@ def append_prompt_tokens(
 
         state.turn_start_positions[i] = safe_end
         state.context_length[i] = safe_end
+
+    return state
 
 
 # state should be NpGenData
@@ -217,7 +229,7 @@ def generate(
         rng_key, sample_key = jax.random.split(rng_key)
         dist = Categorical(logits=logits)
         sample_tokens: jax.Array = dist.sample(seed=sample_key)
-        log_prob: jax.Array = dist.log_prob(sample_tokens)
+        log_prob = cast(jax.Array, dist.log_prob(sample_tokens))
 
         # store everything
         over_start_position = (

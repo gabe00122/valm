@@ -56,7 +56,7 @@ def _run_eval_loop(
     rewards = np.zeros((num_envs,), dtype=np.float32)
     dones = np.zeros((num_envs,), dtype=np.bool_)
 
-    obs = env.reset(env_indices)
+    obs, metrics = env.reset(env_indices)
 
     episode_rewards: list[float] = []
     current_episode_rewards = np.zeros((num_envs,), dtype=np.float32)
@@ -71,8 +71,10 @@ def _run_eval_loop(
         task = progress.add_task("Evaluating...", total=num_episodes)
 
         while len(episode_rewards) < num_episodes:
-            env_indices, actions = agent.act(env_indices, obs, rewards, dones)
-            obs, rewards, dones, _ = env.step(env_indices, actions)
+            env_indices, actions = agent.act(
+                env_indices, obs, rewards, dones, metrics
+            )
+            obs, rewards, dones, metrics = env.step(env_indices, actions)
 
             # Accumulate rewards for current episodes
             current_episode_rewards[env_indices] += rewards
@@ -219,12 +221,17 @@ def eval_checkpoint(
         experiment.environments_seed,
         config.env,
     )
+    env_indices = np.arange(num_envs, dtype=np.int32)
+    _, metrics = env.reset(env_indices)
+    metric_names = list(metrics.keys())
 
     # Create agent
     agent = LocalAgent(
         model,
         tokenizer,
         config,
+        env.max_turns,
+        metric_names,
         rngs.agent(),
     )
     agent.set_episode_instructions(env.instructions())
