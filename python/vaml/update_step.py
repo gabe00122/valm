@@ -1,3 +1,4 @@
+from typing import cast, Any
 import distrax
 import jax
 from flax import nnx
@@ -5,6 +6,15 @@ from jax import numpy as jnp
 from vaml.buffer import UpdateBatch
 from vaml.config import LossConfig
 from vaml.model.qwen3 import Qwen3
+
+
+def summery_stats(values: jax.Array, where: jax.Array | None = None) -> dict[str, jax.Array]:
+    return {
+        "mean": jnp.mean(values, where=where),
+        "std": jnp.std(values, where=where),
+        "min": jnp.min(values, where=where),
+        "max": jnp.max(values, where=where),
+    }
 
 
 def calculate_advantages(
@@ -32,6 +42,17 @@ def calculate_advantages(
     return jax.lax.stop_gradient(advantages), jax.lax.stop_gradient(targets)
 
 
+def explained_variance(values: jax.Array, targets: jax.Array, bounds_mask: jax.Array) -> jax.Array:
+    value_pred = values[:, :-1]
+    value_mask = bounds_mask[:, :-1]
+
+    target_var = jnp.var(targets, where=value_mask)
+    return jnp.where(
+        target_var > 0,
+        1.0 - jnp.var(targets - value_pred, where=value_mask) / target_var,
+        0.0,
+    )
+
 def loss_fn(
     model: Qwen3,
     rollout: UpdateBatch,
@@ -40,16 +61,18 @@ def loss_fn(
     bounds_mask: jax.Array,
     value_only: bool,
     rng_key: jax.Array,
-) -> tuple[jax.Array, tuple[dict[str, jax.Array], jax.Array]]:
+) -> tuple[jax.Array, tuple[dict[str, Any], jax.Array]]:
     batch_len, seq_len = rollout.context.shape
 
-    policy_mask = rollout.policy_mask
+    policy_mask = jnp.asarray(rollout.policy_mask)[:, :-1]
 
     positions = jnp.repeat(jnp.arange(seq_len, dtype=jnp.int32)[None, :], batch_len, 0)
 
     logits, value_repr, _, rng_key = model(
         jnp.asarray(rollout.context), positions, rng_key=rng_key
     )
+    assert value_repr is not None
+
     values = value_repr.value()
     policy = distrax.Categorical(logits=logits[:, :-1])
 
@@ -62,33 +85,45 @@ def loss_fn(
         jnp.asarray(rollout.rewards), values, td_discount, td_lambda
     )
 
-    value_loss = value_repr[:, :-1].loss(targets).mean(where=bounds_mask[:, :-1])
-    entropy = policy.entropy().mean(where=policy_mask[:, :-1])
-    entropy_loss = 0.0001 * -entropy
+    value_loss = value_repr[:, :-1].loss(targets)
 
-    loss = value_loss
+    entropy = cast(jax.Array, policy.entropy())
+
+    loss = 0.0
+    if config.entropy_coef is not None:
+        loss = loss + config.entropy_coef * -entropy.mean(where=policy_mask)
+
+    # clip fraction
+    # explained variance
+    # gradient norm
+
+    loss = loss + value_loss.mean(where=bounds_mask[:, :-1])
     metrics = {
-        "value_loss": value_loss,
-        "value": values.mean(where=bounds_mask),
-        "entropy": policy.entropy().mean(where=policy_mask[:, :-1]),
-        "approx_kl": (pg_ratio - 1 - log_ratio).mean(where=policy_mask[:, :-1]),
-        "td_lambda": td_lambda.mean(where=policy_mask[:, :-1]),
-        "rewards": rollout.rewards.sum() / rollout.rewards.shape[0],
+        "value_loss": summery_stats(value_loss, where=bounds_mask[:, :-1]),
+        "value": summery_stats(values, where=bounds_mask),
+        "entropy": jnp.mean(entropy, where=policy_mask),
+        "approx_kl": (pg_ratio - 1 - log_ratio).mean(where=policy_mask),
+        "td_lambda": td_lambda.mean(where=policy_mask),
+        "advantage": summery_stats(advantages, where=policy_mask),
+        "rewards": summery_stats(rollout.rewards.sum() / rollout.rewards.shape[0]),
+        "explained_variance": explained_variance(values, targets, bounds_mask),
     }
 
     if not value_only:
-        # log_prob = policy.log_prob(rollout.context[:, 1:])
-        # actor_loss: jax.Array = -(log_prob * advantages).mean(where=policy_mask[:, :-1])
-        pg_ratio = jnp.exp(log_prob - rollout.log_probs)
         pg_loss1 = pg_ratio * advantages
         pg_loss2 = (
             jnp.clip(pg_ratio, 1.0 - config.pg_clip_low, 1.0 + config.pg_clip_high)
             * advantages
         )
-        actor_loss = -jnp.minimum(pg_loss1, pg_loss2).mean(where=policy_mask[:, :-1])
+        actor_loss = -jnp.minimum(pg_loss1, pg_loss2)
 
-        metrics = {**metrics, "actor_loss": actor_loss}
-        loss = loss + actor_loss + entropy_loss
+        clip_fraction = jnp.mean(
+            (pg_ratio < 1.0 - config.pg_clip_low) | (pg_ratio > 1.0 + config.pg_clip_high),
+            where=policy_mask
+        )
+
+        metrics = {**metrics, "actor_loss": summery_stats(actor_loss, where=policy_mask), "clip_fraction": clip_fraction}
+        loss = loss + actor_loss.mean(where=policy_mask)
     else:
         _, true_targets = calculate_advantages(
             jnp.asarray(rollout.rewards), values, td_discount, jnp.ones_like(td_lambda)
@@ -135,8 +170,8 @@ def update_step(
     bounds_mask = seq_range[None, :] < rollout.context_length[:, None]
     policy_mask = jnp.logical_and(rollout.policy_mask, bounds_mask)
 
+    # rollout values are not used at the moment
     values = jnp.where(bounds_mask, rollout.values, 0.0)
-
     rollout = rollout._replace(policy_mask=policy_mask, values=values)
 
     turn_boundries = ~rollout.policy_mask[:, :-1] & rollout.policy_mask[:, 1:]

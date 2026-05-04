@@ -120,6 +120,7 @@ class LossConfig(BaseModel):
     turn_discount: float
     pg_clip_high: float
     pg_clip_low: float
+    entropy_coef: float | None = None
 
 
 class Config(BaseModel):
