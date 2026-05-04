@@ -42,6 +42,11 @@ test = [
 [project.scripts]
 vaml = "vaml.cli:app"
 
+[project.optional-dependencies]
+server = [
+    "fastapi[standard]>=0.136.1",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["python"]

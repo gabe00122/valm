@@ -10,7 +10,7 @@ from flax import nnx
 from jax import numpy as jnp
 from rich.console import Console
 from rich.markdown import Markdown
-from transformers import BatchEncoding, PreTrainedTokenizerFast
+from transformers import PreTrainedTokenizerFast
 from vaml.config import SamplingConfig
 from vaml.model import Qwen3
 from vaml.util import batched_put_where, batched_take
@@ -329,9 +329,9 @@ def chat(
     while True:
         prompt = console.input("Prompt: ")
 
-        if prompt == "/clear":
-            gen = reset_generation_state(gen)
-            continue
+        # if prompt == "/clear":
+        #     gen = reset_generation_state(gen)
+        #     continue
 
         text = [[{"role": "user", "content": prompt}] for _ in range(batch_size)]
         prompt_tokens = encode_input(tokenizer, text)
