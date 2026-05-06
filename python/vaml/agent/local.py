@@ -159,7 +159,7 @@ class LocalAgent(Agent):
 
         if dones.any():
             if self.episode_listener is not None:
-                turn_counts, turn_start_positions, metrics = self._turn_data.take(
+                turn_counts, turn_start_positions, turn_metrics = self._turn_data.take(
                     done_idx
                 )
                 self.episode_listener.on_episodes(
@@ -172,7 +172,7 @@ class LocalAgent(Agent):
                         policy_mask=self._np_gen.policy_mask[done_idx],
                         turn_counts=turn_counts,
                         turn_start_positions=turn_start_positions,
-                        metrics=metrics,
+                        turn_metrics=turn_metrics,
                     )
                 )
 

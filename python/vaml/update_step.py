@@ -98,6 +98,8 @@ def loss_fn(
     # gradient norm
 
     loss = loss + value_loss.mean(where=bounds_mask[:, :-1])
+
+    # high level metrics are all well and good but we should return token aligned values like advantage and clip for the vizualizer
     metrics = {
         "value_loss": summery_stats(value_loss, where=bounds_mask[:, :-1]),
         "value": summery_stats(values, where=bounds_mask),

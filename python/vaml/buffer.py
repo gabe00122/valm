@@ -17,7 +17,7 @@ class UpdateBatch(NamedTuple):
 
     turn_counts: ArrayData
     turn_start_positions: ArrayData
-    metrics: Mapping[str, ArrayData]
+    turn_metrics: Mapping[str, ArrayData]
 
     def save_npz(
         self,
@@ -29,9 +29,9 @@ class UpdateBatch(NamedTuple):
 
         payload = self._asdict()
 
-        del payload["metrics"]
-        for name, value in self.metrics.items():
-            payload[f"metrics_{name}"] = value
+        del payload["turn_metrics"]
+        for name, value in self.turn_metrics.items():
+            payload[f"turn_metrics_{name}"] = value
 
         if compressed:
             np.savez_compressed(file, **payload)
@@ -45,21 +45,16 @@ class UpdateBatch(NamedTuple):
     ) -> "UpdateBatch":
         """Load the batch from an .npz file."""
         with np.load(file, allow_pickle=False) as data:
-            missing = [k for k in cls._fields if k not in data.files]
-            if missing:
-                raise KeyError(f"Missing keys in {file}: {missing}")
+            fields = {}
+            turn_metrics = {}
 
-        data = {}
-        metrics = {}
+            for key, value in data.items():
+                if key.startswith("turn_metrics_"):
+                    turn_metrics[key] = value
+                else:
+                    fields[key] = value
 
-        for key in cls._fields:
-            value = data[key]
-            if key.startswith("metrics_"):
-                metrics[key] = value
-            else:
-                data[key] = value
-
-        return cls(metrics=metrics, **data)
+            return cls(turn_metrics=turn_metrics, **fields)
 
 
 class CircularBuffer:
@@ -122,7 +117,7 @@ class UpdateBuffer:
         batch_size: int,
         seq_length: int,
         max_turns: int,
-        metric_names: list[str],
+        turn_metrics_names: list[str],
     ) -> None:
         self._batch_size = batch_size
 
@@ -135,9 +130,9 @@ class UpdateBuffer:
 
         self._turn_counts = CircularBuffer(buffer_size, (), np.int32)
         self._turn_start_positions = CircularBuffer(buffer_size, (max_turns,), np.int32)
-        self._metrics = {
+        self._turn_metrics = {
             name: CircularBuffer(buffer_size, (max_turns,), np.float32)
-            for name in metric_names
+            for name in turn_metrics_names
         }
 
     @property
@@ -158,8 +153,8 @@ class UpdateBuffer:
 
         self._turn_counts.push(batch.turn_counts)
         self._turn_start_positions.push(batch.turn_start_positions)
-        for name, buffer in self._metrics.items():
-            buffer.push(batch.metrics[name])
+        for name, buffer in self._turn_metrics.items():
+            buffer.push(batch.turn_metrics[name])
 
     def take_batch(self) -> UpdateBatch:
         return UpdateBatch(
@@ -173,8 +168,8 @@ class UpdateBuffer:
             turn_start_positions=self._turn_start_positions.pop_oldest(
                 self._batch_size
             ),
-            metrics={
+            turn_metrics={
                 name: buffer.pop_oldest(self._batch_size)
-                for name, buffer in self._metrics.items()
+                for name, buffer in self._turn_metrics.items()
             },
         )
