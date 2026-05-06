@@ -38,7 +38,7 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
-    model.initialize_value_net(config.value_net, rngs=rngs)
+    # model.initialize_value_net(config.value_net, rngs=rngs)
 
     eval_batch_size = config.eval_envs
     env = make_env(

@@ -30,7 +30,7 @@ class UpdateBatch(NamedTuple):
         payload = self._asdict()
 
         del payload["metrics"]
-        for name, value in self.metrics.values():
+        for name, value in self.metrics.items():
             payload[f"metrics_{name}"] = value
 
         if compressed:
@@ -133,7 +133,7 @@ class UpdateBuffer:
         self._rewards = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._policy_mask = CircularBuffer(buffer_size, (seq_length,), np.bool_)
 
-        self._turn_counts = CircularBuffer(buffer_size, (max_turns,), np.int32)
+        self._turn_counts = CircularBuffer(buffer_size, (), np.int32)
         self._turn_start_positions = CircularBuffer(buffer_size, (max_turns,), np.int32)
         self._metrics = {
             name: CircularBuffer(buffer_size, (max_turns,), np.float32)

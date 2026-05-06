@@ -1,4 +1,5 @@
 import argparse
+import gc
 import json
 import time
 from contextlib import nullcontext
@@ -9,7 +10,6 @@ from typing import Any, Literal, Sequence
 import jax
 import numpy as np
 from flax import nnx
-from jax import numpy as jnp
 from rich.console import Console
 from rich.table import Table
 from transformers import PreTrainedTokenizerFast
@@ -361,23 +361,6 @@ def _new_generation_state(
     return gen, convert_to_np(gen)
 
 
-def _reset_generation_state(gen: Any, rng_key: jax.Array):
-    gen = gen._replace(
-        kv_cache_length=jnp.zeros_like(gen.kv_cache_length),
-        context_length=jnp.zeros_like(gen.context_length),
-        turn_start_positions=jnp.zeros_like(gen.turn_start_positions),
-        policy_mask=jnp.zeros_like(gen.policy_mask),
-        context=jnp.zeros_like(gen.context),
-        turn_finished=jnp.zeros_like(gen.turn_finished),
-        log_probs=jnp.zeros_like(gen.log_probs),
-        values=jnp.zeros_like(gen.values),
-        rng_key=rng_key,
-        tokens_processed=jnp.zeros_like(gen.tokens_processed),
-    )
-    _block_until_ready(gen)
-    return gen, convert_to_np(gen)
-
-
 def _run_turn(
     *,
     tokenizer: PreTrainedTokenizerFast,
@@ -504,24 +487,22 @@ def run_benchmark(
         snapshots=_device_memory_snapshots("after_model_split"),
     )
     batch_indices = np.arange(batch_size, dtype=np.int32)
-    gen = None
-    np_gen = None
     profile_enabled = profile_dir is not None
 
     warmup_totals = BenchmarkTotals()
     if warmup_turns > 0:
-        gen, np_gen = _new_generation_state(
+        warmup_gen, warmup_np_gen = _new_generation_state(
             model, batch_size, seq_length, jax.random.PRNGKey(seed)
         )
         start = time.perf_counter()
         for turn in range(warmup_turns):
             prompt_kind = _prompt_kind(turn, prompt_set)
-            gen, np_gen, metrics = _run_turn(
+            warmup_gen, warmup_np_gen, metrics = _run_turn(
                 tokenizer=tokenizer,
                 model_def=model_def,
                 model_state=model_state,
-                gen=gen,
-                np_gen=np_gen,
+                gen=warmup_gen,
+                np_gen=warmup_np_gen,
                 batch_indices=batch_indices,
                 batch_size=batch_size,
                 wait_for=wait_for,
@@ -531,19 +512,19 @@ def run_benchmark(
                 profile_enabled=False,
             )
             warmup_totals.jit_s += metrics.jit_s
-            if np.all(np_gen.context_length >= seq_length):
+            if np.all(warmup_np_gen.context_length >= seq_length):
                 break
         warmup_totals.wall_s = time.perf_counter() - start
         memory.snapshots.extend(_device_memory_snapshots("after_warmup"))
+        del warmup_gen, warmup_np_gen
+        gc.collect()
 
-    if gen is None:
-        gen, np_gen = _new_generation_state(
-            model, batch_size, seq_length, jax.random.PRNGKey(seed + 1)
-        )
-        memory.snapshots.extend(_device_memory_snapshots("after_state_init"))
-    else:
-        gen, np_gen = _reset_generation_state(gen, jax.random.PRNGKey(seed + 1))
-        memory.snapshots.extend(_device_memory_snapshots("after_state_reset"))
+    # Do not reuse/reset the warmup state: the model-returned KV cache can have
+    # a different JIT cache signature than a fresh initialize_carry() cache.
+    gen, np_gen = _new_generation_state(
+        model, batch_size, seq_length, jax.random.PRNGKey(seed + 1)
+    )
+    memory.snapshots.extend(_device_memory_snapshots("after_state_init"))
 
     memory.array_bytes = ArrayMemoryBreakdown(
         model_state_bytes=_tree_nbytes(model_state),

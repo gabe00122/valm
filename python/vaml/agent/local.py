@@ -37,6 +37,8 @@ class TurnData:
         self._turn_start_positions = turn_start_positions
         self._metrics = metrics
 
+        self._first_update = True
+
     @classmethod
     def create(cls, eval_envs: int, max_turns: int, metric_names: list[str]) -> Self:
         turn_counts = np.zeros((eval_envs,), dtype=np.int32)
@@ -53,6 +55,10 @@ class TurnData:
         turn_start_positions: np.ndarray,
         updates: dict[str, np.ndarray],
     ) -> None:
+        if self._first_update:
+            self._first_update = False
+            return
+
         turns = self._turn_counts[batch_idx]
         self._turn_start_positions[batch_idx, turns] = turn_start_positions
 
@@ -145,7 +151,7 @@ class LocalAgent(Agent):
         self._rewards[batch_indices, lengths[batch_indices]] = rewards
         self._turn_data.update(
             batch_indices,
-            self._np_gen.context_length,
+            self._np_gen.context_length[batch_indices],
             metrics,
         )
 

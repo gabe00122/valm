@@ -109,9 +109,13 @@ class Trainer(EpisodeListener):
             False,
         )
 
+        seq_length = batch.rewards.shape[1]
+
         # summerize environment metrics
         env_metrics = {name: np.sum(values) for name, values in batch.metrics.items()}
         metrics["env"] = env_metrics
+        metrics["turns"] = np.mean(batch.turn_counts)
+        metrics["truncated"] = np.mean(batch.context_length >= seq_length)
 
         self._model_provider.model_state = new_model_state
 
