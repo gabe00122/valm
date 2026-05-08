@@ -9,13 +9,10 @@ class BufferedEpisodeListener(EpisodeListener):
         batch_size: int,
         seq_length: int,
         max_turns: int,
-        metric_names: list[str],
         listener: EpisodeListener,
     ):
         self._listener = listener
-        self._buffer = UpdateBuffer(
-            buffer_size, batch_size, seq_length, max_turns, metric_names
-        )
+        self._buffer = UpdateBuffer(buffer_size, batch_size, seq_length, max_turns)
 
     @property
     def size(self) -> int:

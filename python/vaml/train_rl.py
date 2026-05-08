@@ -44,7 +44,6 @@ def train_cli(
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)
     obs, metrics = env.reset(env_indices)
-    metric_names = list(metrics.keys())
 
     assert config.policy_optimizer is not None
     policy_opt = make_optimizer(
@@ -62,7 +61,6 @@ def train_cli(
         tokenizer,
         config,
         env.max_turns,
-        metric_names,
         rngs.agent(),
     )
 
@@ -89,7 +87,6 @@ def train_cli(
         rollout_log_size,
         config.max_seq_length,
         env.max_turns,
-        metric_names,
         EpisodeSaver(experiment.rollout_dir),
     )
 
@@ -98,7 +95,6 @@ def train_cli(
         config.update_envs,
         config.max_seq_length,
         env.max_turns,
-        metric_names,
         trainer,
     )
 

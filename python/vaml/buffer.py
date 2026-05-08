@@ -7,6 +7,9 @@ import numpy as np
 type ArrayData = np.ndarray | jax.Array
 
 
+# NOTE: I'm debating making this and the buffer more like dictionaries with losser typeing,
+# I'm also thinking the buffer is probably better off lazy initalizing based on what fields exist on the update batch passed in.
+# Passing in the env metric names is cumbersome
 class UpdateBatch(NamedTuple):
     context_length: ArrayData
     context: ArrayData
@@ -117,8 +120,8 @@ class UpdateBuffer:
         batch_size: int,
         seq_length: int,
         max_turns: int,
-        turn_metrics_names: list[str],
     ) -> None:
+        self._buffer_size = buffer_size
         self._batch_size = batch_size
 
         self._context_length = CircularBuffer(buffer_size, (), np.int32)
@@ -130,10 +133,7 @@ class UpdateBuffer:
 
         self._turn_counts = CircularBuffer(buffer_size, (), np.int32)
         self._turn_start_positions = CircularBuffer(buffer_size, (max_turns,), np.int32)
-        self._turn_metrics = {
-            name: CircularBuffer(buffer_size, (max_turns,), np.float32)
-            for name in turn_metrics_names
-        }
+        self._turn_metrics = {}
 
     @property
     def size(self) -> int:
@@ -153,8 +153,14 @@ class UpdateBuffer:
 
         self._turn_counts.push(batch.turn_counts)
         self._turn_start_positions.push(batch.turn_start_positions)
-        for name, buffer in self._turn_metrics.items():
-            buffer.push(batch.turn_metrics[name])
+
+        for name, value in batch.turn_metrics.items():
+            if name not in self._turn_metrics:
+                self._turn_metrics[name] = CircularBuffer(
+                    self._buffer_size, value.shape[1:], value.dtype
+                )
+
+            self._turn_metrics[name].push(value)
 
     def take_batch(self) -> UpdateBatch:
         return UpdateBatch(

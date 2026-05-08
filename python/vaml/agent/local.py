@@ -1,4 +1,4 @@
-from typing import Protocol, Self, override
+from typing import Self, override
 
 import jax
 import numpy as np
@@ -21,33 +21,27 @@ from vaml.episode_listener.base import EpisodeListener
 from vaml.model.qwen3 import Qwen3
 
 
-class EnvSpec(Protocol):
-    max_turns: int
-    metric_names: list[str]
-
-
 class TurnData:
     def __init__(
         self,
+        eval_envs: int,
+        max_turns: int,
         turn_counts: np.ndarray,
         turn_start_positions: np.ndarray,
-        metrics: dict[str, np.ndarray],
     ):
+        self._eval_envs = eval_envs
+        self._max_turns = max_turns
         self._turn_counts = turn_counts
         self._turn_start_positions = turn_start_positions
-        self._metrics = metrics
+        self._metrics: dict[str, np.ndarray] = {}
 
         self._first_update = True
 
     @classmethod
-    def create(cls, eval_envs: int, max_turns: int, metric_names: list[str]) -> Self:
+    def create(cls, eval_envs: int, max_turns: int) -> Self:
         turn_counts = np.zeros((eval_envs,), dtype=np.int32)
         turn_start_positions = np.zeros((eval_envs, max_turns), dtype=np.int32)
-        metrics = {
-            name: np.zeros((eval_envs, max_turns), dtype=np.float32)
-            for name in metric_names
-        }
-        return cls(turn_counts, turn_start_positions, metrics)
+        return cls(eval_envs, max_turns, turn_counts, turn_start_positions)
 
     def update(
         self,
@@ -63,6 +57,13 @@ class TurnData:
         self._turn_start_positions[batch_idx, turns] = turn_start_positions
 
         for name, values in updates.items():
+            values = np.asarray(values)
+            if name not in self._metrics:
+                self._metrics[name] = np.zeros(
+                    (self._eval_envs, self._max_turns, *values.shape[1:]),
+                    dtype=values.dtype,
+                )
+
             self._metrics[name][batch_idx, turns] = values
 
         self._turn_counts[batch_idx] += 1
@@ -86,11 +87,10 @@ class LocalAgent(Agent):
         tokenizer: PreTrainedTokenizerFast,
         config: Config,
         max_turns: int,
-        metric_names: list[str],
         rng_key: jax.Array,
     ):
         self.episode_listener: EpisodeListener | None = None
-        self._turn_data = TurnData.create(config.eval_envs, max_turns, metric_names)
+        self._turn_data = TurnData.create(config.eval_envs, max_turns)
 
         self.model_def, self.model_state = nnx.split(model)
         self._tokenizer = tokenizer

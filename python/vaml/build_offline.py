@@ -50,14 +50,12 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)
     obs, metrics = env.reset(env_indices)
-    metric_names = list(metrics.keys())
 
     agent = LocalAgent(
         model,
         tokenizer,
         config,
         env.max_turns,
-        metric_names,
         rngs.agent(),
     )
 
@@ -70,7 +68,6 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
         file_size,
         config.max_seq_length,
         env.max_turns,
-        metric_names,
         saver,
     )
     agent.episode_listener = buffered_listener

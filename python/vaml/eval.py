@@ -217,17 +217,12 @@ def eval_checkpoint(
         experiment.environments_seed,
         config.env,
     )
-    env_indices = np.arange(num_envs, dtype=np.int32)
-    _, metrics = env.reset(env_indices)
-    metric_names = list(metrics.keys())
-
     # Create agent
     agent = LocalAgent(
         model,
         tokenizer,
         config,
         env.max_turns,
-        metric_names,
         rngs.agent(),
     )
     agent.set_episode_instructions(env.instructions())

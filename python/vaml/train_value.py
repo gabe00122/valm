@@ -59,13 +59,11 @@ def train_value_cli(config_url: str, offline_data_url: str):
     buffer_size = config.update_envs + num_episodes_per_file
 
     max_turns = first_batch.turn_start_positions.shape[1]
-    turn_metrics_names = list(first_batch.turn_metrics.keys())
     buffer = UpdateBuffer(
         buffer_size,
         config.update_envs,
         config.max_seq_length,
         max_turns,
-        turn_metrics_names,
     )
     buffer.store(first_batch)
 
