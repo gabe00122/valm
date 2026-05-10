@@ -87,6 +87,7 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
     step = 0
     input_file_idx = 1
     output_file_idx = 0
+    logger.start()
     while input_file_idx < len(data_files) or input_buffer.has_batch:
         # Load more data if buffer doesn't have a batch and there are more files
         if not input_buffer.has_batch and input_file_idx < len(data_files):
@@ -127,6 +128,7 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
             output_buffer.take_batch().save_npz(f"{output_data_url}/episodes_{output_file_idx}")
             output_file_idx += 1
 
+    logger.close()
     with Checkpointer(experiment.checkpoints_url) as checkpointer:
         opt = nnx.merge(value_opt_def, value_opt_state)
         model = nnx.merge(model_def, model_state)
@@ -135,5 +137,3 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
             step,
             nnx.filterlib.Any(nnx.OptState, ValueParam),
         )
-
-    logger.close()
