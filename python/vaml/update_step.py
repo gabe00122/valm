@@ -61,7 +61,7 @@ def loss_fn(
     bounds_mask: jax.Array,
     value_only: bool,
     rng_key: jax.Array,
-) -> tuple[jax.Array, tuple[dict[str, Any], jax.Array]]:
+) -> tuple[jax.Array, tuple[dict[str, Any], dict[str, Any], jax.Array]]:
     batch_len, seq_len = rollout.context.shape
 
     policy_mask = jnp.asarray(rollout.policy_mask)[:, :-1]
@@ -100,7 +100,7 @@ def loss_fn(
     loss = loss + value_loss.mean(where=bounds_mask[:, :-1])
 
     # high level metrics are all well and good but we should return token aligned values like advantage and clip for the vizualizer
-    metrics = {
+    summery_metrics = {
         "value_loss": summery_stats(value_loss, where=bounds_mask[:, :-1]),
         "value": summery_stats(values, where=bounds_mask),
         "entropy": jnp.mean(entropy, where=policy_mask),
@@ -109,6 +109,13 @@ def loss_fn(
         "advantage": summery_stats(advantages, where=policy_mask),
         "rewards": summery_stats(rollout.rewards.sum() / rollout.rewards.shape[0]),
         "explained_variance": explained_variance(values, targets, bounds_mask),
+        "episode_length": rollout.context_length.mean(),
+    }
+
+    token_metrics = {
+        "value_loss": value_loss,
+        "value": values,
+        "advantage": advantages
     }
 
     if not value_only:
@@ -119,23 +126,22 @@ def loss_fn(
         )
         actor_loss = -jnp.minimum(pg_loss1, pg_loss2)
 
-        clip_fraction = jnp.mean(
-            (pg_ratio < 1.0 - config.pg_clip_low) | (pg_ratio > 1.0 + config.pg_clip_high),
-            where=policy_mask
-        )
+        clipped_tokens = (pg_ratio < 1.0 - config.pg_clip_low) | (pg_ratio > 1.0 + config.pg_clip_high)
+        clip_fraction = jnp.mean(clipped_tokens, where=policy_mask)
 
-        metrics = {**metrics, "actor_loss": summery_stats(actor_loss, where=policy_mask), "clip_fraction": clip_fraction}
+        summery_metrics = {
+            **summery_metrics,
+            "actor_loss": summery_stats(actor_loss, where=policy_mask),
+            "clip_fraction": clip_fraction
+        }
+        token_metrics = {
+            **token_metrics,
+            "clipped_tokens": clipped_tokens,
+            "actor_loss": actor_loss
+        }
         loss = loss + actor_loss.mean(where=policy_mask)
-    else:
-        _, true_targets = calculate_advantages(
-            jnp.asarray(rollout.rewards), values, td_discount, jnp.ones_like(td_lambda)
-        )
-        value_error = jnp.mean(
-            jnp.abs(values[:, :-1] - true_targets), where=bounds_mask[:, :-1]
-        )
-        metrics = {**metrics, "value_error": value_error}
 
-    return loss, (metrics, rng_key)
+    return loss, (summery_metrics, token_metrics, rng_key)
 
 
 @jax.jit(
@@ -170,26 +176,17 @@ def update_step(
 
     seq_range = jnp.arange(seq_len, dtype=jnp.int32)
     bounds_mask = seq_range[None, :] < rollout.context_length[:, None]
-    # policy_mask = jnp.logical_and(rollout.policy_mask, bounds_mask)
 
-    # rollout values are not used at the moment
-    # values = jnp.where(bounds_mask, rollout.values, 0.0)
-    # rollout = rollout._replace(policy_mask=policy_mask, values=values)
-
+    # we have turn indecies now so this could be a scatter
     turn_boundries = ~rollout.policy_mask[:, :-1] & rollout.policy_mask[:, 1:]
     td_discount = jnp.where(turn_boundries, config.turn_discount, config.gae_discount)
-    # gae_lambda = jnp.where(turn_boundries, config.turn_lambda, config.gae_lambda)
-
-    # advantages, targets = calculate_advantages(
-    #     jnp.asarray(rollout.rewards), values, td_discount, gae_lambda
-    # )
 
     wrt = value_opt.wrt
     if not value_only:
         wrt = nnx.Any(policy_opt.wrt, wrt)
 
     diff = nnx.DiffState(0, wrt)
-    grad, (metrics, rng_key) = nnx.grad(loss_fn, argnums=diff, has_aux=True)(
+    grad, (summery_metrics, token_metrics, rng_key) = nnx.grad(loss_fn, argnums=diff, has_aux=True)(
         model, rollout, td_discount, config, bounds_mask, value_only, rng_key
     )
 
@@ -197,8 +194,5 @@ def update_step(
         policy_opt.update(model, grad)
     value_opt.update(model, grad)
 
-    # metrics["value"] = values.mean(where=bounds_mask)
-    metrics["episode_length"] = rollout.context_length.mean()
-
     policy_opt_state = None if value_only else nnx.state(policy_opt)
-    return policy_opt_state, nnx.state(value_opt), nnx.state(model), metrics, rng_key
+    return policy_opt_state, nnx.state(value_opt), nnx.state(model), summery_metrics, token_metrics, rng_key

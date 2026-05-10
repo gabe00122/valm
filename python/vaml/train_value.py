@@ -32,16 +32,17 @@ def print_value_param_count(model):
     print(f"Value Parameters: {param_count}")
 
 
-def train_value_cli(config_url: str, offline_data_url: str):
+def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str):
     experiment = Experiment.from_config_file(config_url)
+    Path(output_data_url).mkdir(parents=True, exist_ok=True)
 
     config = experiment.config
     console = Console()
     logger = create_logger(experiment, console)
 
     rngs = nnx.Rngs(experiment.params_seed)
-    model, tokenizer, sampling = load_base_model(config.base_model, rngs)
-    model.initialize_value_net(config.value_net, rngs=rngs)
+    model, _, _ = load_base_model(config.base_model, rngs)
+    # model.initialize_value_net(config.value_net, rngs=rngs)
     print_value_param_count(model)
 
     data_dir = Path(offline_data_url)
@@ -59,13 +60,19 @@ def train_value_cli(config_url: str, offline_data_url: str):
     buffer_size = config.update_envs + num_episodes_per_file
 
     max_turns = first_batch.turn_start_positions.shape[1]
-    buffer = UpdateBuffer(
+    input_buffer = UpdateBuffer(
         buffer_size,
         config.update_envs,
         config.max_seq_length,
         max_turns,
     )
-    buffer.store(first_batch)
+    output_buffer = UpdateBuffer(
+        buffer_size,
+        config.update_envs,
+        config.max_seq_length,
+        max_turns,
+    )
+    input_buffer.store(first_batch)
 
     total_updates = (len(data_files) * num_episodes_per_file) // config.update_envs
     value_opt = make_optimizer(model, config.value_optimizer, total_updates, ValueParam)
@@ -78,22 +85,23 @@ def train_value_cli(config_url: str, offline_data_url: str):
     rng_key = rngs()
 
     step = 0
-    file_idx = 1
-    while file_idx < len(data_files) or buffer.has_batch:
+    input_file_idx = 1
+    output_file_idx = 0
+    while input_file_idx < len(data_files) or input_buffer.has_batch:
         # Load more data if buffer doesn't have a batch and there are more files
-        if not buffer.has_batch and file_idx < len(data_files):
-            batch_data = UpdateBatch.load_npz(data_files[file_idx])
-            buffer.store(batch_data)
-            file_idx += 1
+        if not input_buffer.has_batch and input_file_idx < len(data_files):
+            batch_data = UpdateBatch.load_npz(data_files[input_file_idx])
+            input_buffer.store(batch_data)
+            input_file_idx += 1
             # Check again if we have enough after loading
-            if not buffer.has_batch:
+            if not input_buffer.has_batch:
                 continue
 
-        if not buffer.has_batch:
+        if not input_buffer.has_batch:
             break
 
-        batch = buffer.take_batch()
-        _, value_opt_state, model_state, metrics, rng_key = update_step(
+        batch = input_buffer.take_batch()
+        _, value_opt_state, model_state, summery_metrics, token_metrics, rng_key = update_step(
             None,
             None,
             value_opt_def,
@@ -108,11 +116,16 @@ def train_value_cli(config_url: str, offline_data_url: str):
         values, rng_key = calculate_values(model_def, model_state, rng_key, ref_context)
         output_values[step] = np.array(values)
 
-        metrics["reward"] = batch.rewards.sum(axis=1).mean()
-        logger.log_dict(metrics, step)
+        summery_metrics["reward"] = batch.rewards.sum(axis=1).mean()
+        logger.log_dict(summery_metrics, step)
         step += 1
 
-    np.save("./values", output_values)
+        output_batch = batch._replace(update_metrics=token_metrics)
+        output_buffer.store(output_batch)
+
+        if output_buffer.has_batch:
+            output_buffer.take_batch().save_npz(f"{output_data_url}/episodes_{output_file_idx}")
+            output_file_idx += 1
 
     with Checkpointer(experiment.checkpoints_url) as checkpointer:
         opt = nnx.merge(value_opt_def, value_opt_state)
