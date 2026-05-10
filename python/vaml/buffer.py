@@ -1,10 +1,9 @@
 from collections.abc import Mapping
 from typing import NamedTuple
 
-import jax
 import numpy as np
 
-type ArrayData = np.ndarray | jax.Array
+type ArrayData = np.ndarray
 
 
 # NOTE: I'm debating making this and the buffer more like dictionaries with losser typeing,
@@ -18,9 +17,13 @@ class UpdateBatch(NamedTuple):
     rewards: ArrayData
     policy_mask: ArrayData
 
+    # these arrays are turn aligned not token aligned
     turn_counts: ArrayData
     turn_start_positions: ArrayData
-    turn_metrics: Mapping[str, ArrayData]
+    turn_metrics: Mapping[str, ArrayData] = {}
+
+    # from the update step
+    update_metrics: Mapping[str, ArrayData] = {}
 
     def save_npz(
         self,
@@ -36,6 +39,10 @@ class UpdateBatch(NamedTuple):
         for name, value in self.turn_metrics.items():
             payload[f"turn_metrics_{name}"] = value
 
+        del payload["update_metrics"]
+        for name, value in self.update_metrics.items():
+            payload[f"update_metrics_{name}"] = value
+
         if compressed:
             np.savez_compressed(file, **payload)
         else:
@@ -50,14 +57,17 @@ class UpdateBatch(NamedTuple):
         with np.load(file, allow_pickle=False) as data:
             fields = {}
             turn_metrics = {}
+            update_metrics = {}
 
             for key, value in data.items():
                 if key.startswith("turn_metrics_"):
-                    turn_metrics[key] = value
+                    turn_metrics[key[len("turn_metrics_"):]] = value
+                elif key.startswith("update_metrics_"):
+                    update_metrics[key[len("update_metrics_"):]] = value
                 else:
                     fields[key] = value
 
-            return cls(turn_metrics=turn_metrics, **fields)
+            return cls(turn_metrics=turn_metrics, update_metrics=update_metrics, **fields)
 
 
 class CircularBuffer:
@@ -135,6 +145,8 @@ class UpdateBuffer:
         self._turn_start_positions = CircularBuffer(buffer_size, (max_turns,), np.int32)
         self._turn_metrics = {}
 
+        self._update_metrics = {}
+
     @property
     def size(self) -> int:
         return self._context._size
@@ -162,6 +174,14 @@ class UpdateBuffer:
 
             self._turn_metrics[name].push(value)
 
+        for name, value in batch.update_metrics.items():
+            if name not in self._update_metrics:
+                self._update_metrics[name] = CircularBuffer(
+                    self._batch_size, value.shape[1:], value.dtype
+                )
+
+            self._update_metrics[name].push(value)
+
     def take_batch(self) -> UpdateBatch:
         return UpdateBatch(
             context_length=self._context_length.pop_oldest(self._batch_size),
@@ -178,4 +198,8 @@ class UpdateBuffer:
                 name: buffer.pop_oldest(self._batch_size)
                 for name, buffer in self._turn_metrics.items()
             },
+            update_metrics={
+                name: buffer.pop_oldest(self._batch_size)
+                for name, buffer in self._update_metrics.items()
+            }
         )

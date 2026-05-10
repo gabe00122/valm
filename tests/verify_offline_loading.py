@@ -20,7 +20,6 @@ def create_dummy_data(
             policy_mask=np.zeros((episodes_per_file, seq_length), dtype=np.bool_),
             turn_counts=np.zeros((episodes_per_file,), dtype=np.int32),
             turn_start_positions=np.zeros((episodes_per_file, 1), dtype=np.int32),
-            metrics={},
         )
         batch.save_npz(data_dir / f"episodes_{i}.npz")
 

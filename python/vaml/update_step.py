@@ -170,11 +170,11 @@ def update_step(
 
     seq_range = jnp.arange(seq_len, dtype=jnp.int32)
     bounds_mask = seq_range[None, :] < rollout.context_length[:, None]
-    policy_mask = jnp.logical_and(rollout.policy_mask, bounds_mask)
+    # policy_mask = jnp.logical_and(rollout.policy_mask, bounds_mask)
 
     # rollout values are not used at the moment
-    values = jnp.where(bounds_mask, rollout.values, 0.0)
-    rollout = rollout._replace(policy_mask=policy_mask, values=values)
+    # values = jnp.where(bounds_mask, rollout.values, 0.0)
+    # rollout = rollout._replace(policy_mask=policy_mask, values=values)
 
     turn_boundries = ~rollout.policy_mask[:, :-1] & rollout.policy_mask[:, 1:]
     td_discount = jnp.where(turn_boundries, config.turn_discount, config.gae_discount)
