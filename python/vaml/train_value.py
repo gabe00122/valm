@@ -68,7 +68,7 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
     )
     output_buffer = UpdateBuffer(
         buffer_size,
-        config.update_envs,
+        num_episodes_per_file,
         config.max_seq_length,
         max_turns,
     )
@@ -117,7 +117,6 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
         values, rng_key = calculate_values(model_def, model_state, rng_key, ref_context)
         output_values[step] = np.array(values)
 
-        summery_metrics["reward"] = batch.rewards.sum(axis=1).mean()
         logger.log_dict(summery_metrics, step)
         step += 1
 

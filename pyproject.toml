@@ -50,3 +50,6 @@ server = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["python"]
+
+[tool.uv]
+exclude-newer = "1 week"
