@@ -5,8 +5,17 @@
     import Button from "$lib/components/ui/button/button.svelte";
     import * as Resizable from "$lib/components/ui/resizable";
     import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
+    import { decodeEpisodes } from "$lib/decode";
+    import TokenDetail from "$lib/components/tokenDetail.svelte";
 
     let episodeId = $state(0);
+    let selectedIndex: number | null = $state(0);
+    let episode = $derived(decodeEpisodes(await getEpisode(episodeId)));
+
+    $effect(() => {
+        episodeId;
+        selectedIndex = null;
+    });
 </script>
 
 <!-- <div class="root">
@@ -26,9 +35,8 @@
 
 <Resizable.PaneGroup direction="horizontal">
     <Resizable.Pane defaultSize={0.2}>
-        <div class="flex h-[200px] items-center justify-center p-6">
-            <span class="font-semibold">One</span>
-        </div>
+        <input type="number" bind:value={episodeId} />
+        <TokenDetail {selectedIndex} {episode} />
     </Resizable.Pane>
     <Resizable.Handle />
     <Resizable.Pane defaultSize={0.8}>
@@ -42,9 +50,7 @@
             <Resizable.Pane defaultSize={75}>
                 <div class="h-full min-h-0 overflow-hidden">
                     <ScrollArea class="h-full">
-                        <TokenViewer
-                            tokens={(await getEpisode(episodeId)).tokens}
-                        />
+                        <TokenViewer bind:selectedIndex {episode} />
                     </ScrollArea>
                 </div>
             </Resizable.Pane>

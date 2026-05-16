@@ -60,6 +60,7 @@ class UpdateBatch(NamedTuple):
             update_metrics = {}
 
             for key, value in data.items():
+                print(key)
                 if key.startswith("turn_metrics_"):
                     turn_metrics[key[len("turn_metrics_"):]] = value
                 elif key.startswith("update_metrics_"):
