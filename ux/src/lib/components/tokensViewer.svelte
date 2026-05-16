@@ -10,7 +10,11 @@
 
     // let selectedIndex = $state<number | null>(null);
 
-    function getHue(value: number) {
+    function getHue(value: number | undefined) {
+        if (value === undefined || Number.isNaN(value)) {
+            return "transparent";
+        }
+
         const ratio = value;
         const hue = (1 - ratio) * 240;
         return `hsl(${hue}, 50%, 50%)`;
