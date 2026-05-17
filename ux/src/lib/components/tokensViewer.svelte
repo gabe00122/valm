@@ -4,18 +4,77 @@
     interface Props {
         episode: Episode;
         selectedIndex: number | null;
+        viewMetricKey: string;
     }
 
-    let { episode, selectedIndex = $bindable(null) }: Props = $props();
+    type MetricValues = ArrayLike<number>;
+
+    let {
+        episode,
+        selectedIndex = $bindable(null),
+        viewMetricKey = "none",
+    }: Props = $props();
 
     // let selectedIndex = $state<number | null>(null);
 
+    let metricValues = $derived(getMetricValues(episode, viewMetricKey));
+    let metricRange = $derived(getMetricRange(metricValues));
+
+    function getMetricValues(
+        episode: Episode,
+        metricKey: string,
+    ): MetricValues | null {
+        if (metricKey === "none") {
+            return null;
+        }
+
+        if (metricKey.startsWith("updateMetrics:")) {
+            return episode.updateMetrics[
+                metricKey.slice("updateMetrics:".length)
+            ];
+        }
+
+        return (episode as any)[metricKey] ?? null;
+    }
+
+    function getMetricRange(values: MetricValues | null) {
+        if (values === null) {
+            return null;
+        }
+
+        let min = Infinity;
+        let max = -Infinity;
+
+        for (let i = 0; i < values.length; i++) {
+            const value = values[i];
+
+            if (!Number.isFinite(value)) {
+                continue;
+            }
+
+            min = Math.min(min, value);
+            max = Math.max(max, value);
+        }
+
+        return min === Infinity || min === max ? null : { min, max };
+    }
+
     function getHue(value: number | undefined) {
-        if (value === undefined || Number.isNaN(value)) {
+        if (value === undefined || !Number.isFinite(value)) {
             return "transparent";
         }
 
-        const ratio = value;
+        if (metricRange === null) {
+            return "color-mix(in srgb, var(--token-color) 18%, transparent)";
+        }
+
+        const ratio = Math.min(
+            Math.max(
+                (value - metricRange.min) / (metricRange.max - metricRange.min),
+                0,
+            ),
+            1,
+        );
         const hue = (1 - ratio) * 240;
         return `hsl(${hue}, 50%, 50%)`;
     }
@@ -39,7 +98,7 @@
             role="button"
             aria-pressed={selectedIndex === index}
             class:selected={selectedIndex === index}
-            style="--viz-token-color: {getHue(episode.logProbs[index])};"
+            style="--viz-token-color: {getHue(metricValues?.[index])};"
             onclick={() => selectToken(index)}
             onkeydown={(event) => handleKeydown(event, index)}>{token}</span
         >

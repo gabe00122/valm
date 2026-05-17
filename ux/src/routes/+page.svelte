@@ -1,41 +1,31 @@
 <script lang="ts">
     import { getEpisode } from "./episode.remote";
     import TokenViewer from "$lib/components/tokensViewer.svelte";
-    import GraphPanel from "./components/graphPanel.svelte";
-    import Button from "$lib/components/ui/button/button.svelte";
     import * as Resizable from "$lib/components/ui/resizable";
     import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
     import { decodeEpisodes } from "$lib/decode";
     import TokenDetail from "$lib/components/tokenDetail.svelte";
+    import Separator from "$lib/components/ui/separator/separator.svelte";
+    import ShowControl from "$lib/components/showControl.svelte";
 
     let episodeId = $state(0);
-    let selectedIndex: number | null = $state(0);
+    let selectedIndex: number = $state(0);
+    let viewMetricKey: string = $state("none");
     let episode = $derived(decodeEpisodes(await getEpisode(episodeId)));
 
     $effect(() => {
         episodeId;
-        selectedIndex = null;
+        selectedIndex = 0;
     });
 </script>
 
-<!-- <div class="root">
-    <div class="sidePanel"></div>
-    <div class="mainPanel">
-        <div class="graphPanel"></div>
-        <div class="tokenPanel"></div>
-    </div>
-</div> -->
-
-<!-- <Button>Hello</Button>
-
-<p>Episode Viewer</p>
-
-<input type="number" bind:value={episodeId} />
- -->
-
 <Resizable.PaneGroup direction="horizontal">
     <Resizable.Pane defaultSize={0.2}>
+        Episode:
         <input type="number" bind:value={episodeId} />
+        <Separator />
+        <ShowControl bind:viewMetricKey {episode} />
+        <Separator />
         <TokenDetail {selectedIndex} {episode} />
     </Resizable.Pane>
     <Resizable.Handle />
@@ -50,7 +40,11 @@
             <Resizable.Pane defaultSize={75}>
                 <div class="h-full min-h-0 overflow-hidden">
                     <ScrollArea class="h-full">
-                        <TokenViewer bind:selectedIndex {episode} />
+                        <TokenViewer
+                            bind:selectedIndex
+                            {episode}
+                            {viewMetricKey}
+                        />
                     </ScrollArea>
                 </div>
             </Resizable.Pane>

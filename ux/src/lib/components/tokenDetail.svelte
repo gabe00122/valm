@@ -10,6 +10,16 @@
 
     let { selectedIndex, episode }: Props = $props();
 
+    function sumIt(xs: Float32Array): number {
+        let current = 0;
+        for (const x of xs) {
+            current += x;
+        }
+        return current;
+    }
+
+    $inspect(sumIt(episode.rewards));
+
     function formatNumber(value: number | undefined) {
         return value === undefined || Number.isNaN(value)
             ? "n/a"
