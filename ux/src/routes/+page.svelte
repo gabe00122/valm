@@ -7,15 +7,18 @@
     import TokenDetail from "$lib/components/tokenDetail.svelte";
     import Separator from "$lib/components/ui/separator/separator.svelte";
     import ShowControl from "$lib/components/showControl.svelte";
+    import MetricGraph from "$lib/components/metricGraph.svelte";
 
     let episodeId = $state(0);
-    let selectedIndex: number = $state(0);
+    let selectedIndex: number | null = $state(0);
+    let hoveredIndex: number | null = $state(null);
     let metricKey: string = $state("none");
     let episode = $derived(decodeEpisodes(await getEpisode(episodeId)));
 
     $effect(() => {
         episodeId;
         selectedIndex = 0;
+        hoveredIndex = null;
     });
 </script>
 
@@ -32,15 +35,23 @@
     <Resizable.Pane defaultSize={0.8}>
         <Resizable.PaneGroup direction="vertical">
             <Resizable.Pane defaultSize={25}>
-                <div class="flex h-full items-center justify-center p-6">
-                    <span class="font-semibold">Two</span>
-                </div>
+                <MetricGraph
+                    {episode}
+                    bind:selectedIndex
+                    bind:hoveredIndex
+                    {metricKey}
+                />
             </Resizable.Pane>
             <Resizable.Handle />
             <Resizable.Pane defaultSize={75}>
                 <div class="h-full min-h-0 overflow-hidden">
                     <ScrollArea class="h-full">
-                        <TokenViewer bind:selectedIndex {episode} {metricKey} />
+                        <TokenViewer
+                            bind:selectedIndex
+                            bind:hoveredIndex
+                            {episode}
+                            {metricKey}
+                        />
                     </ScrollArea>
                 </div>
             </Resizable.Pane>

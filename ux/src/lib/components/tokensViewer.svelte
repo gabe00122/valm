@@ -1,9 +1,11 @@
 <script lang="ts">
+    import { tick } from "svelte";
     import type { Episode } from "$lib/episodes";
 
     interface Props {
         episode: Episode;
         selectedIndex: number | null;
+        hoveredIndex: number | null;
         metricKey: string;
     }
 
@@ -12,11 +14,11 @@
     let {
         episode,
         selectedIndex = $bindable(null),
+        hoveredIndex = $bindable(null),
         metricKey: metricKey,
     }: Props = $props();
 
-    // let selectedIndex = $state<number | null>(null);
-
+    let tokenElements = $state<HTMLElement[]>([]);
     let metricValues = $derived(getMetricValues(episode, metricKey));
     let metricRange = $derived(getMetricRange(metricValues));
 
@@ -77,23 +79,47 @@
         selectedIndex = selectedIndex === index ? null : index;
     }
 
+    function hoverToken(index: number | null) {
+        hoveredIndex = index;
+    }
+
     function handleKeydown(event: KeyboardEvent, index: number) {
         if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             selectToken(index);
         }
     }
+
+    $effect(() => {
+        const index = selectedIndex;
+        const tokenCount = episode.tokens.length;
+
+        if (index === null || index < 0 || index >= tokenCount) {
+            return;
+        }
+
+        tick().then(() => {
+            tokenElements[index]?.scrollIntoView({
+                block: "nearest",
+                inline: "nearest",
+            });
+        });
+    });
 </script>
 
 <div class="tokens font-mono whitespace-pre-wrap leading-tight">
     {#each episode.tokens as token, index}
         <span
+            bind:this={tokenElements[index]}
             tabindex="0"
             role="button"
             aria-pressed={selectedIndex === index}
+            class:hovered={hoveredIndex === index && selectedIndex !== index}
             class:selected={selectedIndex === index}
             style="--viz-token-color: {getHue(metricValues?.[index])};"
             onclick={() => selectToken(index)}
+            onpointerenter={() => hoverToken(index)}
+            onpointerleave={() => hoverToken(null)}
             onkeydown={(event) => handleKeydown(event, index)}>{token}</span
         >
     {/each}
@@ -111,6 +137,10 @@
             var(--token-color) 25%,
             transparent
         );
+    }
+
+    .tokens span.hovered {
+        background: color-mix(in srgb, var(--token-color) 30%, transparent);
     }
 
     .tokens span.selected {
