@@ -10,7 +10,7 @@
 
     let episodeId = $state(0);
     let selectedIndex: number = $state(0);
-    let viewMetricKey: string = $state("none");
+    let metricKey: string = $state("none");
     let episode = $derived(decodeEpisodes(await getEpisode(episodeId)));
 
     $effect(() => {
@@ -24,7 +24,7 @@
         Episode:
         <input type="number" bind:value={episodeId} />
         <Separator />
-        <ShowControl bind:viewMetricKey {episode} />
+        <ShowControl bind:metricKey {episode} />
         <Separator />
         <TokenDetail {selectedIndex} {episode} />
     </Resizable.Pane>
@@ -40,11 +40,7 @@
             <Resizable.Pane defaultSize={75}>
                 <div class="h-full min-h-0 overflow-hidden">
                     <ScrollArea class="h-full">
-                        <TokenViewer
-                            bind:selectedIndex
-                            {episode}
-                            {viewMetricKey}
-                        />
+                        <TokenViewer bind:selectedIndex {episode} {metricKey} />
                     </ScrollArea>
                 </div>
             </Resizable.Pane>

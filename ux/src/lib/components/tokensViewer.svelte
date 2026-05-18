@@ -4,7 +4,7 @@
     interface Props {
         episode: Episode;
         selectedIndex: number | null;
-        viewMetricKey: string;
+        metricKey: string;
     }
 
     type MetricValues = ArrayLike<number>;
@@ -12,12 +12,12 @@
     let {
         episode,
         selectedIndex = $bindable(null),
-        viewMetricKey = "none",
+        metricKey: metricKey,
     }: Props = $props();
 
     // let selectedIndex = $state<number | null>(null);
 
-    let metricValues = $derived(getMetricValues(episode, viewMetricKey));
+    let metricValues = $derived(getMetricValues(episode, metricKey));
     let metricRange = $derived(getMetricRange(metricValues));
 
     function getMetricValues(
@@ -28,7 +28,7 @@
             return null;
         }
 
-        return (episode as any)[metricKey] ?? null;
+        return episode.tokenMetrics[metricKey] ?? null;
     }
 
     function getMetricRange(values: MetricValues | null) {

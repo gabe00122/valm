@@ -3,7 +3,7 @@
     import type { Episode } from "$lib/episodes";
 
     interface Props {
-        viewMetricKey: string;
+        metricKey: string;
         episode: Episode;
     }
 
@@ -12,7 +12,8 @@
         label: string;
     };
 
-    let { viewMetricKey = $bindable("none"), episode }: Props = $props();
+    let { metricKey: viewMetricKey = $bindable("none"), episode }: Props =
+        $props();
 
     let metricOptions = $derived<MetricOption[]>([
         { value: "none", label: "none" },
