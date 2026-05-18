@@ -19,7 +19,6 @@ def episode_to_jsonl(
                 "tokens": toks,
                 "token_ids": ids,
                 "rewards": episode.rewards[i, :length].tolist(),
-                "values": episode.values[i, :length].tolist(),
                 "log_probs": episode.log_probs[i, :length].tolist(),
                 "policy_mask": episode.policy_mask[i, :length].tolist(),
             }

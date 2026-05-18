@@ -18,6 +18,7 @@ def get_update_batch(chunk_id: int) -> UpdateBatch:
 
 
 def _base64_encode(array: np.ndarray) -> str:
+    array = np.asarray(array, dtype=np.float32)
     return base64.b64encode(array.tobytes()).decode("utf-8")
 
 
@@ -31,22 +32,16 @@ def read_item(episode_id: int):
     context = ub.context[episode_idx, :length].tolist()
     toks = [tokenizer.decode([token_id]) for token_id in context]
 
-    log_probs = _base64_encode(ub.log_probs[episode_idx, :length])
-    values = _base64_encode(ub.values[episode_idx, :length])
-    rewards = _base64_encode(ub.rewards[episode_idx, :length])
-    policy_mask = _base64_encode(ub.policy_mask[episode_idx, :length])
-
-    update_metrics = {
+    token_metrics = {
         name: _base64_encode(np.asarray(value[episode_idx, :length], dtype=np.float32))
         for name, value in ub.update_metrics.items()
     }
 
+    token_metrics["log_probs"] = _base64_encode(ub.log_probs[episode_idx, :length])
+    token_metrics["rewards"] = _base64_encode(ub.rewards[episode_idx, :length])
+    token_metrics["policy_mask"] = _base64_encode(ub.policy_mask[episode_idx, :length])
+
     return {
         "tokens": toks,
-        "tokenIds": context,
-        "logProbs": log_probs,
-        "values": values,
-        "rewards": rewards,
-        "policyMask": policy_mask,
-        "updateMetrics": update_metrics,
+        "tokenMetrics": token_metrics,
     }

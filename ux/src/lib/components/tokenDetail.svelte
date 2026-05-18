@@ -10,40 +10,16 @@
 
     let { selectedIndex, episode }: Props = $props();
 
-    function sumIt(xs: Float32Array): number {
-        let current = 0;
-        for (const x of xs) {
-            current += x;
-        }
-        return current;
-    }
-
-    $inspect(sumIt(episode.rewards));
-
     function formatNumber(value: number | undefined) {
         return value === undefined || Number.isNaN(value)
             ? "n/a"
             : value.toPrecision(6);
     }
 
-    function formatPolicyMask(value: number | undefined) {
-        if (value === undefined) {
-            return "n/a";
-        }
-
-        return value === 0 ? "false" : "true";
-    }
-
     function detailRows(index: number): DetailRow[] {
         return [
-            ["Token", episode.tokens[index] ?? "n/a"],
-            ["Token ID", episode.tokenIds[index] ?? "n/a"],
-            ["Token Index", index],
-            ["Log Prob", formatNumber(episode.logProbs[index])],
-            ["Value", formatNumber(episode.values[index])],
-            ["Reward", formatNumber(episode.rewards[index])],
-            ["Policy Mask", formatPolicyMask(episode.policyMask[index])],
-            ...Object.entries(episode.updateMetrics).map<DetailRow>(
+            ["token", episode.tokens[index] ?? "n/a"],
+            ...Object.entries(episode.tokenMetrics).map<DetailRow>(
                 ([name, value]) => [name, formatNumber(value[index])],
             ),
         ];

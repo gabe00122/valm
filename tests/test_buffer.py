@@ -47,7 +47,6 @@ def test_update_buffer_lazily_initializes_turn_metrics():
         context_length=np.array([3, 4], dtype=np.int32),
         context=np.array([[1, 2, 3, 0], [4, 5, 6, 7]], dtype=np.int32),
         log_probs=np.zeros((2, 3), dtype=np.float32),
-        values=np.zeros((2, 4), dtype=np.float32),
         rewards=np.ones((2, 4), dtype=np.float32),
         policy_mask=np.array(
             [[True, True, True, False], [True, True, True, True]],

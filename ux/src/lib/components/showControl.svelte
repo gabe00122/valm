@@ -15,13 +15,9 @@
     let { viewMetricKey = $bindable("none"), episode }: Props = $props();
 
     let metricOptions = $derived<MetricOption[]>([
-        { value: "none", label: "None" },
-        { value: "logProbs", label: "Log Prob" },
-        { value: "values", label: "Value" },
-        { value: "rewards", label: "Reward" },
-        { value: "policyMask", label: "Policy Mask" },
-        ...Object.keys(episode.updateMetrics).map((name) => ({
-            value: `updateMetrics:${name}`,
+        { value: "none", label: "none" },
+        ...Object.keys(episode.tokenMetrics).map((name) => ({
+            value: name,
             label: name,
         })),
     ]);

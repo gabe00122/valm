@@ -28,12 +28,6 @@
             return null;
         }
 
-        if (metricKey.startsWith("updateMetrics:")) {
-            return episode.updateMetrics[
-                metricKey.slice("updateMetrics:".length)
-            ];
-        }
-
         return (episode as any)[metricKey] ?? null;
     }
 

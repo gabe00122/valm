@@ -15,7 +15,6 @@ def create_dummy_data(
             context_length=np.zeros((episodes_per_file,), dtype=np.int32),
             context=np.zeros((episodes_per_file, seq_length), dtype=np.int32),
             log_probs=np.zeros((episodes_per_file, seq_length - 1), dtype=np.float32),
-            values=np.zeros((episodes_per_file, seq_length), dtype=np.float32),
             rewards=np.zeros((episodes_per_file, seq_length), dtype=np.float32),
             policy_mask=np.zeros((episodes_per_file, seq_length), dtype=np.bool_),
             turn_counts=np.zeros((episodes_per_file,), dtype=np.int32),

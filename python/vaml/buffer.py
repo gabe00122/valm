@@ -13,7 +13,6 @@ class UpdateBatch(NamedTuple):
     context_length: ArrayData
     context: ArrayData
     log_probs: ArrayData
-    values: ArrayData
     rewards: ArrayData
     policy_mask: ArrayData
 
@@ -58,6 +57,7 @@ class UpdateBatch(NamedTuple):
             fields = {}
             turn_metrics = {}
             update_metrics = {}
+            batch_fields = set(cls._fields) - {"turn_metrics", "update_metrics"}
 
             for key, value in data.items():
                 print(key)
@@ -65,7 +65,7 @@ class UpdateBatch(NamedTuple):
                     turn_metrics[key[len("turn_metrics_"):]] = value
                 elif key.startswith("update_metrics_"):
                     update_metrics[key[len("update_metrics_"):]] = value
-                else:
+                elif key in batch_fields:
                     fields[key] = value
 
             return cls(turn_metrics=turn_metrics, update_metrics=update_metrics, **fields)
@@ -138,7 +138,6 @@ class UpdateBuffer:
         self._context_length = CircularBuffer(buffer_size, (), np.int32)
         self._context = CircularBuffer(buffer_size, (seq_length,), np.int32)
         self._log_probs = CircularBuffer(buffer_size, (seq_length - 1,), np.float32)
-        self._values = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._rewards = CircularBuffer(buffer_size, (seq_length,), np.float32)
         self._policy_mask = CircularBuffer(buffer_size, (seq_length,), np.bool_)
 
@@ -160,7 +159,6 @@ class UpdateBuffer:
         self._context_length.push(batch.context_length)
         self._context.push(batch.context)
         self._log_probs.push(batch.log_probs)
-        self._values.push(batch.values)
         self._rewards.push(batch.rewards)
         self._policy_mask.push(batch.policy_mask)
 
@@ -188,7 +186,6 @@ class UpdateBuffer:
             context_length=self._context_length.pop_oldest(self._batch_size),
             context=self._context.pop_oldest(self._batch_size),
             log_probs=self._log_probs.pop_oldest(self._batch_size),
-            values=self._values.pop_oldest(self._batch_size),
             rewards=self._rewards.pop_oldest(self._batch_size),
             policy_mask=self._policy_mask.pop_oldest(self._batch_size),
             turn_counts=self._turn_counts.pop_oldest(self._batch_size),

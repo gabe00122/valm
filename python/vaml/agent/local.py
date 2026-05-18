@@ -167,7 +167,6 @@ class LocalAgent(Agent):
                         context_length=lengths[done_idx],
                         context=self._np_gen.context[done_idx],
                         log_probs=self._np_gen.log_probs[done_idx],
-                        values=self._np_gen.values[done_idx],
                         rewards=self._rewards[done_idx],
                         policy_mask=self._np_gen.policy_mask[done_idx],
                         turn_counts=turn_counts,
