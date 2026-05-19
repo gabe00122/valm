@@ -8,7 +8,6 @@ from vaml.env.make import make_env
 from vaml.episode_listener import (
     BufferedEpisodeListener,
     EpisodeSaver,
-    MultiEpisodeListener,
     Trainer,
 )
 from vaml.experiment import Experiment
@@ -66,21 +65,6 @@ def train_cli(
 
     agent.set_episode_instructions(env.instructions())
 
-    trainer = Trainer(
-        agent,
-        policy_opt,
-        value_opt,
-        rngs.trainer(),
-        checkpointer,
-        logger,
-        config,
-    )
-
-    if value_net_id is not None:
-        other_exp = Experiment.load(value_net_id)
-        with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
-            trainer.restore_checkpoint(checkpointer=other_checkpointer, wrt=ValueParam)
-
     rollout_log_size = 100
     rollout_logger = BufferedEpisodeListener(
         rollout_log_size + config.eval_envs,
@@ -90,6 +74,22 @@ def train_cli(
         EpisodeSaver(experiment.rollout_dir),
     )
 
+    trainer = Trainer(
+        agent,
+        policy_opt,
+        value_opt,
+        rngs.trainer(),
+        checkpointer,
+        logger,
+        config,
+        episode_listener=rollout_logger,
+    )
+
+    if value_net_id is not None:
+        other_exp = Experiment.load(value_net_id)
+        with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
+            trainer.restore_checkpoint(checkpointer=other_checkpointer, wrt=ValueParam)
+
     trainer_listener = BufferedEpisodeListener(
         config.update_envs + config.eval_envs,
         config.update_envs,
@@ -98,7 +98,7 @@ def train_cli(
         trainer,
     )
 
-    agent.episode_listener = MultiEpisodeListener(rollout_logger, trainer_listener)
+    agent.episode_listener = trainer_listener
 
     rewards = np.zeros((eval_batch_size,), dtype=np.float32)
     dones = np.zeros((eval_batch_size,), dtype=np.bool_)

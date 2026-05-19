@@ -27,6 +27,7 @@ class Trainer(EpisodeListener):
         checkpointer: Checkpointer,
         logger: BaseLogger,
         config: Config,
+        episode_listener: EpisodeListener | None = None,
     ):
         self._model_provider = model_provider
         self._policy_opt_def, self._policy_opt_state = nnx.split(policy_opt)
@@ -36,6 +37,7 @@ class Trainer(EpisodeListener):
         self._checkpointer = checkpointer
         self._logger = logger
         self._config = config
+        self._episode_listener = episode_listener
         self._update_step = 0
 
     def save_checkpoint(self):
@@ -113,12 +115,19 @@ class Trainer(EpisodeListener):
         seq_length = batch.rewards.shape[1]
 
         # summerize environment metrics
-        env_metrics = {name: np.sum(values) for name, values in batch.turn_metrics.items()}
+        env_metrics = {
+            name: np.sum(values) for name, values in batch.turn_metrics.items()
+        }
         summery_metrics["env"] = env_metrics
         summery_metrics["turns"] = np.mean(batch.turn_counts)
         summery_metrics["truncated"] = np.mean(batch.context_length >= seq_length)
 
         self._model_provider.model_state = new_model_state
+
+        if self._episode_listener is not None:
+            self._episode_listener.on_episodes(
+                batch._replace(update_metrics=token_metrics)
+            )
 
         self._logger.log_dict(summery_metrics, self._update_step)
         self._update_step += 1

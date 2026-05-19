@@ -132,15 +132,13 @@
     }
 
     .tokens span:hover {
-        background-color: color-mix(
-            in srgb,
-            var(--token-color) 25%,
-            transparent
-        );
+        background-color: var(--foreground);
+        color: var(--background);
     }
 
     .tokens span.hovered {
-        background: color-mix(in srgb, var(--token-color) 30%, transparent);
+        background-color: var(--foreground);
+        color: var(--background);
     }
 
     .tokens span.selected {
