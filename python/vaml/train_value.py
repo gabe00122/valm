@@ -8,6 +8,8 @@ from rich.console import Console
 from vaml.base_model_loader import load_base_model
 from vaml.buffer import UpdateBatch, UpdateBuffer
 from vaml.checkpointer import Checkpointer
+from vaml.episode_listener.buffered import BufferedEpisodeListener
+from vaml.episode_listener.saver import EpisodeSaver
 from vaml.experiment import Experiment
 from vaml.logger import create_logger
 from vaml.model.value_network import ValueParam
@@ -32,9 +34,8 @@ def print_value_param_count(model):
     print(f"Value Parameters: {param_count}")
 
 
-def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str):
+def train_value_cli(config_url: str, offline_data_url: str):
     experiment = Experiment.from_config_file(config_url)
-    Path(output_data_url).mkdir(parents=True, exist_ok=True)
 
     config = experiment.config
     console = Console()
@@ -66,11 +67,12 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
         config.max_seq_length,
         max_turns,
     )
-    output_buffer = UpdateBuffer(
+    output_buffer = BufferedEpisodeListener(
         buffer_size,
         num_episodes_per_file,
         config.max_seq_length,
         max_turns,
+        EpisodeSaver(experiment.rollout_dir),
     )
     input_buffer.store(first_batch)
 
@@ -86,7 +88,6 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
 
     step = 0
     input_file_idx = 1
-    output_file_idx = 0
     logger.start()
     while input_file_idx < len(data_files) or input_buffer.has_batch:
         # Load more data if buffer doesn't have a batch and there are more files
@@ -102,17 +103,19 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
             break
 
         batch = input_buffer.take_batch()
-        _, value_opt_state, model_state, summery_metrics, token_metrics, rng_key = update_step(
-            None,
-            None,
-            value_opt_def,
-            value_opt_state,
-            model_def,
-            model_state,
-            rng_key,
-            batch,
-            config.loss,
-            True,
+        _, value_opt_state, model_state, summery_metrics, token_metrics, rng_key = (
+            update_step(
+                None,
+                None,
+                value_opt_def,
+                value_opt_state,
+                model_def,
+                model_state,
+                rng_key,
+                batch,
+                config.loss,
+                True,
+            )
         )
         values, rng_key = calculate_values(model_def, model_state, rng_key, ref_context)
         output_values[step] = np.array(values)
@@ -121,11 +124,7 @@ def train_value_cli(config_url: str, offline_data_url: str, output_data_url: str
         step += 1
 
         output_batch = batch._replace(update_metrics=token_metrics)
-        output_buffer.store(output_batch)
-
-        if output_buffer.has_batch:
-            output_buffer.take_batch().save_npz(f"{output_data_url}/episodes_{output_file_idx}")
-            output_file_idx += 1
+        output_buffer.on_episodes(output_batch)
 
     logger.close()
     with Checkpointer(experiment.checkpoints_url) as checkpointer:

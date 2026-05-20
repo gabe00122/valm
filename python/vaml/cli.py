@@ -44,9 +44,8 @@ def train(
 def train_value(
     config_url: str,
     offline_data_url: str,
-    output_data_url: str,
 ):
-    train_value_cli(config_url, offline_data_url, output_data_url)
+    train_value_cli(config_url, offline_data_url)
 
 
 @app.command()
