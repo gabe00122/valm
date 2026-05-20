@@ -116,7 +116,7 @@ class Trainer(EpisodeListener):
 
         # summerize environment metrics
         env_metrics = {
-            name: np.mean(np.sum(values[:, : batch.turn_counts], axis=1)).item()
+            name: np.mean(np.sum(values, axis=1)).item()
             for name, values in batch.turn_metrics.items()
         }
         summery_metrics["env"] = env_metrics

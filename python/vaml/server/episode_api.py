@@ -14,7 +14,7 @@ episodes_per_file = 100
 
 @cache
 def get_update_batch(chunk_id: int) -> UpdateBatch:
-    return UpdateBatch.load_npz(f"./value_trace/episodes_{chunk_id}.npz")
+    return UpdateBatch.load_npz(f"./results/rollouts/episodes_{chunk_id}.npz")
 
 
 def _base64_encode(array: np.ndarray) -> str:

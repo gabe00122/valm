@@ -9,11 +9,11 @@ from vaml.buffer import UpdateBatch
 from vaml.chat import (
     append_prompt_tokens,
     append_user_prompts,
+    convert_to_np,
     create_generation_state,
     decode_responses,
     encode_input,
     generate,
-    convert_to_np,
     update_gen_state,
 )
 from vaml.config import Config
@@ -73,7 +73,10 @@ class TurnData:
     ) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
         turn_counts = self._turn_counts[done_idx]
         turn_start_positions = self._turn_start_positions[done_idx]
-        metrics = {name: m[done_idx] for name, m in self._metrics.items()}
+        metrics = {}
+        for name, m in self._metrics.items():
+            metrics[name] = m[done_idx]
+            m[done_idx] = 0.0
 
         self._turn_counts[done_idx] = 0
 
