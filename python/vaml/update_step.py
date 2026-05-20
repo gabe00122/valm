@@ -70,7 +70,7 @@ def loss_fn(
 ) -> tuple[jax.Array, tuple[dict[str, Any], dict[str, Any], jax.Array]]:
     batch_len, seq_len = rollout.context.shape
 
-    policy_mask = jnp.asarray(rollout.policy_mask)[:, :-1] & bounds_mask
+    policy_mask = jnp.asarray(rollout.policy_mask)[:, :-1] & bounds_mask[:, :-1]
 
     positions = jnp.repeat(jnp.arange(seq_len, dtype=jnp.int32)[None, :], batch_len, 0)
 
