@@ -246,7 +246,9 @@ def generate(
             log_prob = cast(jax.Array, dist.log_prob(sample_tokens))
 
         with jax.named_scope("chat_update_lengths_and_masks"):
-            over_start_position = carry.kv_cache_length + 1 >= carry.turn_start_positions
+            over_start_position = (
+                carry.kv_cache_length + 1 >= carry.turn_start_positions
+            )
             turn_finished = carry.turn_finished | (
                 carry.kv_cache_length + 2 >= seq_length
             )

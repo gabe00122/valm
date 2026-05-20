@@ -1,4 +1,5 @@
-from typing import cast, Any
+from typing import Any, cast
+
 import distrax
 import jax
 from flax import nnx
@@ -8,7 +9,9 @@ from vaml.config import LossConfig
 from vaml.model.qwen3 import Qwen3
 
 
-def summery_stats(values: jax.Array, where: jax.Array | None = None) -> dict[str, jax.Array]:
+def summery_stats(
+    values: jax.Array, where: jax.Array | None = None
+) -> dict[str, jax.Array]:
     return {
         "mean": jnp.mean(values, where=where),
         "std": jnp.std(values, where=where),
@@ -42,7 +45,9 @@ def calculate_advantages(
     return jax.lax.stop_gradient(advantages), jax.lax.stop_gradient(targets)
 
 
-def explained_variance(values: jax.Array, targets: jax.Array, bounds_mask: jax.Array) -> jax.Array:
+def explained_variance(
+    values: jax.Array, targets: jax.Array, bounds_mask: jax.Array
+) -> jax.Array:
     value_pred = values[:, :-1]
     value_mask = bounds_mask[:, :-1]
 
@@ -52,6 +57,7 @@ def explained_variance(values: jax.Array, targets: jax.Array, bounds_mask: jax.A
         1.0 - jnp.var(targets - value_pred, where=value_mask) / target_var,
         0.0,
     )
+
 
 def loss_fn(
     model: Qwen3,
@@ -64,7 +70,7 @@ def loss_fn(
 ) -> tuple[jax.Array, tuple[dict[str, Any], dict[str, Any], jax.Array]]:
     batch_len, seq_len = rollout.context.shape
 
-    policy_mask = jnp.asarray(rollout.policy_mask)[:, :-1]
+    policy_mask = jnp.asarray(rollout.policy_mask)[:, :-1] & bounds_mask
 
     positions = jnp.repeat(jnp.arange(seq_len, dtype=jnp.int32)[None, :], batch_len, 0)
 
@@ -112,11 +118,7 @@ def loss_fn(
         "episode_length": rollout.context_length.mean(),
     }
 
-    token_metrics = {
-        "value_loss": value_loss,
-        "value": values,
-        "advantage": advantages
-    }
+    token_metrics = {"value_loss": value_loss, "value": values, "advantage": advantages}
 
     if not value_only:
         pg_loss1 = pg_ratio * advantages
@@ -126,18 +128,20 @@ def loss_fn(
         )
         actor_loss = -jnp.minimum(pg_loss1, pg_loss2)
 
-        clipped_tokens = (pg_ratio < 1.0 - config.pg_clip_low) | (pg_ratio > 1.0 + config.pg_clip_high)
+        clipped_tokens = (pg_ratio < 1.0 - config.pg_clip_low) | (
+            pg_ratio > 1.0 + config.pg_clip_high
+        )
         clip_fraction = jnp.mean(clipped_tokens, where=policy_mask)
 
         summery_metrics = {
             **summery_metrics,
             "actor_loss": summery_stats(actor_loss, where=policy_mask),
-            "clip_fraction": clip_fraction
+            "clip_fraction": clip_fraction,
         }
         token_metrics = {
             **token_metrics,
             "clipped_tokens": clipped_tokens,
-            "actor_loss": actor_loss
+            "actor_loss": actor_loss,
         }
         loss = loss + actor_loss.mean(where=policy_mask)
 
@@ -186,13 +190,20 @@ def update_step(
         wrt = nnx.Any(policy_opt.wrt, wrt)
 
     diff = nnx.DiffState(0, wrt)
-    grad, (summery_metrics, token_metrics, rng_key) = nnx.grad(loss_fn, argnums=diff, has_aux=True)(
-        model, rollout, td_discount, config, bounds_mask, value_only, rng_key
-    )
+    grad, (summery_metrics, token_metrics, rng_key) = nnx.grad(
+        loss_fn, argnums=diff, has_aux=True
+    )(model, rollout, td_discount, config, bounds_mask, value_only, rng_key)
 
     if not value_only:
         policy_opt.update(model, grad)
     value_opt.update(model, grad)
 
     policy_opt_state = None if value_only else nnx.state(policy_opt)
-    return policy_opt_state, nnx.state(value_opt), nnx.state(model), summery_metrics, token_metrics, rng_key
+    return (
+        policy_opt_state,
+        nnx.state(value_opt),
+        nnx.state(model),
+        summery_metrics,
+        token_metrics,
+        rng_key,
+    )

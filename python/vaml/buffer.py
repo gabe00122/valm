@@ -62,13 +62,15 @@ class UpdateBatch(NamedTuple):
             for key, value in data.items():
                 print(key)
                 if key.startswith("turn_metrics_"):
-                    turn_metrics[key[len("turn_metrics_"):]] = value
+                    turn_metrics[key[len("turn_metrics_") :]] = value
                 elif key.startswith("update_metrics_"):
-                    update_metrics[key[len("update_metrics_"):]] = value
+                    update_metrics[key[len("update_metrics_") :]] = value
                 elif key in batch_fields:
                     fields[key] = value
 
-            return cls(turn_metrics=turn_metrics, update_metrics=update_metrics, **fields)
+            return cls(
+                turn_metrics=turn_metrics, update_metrics=update_metrics, **fields
+            )
 
 
 class CircularBuffer:
@@ -199,5 +201,5 @@ class UpdateBuffer:
             update_metrics={
                 name: buffer.pop_oldest(self._batch_size)
                 for name, buffer in self._update_metrics.items()
-            }
+            },
         )

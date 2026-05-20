@@ -97,7 +97,7 @@ class Qwen3(nnx.Module):
 
             base_carry = tuple(out_carry)
 
-            if hasattr(self, 'value_net'):
+            if hasattr(self, "value_net"):
                 with jax.named_scope("qwen3_value_net"):
                     value_repr, value_carry, rng_key = self.value_net(
                         latents, positions, value_carry, rng_key=rng_key
@@ -110,7 +110,7 @@ class Qwen3(nnx.Module):
                     x, _ = jax.checkpoint(layer)(x, positions)
                 latents.append(x)
 
-            if hasattr(self, 'value_net'):
+            if hasattr(self, "value_net"):
                 with jax.named_scope("qwen3_value_net"):
                     value_repr, _, rng_key = self.value_net(
                         latents, positions, rng_key=rng_key

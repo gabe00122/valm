@@ -172,9 +172,7 @@ class ArrayMemoryBreakdown:
     @property
     def tracked_total_bytes(self) -> int:
         return (
-            self.model_state_bytes
-            + self.kv_cache_bytes
-            + self.generation_buffer_bytes
+            self.model_state_bytes + self.kv_cache_bytes + self.generation_buffer_bytes
         )
 
 
@@ -445,21 +443,25 @@ def _run_turn(
             completed = int(response_indices.shape[0])
         decode_s = time.perf_counter() - start
 
-    return gen, np_gen, TurnMetrics(
-        turn=turn,
-        prompt_kind=prompt_kind,
-        prompt_tokens=appended_prompt_tokens,
-        truncated_prompt_tokens=truncated_prompt_tokens,
-        model_tokens=model_tokens,
-        generated_tokens=generated_tokens,
-        completed=completed,
-        tokenize_s=tokenize_s,
-        append_np_s=append_np_s,
-        np_to_jax_s=np_to_jax_s,
-        jit_s=jit_s,
-        metrics_sync_s=metrics_sync_s,
-        jax_to_np_s=jax_to_np_s,
-        decode_s=decode_s,
+    return (
+        gen,
+        np_gen,
+        TurnMetrics(
+            turn=turn,
+            prompt_kind=prompt_kind,
+            prompt_tokens=appended_prompt_tokens,
+            truncated_prompt_tokens=truncated_prompt_tokens,
+            model_tokens=model_tokens,
+            generated_tokens=generated_tokens,
+            completed=completed,
+            tokenize_s=tokenize_s,
+            append_np_s=append_np_s,
+            np_to_jax_s=np_to_jax_s,
+            jit_s=jit_s,
+            metrics_sync_s=metrics_sync_s,
+            jax_to_np_s=jax_to_np_s,
+            decode_s=decode_s,
+        ),
     )
 
 
@@ -689,10 +691,14 @@ def print_report(
     breakdown.add_column("Seconds", justify="right")
     breakdown.add_column("Wall %", justify="right")
     _add_time_row(breakdown, "tokenize prompts", totals.tokenize_s, totals.wall_s)
-    _add_time_row(breakdown, "append prompts in NumPy", totals.append_np_s, totals.wall_s)
+    _add_time_row(
+        breakdown, "append prompts in NumPy", totals.append_np_s, totals.wall_s
+    )
     _add_time_row(breakdown, "NumPy -> JAX transfer", totals.np_to_jax_s, totals.wall_s)
     _add_time_row(breakdown, "jitted generate", totals.jit_s, totals.wall_s)
-    _add_time_row(breakdown, "metrics scalar sync", totals.metrics_sync_s, totals.wall_s)
+    _add_time_row(
+        breakdown, "metrics scalar sync", totals.metrics_sync_s, totals.wall_s
+    )
     _add_time_row(breakdown, "JAX -> NumPy transfer", totals.jax_to_np_s, totals.wall_s)
     _add_time_row(breakdown, "decode responses", totals.decode_s, totals.wall_s)
     unaccounted = max(totals.wall_s - totals.accounted_s, 0.0)
@@ -727,7 +733,9 @@ def print_report(
     console.print(turns)
 
     if totals.stopped_early:
-        console.print("Stopped early because every batch row reached the sequence limit.")
+        console.print(
+            "Stopped early because every batch row reached the sequence limit."
+        )
 
     print_memory_report(console, memory)
 
