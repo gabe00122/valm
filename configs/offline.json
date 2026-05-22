@@ -75,9 +75,9 @@
         "name": "wordle",
         "max_guesses": 6
     },
-    "eval_envs": 24,
+    "eval_envs": 64,
     "update_envs": 4,
-    "max_seq_length": 4096,
+    "max_seq_length": 2048,
     "total_update_episodes": 40000,
     "checkpoint_every": 1000
 }

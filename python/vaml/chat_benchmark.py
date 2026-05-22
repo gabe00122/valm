@@ -24,6 +24,7 @@ from vaml.chat import (
     generate,
     update_gen_state,
 )
+from vaml.config import LoraConfig
 from vaml.model.qwen3 import Qwen3
 
 
@@ -332,6 +333,18 @@ def _prompt_kind(turn: int, prompt_set: str) -> PromptKind:
     if prompt_set == "long":
         return "long"
     return "short" if turn % 2 == 0 else "long"
+
+
+def _resolve_lora_config(args: argparse.Namespace) -> LoraConfig | None:
+    if not args.lora and not args.lora_attn and not args.lora_mlp:
+        return None
+
+    if args.lora_rank < 1:
+        raise ValueError("--lora-rank must be at least 1 when LoRA is enabled")
+
+    attn = args.lora or args.lora_attn
+    mlp = args.lora or args.lora_mlp
+    return LoraConfig(attn=attn, mlp=mlp, rank=args.lora_rank)
 
 
 def _build_prompts(batch_size: int, turn: int, prompt_kind: PromptKind) -> list[str]:
@@ -647,6 +660,7 @@ def print_report(
     console: Console,
     *,
     model_name: str,
+    lora_config: LoraConfig | None,
     batch_size: int,
     seq_length: int,
     turns_requested: int,
@@ -660,8 +674,14 @@ def print_report(
     profile_host_tracer_level: int,
     profile_python_tracer_level: int,
 ) -> None:
+    lora_label = (
+        "off"
+        if lora_config is None
+        else f"rank={lora_config.rank}, attn={lora_config.attn}, mlp={lora_config.mlp}"
+    )
     console.print(
-        f"Model: {model_name} | batch={batch_size} | seq={seq_length} | "
+        f"Model: {model_name} | LoRA: {lora_label} | "
+        f"batch={batch_size} | seq={seq_length} | "
         f"turns={totals.turns}/{turns_requested} | prompts={prompt_set} | wait_for={wait_for}"
     )
     if totals.warmup_wall_s > 0:
@@ -761,6 +781,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seq-length", type=int, default=1024)
     parser.add_argument("--turns", type=int, default=4)
     parser.add_argument(
+        "--lora",
+        action="store_true",
+        help="Enable LoRA adapters on both attention and MLP projections.",
+    )
+    parser.add_argument(
+        "--lora-attn",
+        action="store_true",
+        help="Enable LoRA adapters on attention projections.",
+    )
+    parser.add_argument(
+        "--lora-mlp",
+        action="store_true",
+        help="Enable LoRA adapters on MLP projections.",
+    )
+    parser.add_argument(
+        "--lora-rank",
+        type=int,
+        default=32,
+        help="LoRA adapter rank used when LoRA is enabled.",
+    )
+    parser.add_argument(
         "--prompt-set",
         choices=("mixed", "short", "long"),
         default="mixed",
@@ -830,6 +871,7 @@ def main() -> None:
         raise ValueError("--turns must be at least 1")
     if args.warmup_turns < 0:
         raise ValueError("--warmup-turns must be non-negative")
+    lora_config = _resolve_lora_config(args)
 
     wait_for = args.wait_for if args.wait_for is not None else args.batch_size
     if wait_for < 1 or wait_for > args.batch_size:
@@ -838,6 +880,8 @@ def main() -> None:
     console = Console()
     rngs = nnx.Rngs(args.seed)
     model, tokenizer, _ = load_base_model(args.model, rngs)
+    if lora_config is not None:
+        model.initialize_lora(lora_config, rngs=rngs)
 
     totals, turn_metrics, memory = run_benchmark(
         model=model,
@@ -859,6 +903,7 @@ def main() -> None:
     print_report(
         console,
         model_name=args.model,
+        lora_config=lora_config,
         batch_size=args.batch_size,
         seq_length=args.seq_length,
         turns_requested=args.turns,
@@ -882,6 +927,15 @@ def main() -> None:
                         "batch_size": args.batch_size,
                         "seq_length": args.seq_length,
                         "turns": args.turns,
+                        "lora": (
+                            None
+                            if lora_config is None
+                            else {
+                                "attn": lora_config.attn,
+                                "mlp": lora_config.mlp,
+                                "rank": lora_config.rank,
+                            }
+                        ),
                         "prompt_set": args.prompt_set,
                         "wait_for": wait_for,
                         "warmup_turns": args.warmup_turns,

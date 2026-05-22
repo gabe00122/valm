@@ -1,84 +1,84 @@
 {
-  "seed": 1487432481,
-  "base_model": "Qwen/Qwen3-4B-Instruct-2507",
-  "lora": {
-    "mlp": true,
-    "attn": true,
-    "rank": 32
-  },
-  "value_net": {
-    "latent_encoder_rank": 256,
-    "backbone": {
-      "embed": 256,
-      "q_heads": 8,
-      "kv_heads": 8,
-      "num_layers": 12,
-      "head_dim": 32,
-      "vocab_size": -1,
-      "mlp_ffw_size": 512,
-      "norm_eps": 1e-6,
-      "rope_theta": 500000.0
+    "seed": 1487432481,
+    "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+    "lora": {
+        "mlp": true,
+        "attn": true,
+        "rank": 32
     },
-    "head": {
-      "type": "hl_gauss",
-      "min": -0.1,
-      "max": 1.1,
-      "n_logits": 51,
-      "sigma": 0.05
-    }
-  },
-  "logger": {
-    "project_name": "llmrl",
-    "use_tb": false,
-    "use_console": true,
-    "use_wandb": true,
-    "use_jsonl": true
-  },
-  "policy_optimizer": {
-    "opt": {
-      "type": "adamw",
-      "lr": 0.00001,
-      "beta1": 0.9,
-      "beta2": 0.999,
-      "weight_decay": 0.0,
-      "eps": 1e-8
+    "value_net": {
+        "latent_encoder_rank": 256,
+        "backbone": {
+            "embed": 256,
+            "q_heads": 8,
+            "kv_heads": 8,
+            "num_layers": 12,
+            "head_dim": 32,
+            "vocab_size": -1,
+            "mlp_ffw_size": 512,
+            "norm_eps": 1e-6,
+            "rope_theta": 500000.0
+        },
+        "head": {
+            "type": "hl_gauss",
+            "min": -0.1,
+            "max": 1.1,
+            "n_logits": 51,
+            "sigma": 0.05
+        }
     },
-    "schedule": {
-      "type": "warmup_cosine",
-      "warmup_ratio": 0.1
+    "logger": {
+        "project_name": "llmrl",
+        "use_tb": false,
+        "use_console": true,
+        "use_wandb": true,
+        "use_jsonl": true
     },
-    "multi_step": null
-  },
-  "value_optimizer": {
-    "opt": {
-      "type": "adamw",
-      "lr": 0.0001,
-      "beta1": 0.0,
-      "beta2": 0.99,
-      "weight_decay": 0.0001,
-      "eps": 1e-8
+    "policy_optimizer": {
+        "opt": {
+            "type": "adamw",
+            "lr": 0.00003,
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "weight_decay": 0.0,
+            "eps": 1e-8
+        },
+        "schedule": {
+            "type": "warmup_cosine",
+            "warmup_ratio": 0.02
+        },
+        "multi_step": 16
     },
-    "schedule": {
-      "type": "warmup_cosine",
-      "warmup_ratio": 0.1
+    "value_optimizer": {
+        "opt": {
+            "type": "adamw",
+            "lr": 0.0001,
+            "beta1": 0.9,
+            "beta2": 0.999,
+            "weight_decay": 0.0001,
+            "eps": 1e-8
+        },
+        "schedule": {
+            "type": "warmup_cosine",
+            "warmup_ratio": 0.02
+        },
+        "multi_step": 16
     },
-    "multi_step": 4
-  },
-  "loss": {
-    "gae_lambda": 1.0,
-    "gae_discount": 1.0,
-    "turn_lambda": 0.8,
-    "turn_discount": 0.9,
-    "pg_clip_high": 0.28,
-    "pg_clip_low": 0.2
-  },
-  "env": {
-    "name": "wordle",
-    "max_guesses": 6
-  },
-  "eval_envs": 16,
-  "update_envs": 1,
-  "max_seq_length": 4096,
-  "total_update_episodes": 40000,
-  "checkpoint_every": 1000
+    "loss": {
+        "gae_lambda": 1.0,
+        "gae_discount": 1.0,
+        "turn_lambda": 0.8,
+        "turn_discount": 0.9,
+        "pg_clip_high": 0.28,
+        "pg_clip_low": 0.2
+    },
+    "env": {
+        "name": "wordle",
+        "max_guesses": 6
+    },
+    "eval_envs": 32,
+    "update_envs": 2,
+    "max_seq_length": 2048,
+    "total_update_episodes": 40000,
+    "checkpoint_every": 1000
 }

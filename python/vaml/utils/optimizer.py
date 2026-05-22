@@ -10,21 +10,33 @@ from vaml.config import (
 )
 
 
+def scheduled_optimizer_steps(total_steps: int, multi_step: int | None) -> int:
+    if multi_step is None:
+        return max(1, total_steps)
+
+    if multi_step <= 0:
+        raise ValueError("multi_step must be positive")
+
+    return max(1, total_steps // multi_step)
+
+
 def make_optimizer(
     model: nnx.Module,
     opt_config: OptimizerConfig,
     total_steps: int,
     wrt: nnx.filterlib.Filter,
 ) -> nnx.Optimizer:
+    schedule_steps = scheduled_optimizer_steps(total_steps, opt_config.multi_step)
+
     if opt_config.schedule is None:
         tx_lr = opt_config.opt.lr
     elif isinstance(opt_config.schedule, WarmupCosineConfig):
-        warmup_steps = int(total_steps * opt_config.schedule.warmup_ratio)
+        warmup_steps = int(schedule_steps * opt_config.schedule.warmup_ratio)
         tx_lr = optax.warmup_cosine_decay_schedule(
             init_value=0.0,
             peak_value=opt_config.opt.lr,
             warmup_steps=warmup_steps,
-            decay_steps=total_steps,
+            decay_steps=schedule_steps,
         )
     else:
         raise ValueError(f"Unsupported schedule type: {type(opt_config.schedule)}")

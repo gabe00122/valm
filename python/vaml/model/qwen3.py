@@ -80,6 +80,7 @@ class Qwen3(nnx.Module):
         rng_key: jax.Array,
     ) -> tuple[jax.Array, ValueRepresentation | None, Any, jax.Array]:
         value_repr = None
+        checkpoint = True
 
         with jax.named_scope("qwen3_embeddings"):
             x = self.embeddings(tokens)
@@ -107,7 +108,9 @@ class Qwen3(nnx.Module):
             latents = [x]
             for i, layer in enumerate(self.layers):
                 with jax.named_scope(f"qwen3_layer_{i:02d}"):
-                    x, _ = jax.checkpoint(layer)(x, positions)
+                    if checkpoint:
+                        layer = jax.checkpoint(layer)
+                    x, _ = layer(x, positions)
                 latents.append(x)
 
             if hasattr(self, "value_net"):
@@ -132,7 +135,7 @@ class Qwen3(nnx.Module):
         )
         value_carry = (
             self.value_net.initialize_carry(batch_size, seq_length)
-            if self.value_net is not None
+            if hasattr(self, 'value_net')
             else None
         )
         return base_carry, value_carry

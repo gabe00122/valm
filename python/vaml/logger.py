@@ -114,10 +114,10 @@ class ConsoleLogger(BaseLogger):
 class JsonLogger(BaseLogger):
     def __init__(self, experiment_path: str) -> None:
         self._file = None
-        self._experiment_path = f"{experiment_path}/logs.jsonl"
+        self._experiment_file_path = f"{experiment_path}/logs.jsonl"
 
     def start(self):
-        self._file = open(f"{self._experiment_path}.jsonl", "w")
+        self._file = open(self._experiment_file_path, "w")
 
     def close(self):
         if self._file is not None:

@@ -84,11 +84,11 @@ impl WordleInstance {
         for (i, f) in feedback.iter().enumerate() {
             if (f == &'Y' || f == &'G') && !self.got_yellow[i] {
                 self.got_yellow[i] = true;
-                reward += 0.05;
+                reward += 0.025;
             }
             if f == &'G' && !self.got_green[i] {
                 self.got_green[i] = true;
-                reward += 0.05;
+                reward += 0.025;
             }
         }
 
@@ -145,7 +145,7 @@ impl EnvInstance for WordleInstance {
             let (feedback, reward) = self.generate_feedback(&guess);
             let word_found = guess == self.shared.words[self.secret_word_index];
 
-            let reward = reward + if word_found { 0.5 } else { 0.0 }; // big bonus for the complete word correct
+            let reward = reward + if word_found { 0.75 } else { 0.0 }; // big bonus for the complete word correct
 
             (feedback, reward, word_found)
         } else {
