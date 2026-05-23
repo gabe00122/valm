@@ -63,6 +63,7 @@ def loss_fn(
     model: Qwen3,
     rollout: UpdateBatch,
     td_discount: jax.Array,
+    td_lambda: jax.Array,
     config: LossConfig,
     bounds_mask: jax.Array,
     value_only: bool,
@@ -86,7 +87,7 @@ def loss_fn(
 
     log_ratio = log_prob - rollout.log_probs
     pg_ratio = jnp.exp(log_ratio)
-    td_lambda = jnp.minimum(pg_ratio, config.gae_lambda)
+    td_lambda = jnp.minimum(pg_ratio, td_lambda)
     advantages, targets = calculate_advantages(
         jnp.asarray(rollout.rewards), values, td_discount, td_lambda
     )
@@ -184,6 +185,7 @@ def update_step(
     # we have turn indecies now so this could be a scatter
     turn_boundries = ~rollout.policy_mask[:, :-1] & rollout.policy_mask[:, 1:]
     td_discount = jnp.where(turn_boundries, config.turn_discount, config.gae_discount)
+    td_lambda = jnp.where(turn_boundries, config.turn_lambda, config.gae_lambda)
 
     wrt = value_opt.wrt
     if not value_only:
@@ -192,7 +194,7 @@ def update_step(
     diff = nnx.DiffState(0, wrt)
     grad, (summery_metrics, token_metrics, rng_key) = nnx.grad(
         loss_fn, argnums=diff, has_aux=True
-    )(model, rollout, td_discount, config, bounds_mask, value_only, rng_key)
+    )(model, rollout, td_discount, td_lambda, config, bounds_mask, value_only, rng_key)
 
     if not value_only:
         policy_opt.update(model, grad)

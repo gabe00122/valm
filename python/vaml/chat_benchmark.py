@@ -661,6 +661,7 @@ def print_report(
     *,
     model_name: str,
     lora_config: LoraConfig | None,
+    int8_quantized_modules: int | None,
     batch_size: int,
     seq_length: int,
     turns_requested: int,
@@ -679,8 +680,13 @@ def print_report(
         if lora_config is None
         else f"rank={lora_config.rank}, attn={lora_config.attn}, mlp={lora_config.mlp}"
     )
+    int8_label = (
+        "off"
+        if int8_quantized_modules is None
+        else f"weight-only projections={int8_quantized_modules}"
+    )
     console.print(
-        f"Model: {model_name} | LoRA: {lora_label} | "
+        f"Model: {model_name} | LoRA: {lora_label} | Int8: {int8_label} | "
         f"batch={batch_size} | seq={seq_length} | "
         f"turns={totals.turns}/{turns_requested} | prompts={prompt_set} | wait_for={wait_for}"
     )
@@ -802,6 +808,16 @@ def parse_args() -> argparse.Namespace:
         help="LoRA adapter rank used when LoRA is enabled.",
     )
     parser.add_argument(
+        "--int8",
+        "--quantize-int8",
+        action="store_true",
+        dest="int8",
+        help=(
+            "Quantize loaded attention and MLP projection weights to int8 "
+            "for a weight-only inference benchmark POC."
+        ),
+    )
+    parser.add_argument(
         "--prompt-set",
         choices=("mixed", "short", "long"),
         default="mixed",
@@ -882,6 +898,7 @@ def main() -> None:
     model, tokenizer, _ = load_base_model(args.model, rngs)
     if lora_config is not None:
         model.initialize_lora(lora_config, rngs=rngs)
+    int8_quantized_modules = model.quantize_int8() if args.int8 else None
 
     totals, turn_metrics, memory = run_benchmark(
         model=model,
@@ -904,6 +921,7 @@ def main() -> None:
         console,
         model_name=args.model,
         lora_config=lora_config,
+        int8_quantized_modules=int8_quantized_modules,
         batch_size=args.batch_size,
         seq_length=args.seq_length,
         turns_requested=args.turns,
@@ -936,6 +954,8 @@ def main() -> None:
                                 "rank": lora_config.rank,
                             }
                         ),
+                        "int8": args.int8,
+                        "int8_quantized_modules": int8_quantized_modules,
                         "prompt_set": args.prompt_set,
                         "wait_for": wait_for,
                         "warmup_turns": args.warmup_turns,

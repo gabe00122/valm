@@ -187,7 +187,7 @@ class LocalAgent(Agent):
         append_user_prompts(self._np_gen, batch_indices, self._tokenizer, obs)
 
         self._gen = update_gen_state(self._gen, self._np_gen)
-        self._gen = generate(self.model_def, self.model_state, "simple", self._gen, 4)
+        self._gen = generate(self.model_def, self.model_state, "simple", self._gen, 1)
         self._np_gen = convert_to_np(self._gen)
 
         response_indices, response = decode_responses(self._tokenizer, self._np_gen)

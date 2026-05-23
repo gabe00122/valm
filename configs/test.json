@@ -3,7 +3,7 @@
     "base_model": "Qwen/Qwen3-4B-Instruct-2507",
     "lora": {
         "mlp": true,
-        "attn": true,
+        "attn": false,
         "rank": 32
     },
     "value_net": {
@@ -28,7 +28,7 @@
         }
     },
     "logger": {
-        "project_name": "llmrl",
+        "project_name": "vaml",
         "use_tb": false,
         "use_console": true,
         "use_wandb": true,
@@ -67,7 +67,7 @@
     "loss": {
         "gae_lambda": 1.0,
         "gae_discount": 1.0,
-        "turn_lambda": 0.8,
+        "turn_lambda": 0.9,
         "turn_discount": 0.9,
         "pg_clip_high": 0.28,
         "pg_clip_low": 0.2
