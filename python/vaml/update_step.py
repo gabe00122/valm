@@ -76,7 +76,7 @@ def loss_fn(
     positions = jnp.repeat(jnp.arange(seq_len, dtype=jnp.int32)[None, :], batch_len, 0)
 
     logits, value_repr, _, rng_key = model(
-        jnp.asarray(rollout.context), positions, rng_key=rng_key
+        jnp.asarray(rollout.context), positions, rewards=jnp.asarray(rollout.rewards, dtype=jnp.bfloat16), rng_key=rng_key
     )
     assert value_repr is not None
 

@@ -77,6 +77,7 @@ class Qwen3(nnx.Module):
         positions: jax.Array,
         carry: Any = None,
         *,
+        rewards: jax.Array | None = None,
         rng_key: jax.Array,
     ) -> tuple[jax.Array, ValueRepresentation | None, Any, jax.Array]:
         value_repr = None
@@ -98,11 +99,11 @@ class Qwen3(nnx.Module):
 
             base_carry = tuple(out_carry)
 
-            if hasattr(self, "value_net"):
-                with jax.named_scope("qwen3_value_net"):
-                    value_repr, value_carry, rng_key = self.value_net(
-                        latents, positions, value_carry, rng_key=rng_key
-                    )
+            # if hasattr(self, "value_net"):
+            #     with jax.named_scope("qwen3_value_net"):
+            #         value_repr, value_carry, rng_key = self.value_net(
+            #             latents, positions, value_carry, rng_key=rng_key
+            #         )
             carry = base_carry, value_carry
         else:
             latents = [x]
@@ -116,7 +117,7 @@ class Qwen3(nnx.Module):
             if hasattr(self, "value_net"):
                 with jax.named_scope("qwen3_value_net"):
                     value_repr, _, rng_key = self.value_net(
-                        latents, positions, rng_key=rng_key
+                        latents, rewards, positions, rng_key=rng_key
                     )
 
         with jax.named_scope("qwen3_final_norm"):

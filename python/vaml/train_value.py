@@ -81,9 +81,6 @@ def train_value_cli(config_url: str, offline_data_url: str):
     value_opt_def, value_opt_state = nnx.split(value_opt)
     model_def, model_state = nnx.split(model)
 
-    ref_context = first_batch.context[0]
-    output_values = np.zeros((total_updates, config.max_seq_length))
-
     rng_key = rngs()
 
     step = 0
@@ -117,8 +114,6 @@ def train_value_cli(config_url: str, offline_data_url: str):
                 True,
             )
         )
-        values, rng_key = calculate_values(model_def, model_state, rng_key, ref_context)
-        output_values[step] = np.array(values)
 
         logger.log_dict(summery_metrics, step)
         step += 1

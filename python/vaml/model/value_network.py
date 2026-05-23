@@ -183,6 +183,8 @@ class ValueNetLayer(nnx.Module):
 
 class ValueBackbone(nnx.Module):
     def __init__(self, config: ValueConfig, latent_size: int, *, rngs: nnx.Rngs):
+        self._reward_encode = nnx.Linear(1, config.backbone.embed, dtype=jnp.bfloat16, rngs=rngs)
+
         self._embedding_encode = ValueNetEncode(
             latent_size,
             config.latent_encoder_rank,
@@ -218,6 +220,7 @@ class ValueBackbone(nnx.Module):
     def __call__(
         self,
         latents: list[jax.Array],
+        rewards: jax.Array,
         positions: jax.Array,
         carry: tuple[Any, ...] | None = None,
         *,
@@ -229,6 +232,7 @@ class ValueBackbone(nnx.Module):
         layer_latents = layer_latents[::take_every][: len(self.layers)]
 
         x, rng_key = self._embedding_encode(x, rng_key=rng_key)
+        x = x + self._reward_encode(rewards[..., None])
 
         if carry is not None:
             out_carry = []
