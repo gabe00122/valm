@@ -3,8 +3,7 @@ import { query } from "$app/server";
 import type { EncodedEpisode } from "$lib/episodes";
 
 export const getEpisode = query(v.number(), async (episodeId) => {
-    // const episodeId = 0;
-    const response = await fetch(`http://127.0.0.1:8000/episode/${episodeId}`);
-    const json: EncodedEpisode = await response.json();
-    return json;
+  const response = await fetch(`http://127.0.0.1:8000/episode/${episodeId}`);
+  const json: EncodedEpisode = await response.json();
+  return json;
 });
