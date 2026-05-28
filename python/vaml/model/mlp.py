@@ -1,5 +1,6 @@
 import jax
 from flax import nnx
+import numpy as np
 from jax import numpy as jnp
 from vaml.config import LLMConfig, LoraConfig
 from vaml.model.util import load_param
@@ -11,17 +12,9 @@ class MlpLayer(nnx.Module):
         self._embed_dim = config.embed
         self._ffw_dim = config.mlp_ffw_size
 
-        self.up_gate = nnx.Linear(
-            config.embed,
-            config.mlp_ffw_size,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
-            use_bias=False,
-            rngs=rngs,
-        )
         self.up_proj = nnx.Linear(
             config.embed,
-            config.mlp_ffw_size,
+            config.mlp_ffw_size * 2,
             dtype=jnp.bfloat16,
             param_dtype=jnp.bfloat16,
             use_bias=False,
@@ -44,18 +37,10 @@ class MlpLayer(nnx.Module):
             return
 
         self._use_lora = True
-        self.up_gate_lora = nnx.LoRA(
-            self._embed_dim,
-            lora_config.rank,
-            self._ffw_dim,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
-            rngs=rngs,
-        )
         self.up_proj_lora = nnx.LoRA(
             self._embed_dim,
             lora_config.rank,
-            self._ffw_dim,
+            self._ffw_dim * 2,
             dtype=jnp.bfloat16,
             param_dtype=jnp.bfloat16,
             rngs=rngs,
@@ -71,19 +56,20 @@ class MlpLayer(nnx.Module):
 
     def load_params(self, params):
         # pass in the mlp dict
-        load_param(self.up_gate.kernel, params["gate_proj"]["weight"].T)
-        load_param(self.up_proj.kernel, params["up_proj"]["weight"].T)
+        up_proj = np.concatenate([
+            params["gate_proj"]["weight"].T,
+            params["up_proj"]["weight"].T
+        ], axis=-1)
+        load_param(self.up_proj.kernel, up_proj)
         load_param(self.down_proj.kernel, params["down_proj"]["weight"].T)
 
     def __call__(self, inputs):
-        up = self.up_proj(inputs)
-        gate_in = self.up_gate(inputs)
-
+        up_combined = self.up_proj(inputs)
         if self._use_lora:
-            up = up + self.up_proj_lora(inputs)
-            gate_in = gate_in + self.up_gate_lora(inputs)
+            up_combined = up_combined + self.up_proj_lora(inputs)
 
-        down_in = up * jax.nn.silu(gate_in)
+        gate_in, up_in = jnp.split(up_combined, 2, axis=-1)
+        down_in = up_in * jax.nn.silu(gate_in)
         out = self.down_proj(down_in)
 
         if self._use_lora:
