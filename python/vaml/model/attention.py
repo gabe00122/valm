@@ -16,7 +16,13 @@ class KVCache(NamedTuple):
 
 
 class AttentionLayer(nnx.Module):
-    def __init__(self, config: LLMConfig, *, rngs: nnx.Rngs) -> None:
+    def __init__(
+        self,
+        config: LLMConfig,
+        *,
+        param_dtype=jnp.bfloat16,
+        rngs: nnx.Rngs,
+    ) -> None:
         super().__init__()
 
         self._num_kv_heads = config.kv_heads
@@ -29,7 +35,7 @@ class AttentionLayer(nnx.Module):
             in_features=config.embed,
             out_features=(config.kv_heads, config.head_dim),
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             use_bias=False,
             rngs=rngs,
         )
@@ -38,7 +44,7 @@ class AttentionLayer(nnx.Module):
             in_features=config.embed,
             out_features=(config.kv_heads, config.head_dim),
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             use_bias=False,
             rngs=rngs,
         )
@@ -47,7 +53,7 @@ class AttentionLayer(nnx.Module):
             in_features=config.embed,
             out_features=(config.q_heads, config.head_dim),
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             use_bias=False,
             rngs=rngs,
         )
@@ -57,7 +63,7 @@ class AttentionLayer(nnx.Module):
             out_features=config.embed,
             axis=(-2, -1),
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             use_bias=False,
             rngs=rngs,
         )
@@ -65,14 +71,14 @@ class AttentionLayer(nnx.Module):
         self.query_norm = nnx.RMSNorm(
             config.head_dim,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             epsilon=config.norm_eps,
             rngs=rngs,
         )
         self.key_norm = nnx.RMSNorm(
             config.head_dim,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             epsilon=config.norm_eps,
             rngs=rngs,
         )

@@ -7,7 +7,13 @@ from vaml.model.util import load_param
 
 
 class MlpLayer(nnx.Module):
-    def __init__(self, config: LLMConfig, *, rngs: nnx.Rngs):
+    def __init__(
+        self,
+        config: LLMConfig,
+        *,
+        param_dtype=jnp.bfloat16,
+        rngs: nnx.Rngs,
+    ):
         super().__init__()
         self._embed_dim = config.embed
         self._ffw_dim = config.mlp_ffw_size
@@ -16,7 +22,7 @@ class MlpLayer(nnx.Module):
             config.embed,
             config.mlp_ffw_size * 2,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             use_bias=False,
             rngs=rngs,
         )
@@ -24,7 +30,7 @@ class MlpLayer(nnx.Module):
             config.mlp_ffw_size,
             config.embed,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             use_bias=False,
             rngs=rngs,
         )
@@ -42,7 +48,7 @@ class MlpLayer(nnx.Module):
             lora_config.rank,
             self._ffw_dim * 2,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
             rngs=rngs,
         )
         self.down_proj_lora = nnx.LoRA(
@@ -50,7 +56,7 @@ class MlpLayer(nnx.Module):
             lora_config.rank,
             self._embed_dim,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
             rngs=rngs,
         )
 

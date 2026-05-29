@@ -87,6 +87,7 @@ def loss_fn(
 
     log_ratio = log_prob - rollout.log_probs
     pg_ratio = jnp.exp(log_ratio)
+    pg_ratio = jnp.where(policy_mask, pg_ratio, 1.0)
     td_lambda = jnp.minimum(pg_ratio, td_lambda)
     advantages, targets = calculate_advantages(
         jnp.asarray(rollout.rewards), values, td_discount, td_lambda
@@ -119,7 +120,7 @@ def loss_fn(
         "episode_length": rollout.context_length.mean(),
     }
 
-    token_metrics = {"value_loss": value_loss, "value": values, "advantage": advantages}
+    token_metrics = {"value_loss": value_loss, "value": values, "advantage": advantages, "discount": td_discount, "lambda": td_lambda}
 
     if not value_only:
         pg_loss1 = pg_ratio * advantages

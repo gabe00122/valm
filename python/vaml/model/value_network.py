@@ -78,7 +78,8 @@ class HlGaussHead(nnx.Module):
         self.dense = nnx.Linear(
             in_features,
             hl_gauss_config.n_logits,
-            param_dtype=jnp.bfloat16,
+            dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
             rngs=rngs,
         )
 
@@ -103,7 +104,13 @@ class MseValueRepresentation:
 
 class MseHead(nnx.Module):
     def __init__(self, in_features: int, *, rngs: nnx.Rngs) -> None:
-        self.dense = nnx.Linear(in_features, 1, rngs=rngs)
+        self.dense = nnx.Linear(
+            in_features,
+            1,
+            dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
+            rngs=rngs,
+        )
 
     def __call__(self, x) -> ValueRepresentation:
         x = self.dense(x).squeeze(axis=-1)
@@ -124,15 +131,32 @@ class ValueNetEncode(nnx.Module):
         rngs: nnx.Rngs,
     ):
         self._dropout = nnx.Dropout(0.1)
-        self._normalize = nnx.RMSNorm(latent_size, rngs=rngs)
+        self._normalize = nnx.RMSNorm(
+            latent_size,
+            dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
+            rngs=rngs,
+        )
         self._encode_up = nnx.Linear(
-            latent_size, latent_encode_rank, param_dtype=jnp.bfloat16, rngs=rngs
+            latent_size,
+            latent_encode_rank,
+            dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
+            rngs=rngs,
         )
         self._up_gate = nnx.Linear(
-            latent_size, latent_encode_rank, param_dtype=jnp.bfloat16, rngs=rngs
+            latent_size,
+            latent_encode_rank,
+            dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
+            rngs=rngs,
         )
         self._encode_down = nnx.Linear(
-            latent_encode_rank, out_size, param_dtype=jnp.bfloat16, rngs=rngs
+            latent_encode_rank,
+            out_size,
+            dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
+            rngs=rngs,
         )
 
     def __call__(
@@ -162,7 +186,7 @@ class ValueNetLayer(nnx.Module):
         self._latent_encode = ValueNetEncode(
             latent_size, latent_encode_rank, config.embed, rngs=rngs
         )
-        self._layer = Qwen3Layer(config, rngs=rngs)
+        self._layer = Qwen3Layer(config, param_dtype=jnp.float32, rngs=rngs)
 
     def __call__(
         self,
@@ -183,7 +207,13 @@ class ValueNetLayer(nnx.Module):
 
 class ValueBackbone(nnx.Module):
     def __init__(self, config: ValueConfig, latent_size: int, *, rngs: nnx.Rngs):
-        self._reward_encode = nnx.Linear(1, config.backbone.embed, dtype=jnp.bfloat16, rngs=rngs)
+        self._reward_encode = nnx.Linear(
+            1,
+            config.backbone.embed,
+            dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
+            rngs=rngs,
+        )
 
         self._embedding_encode = ValueNetEncode(
             latent_size,
@@ -208,7 +238,7 @@ class ValueBackbone(nnx.Module):
             config.backbone.embed,
             epsilon=config.backbone.norm_eps,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=jnp.float32,
             rngs=rngs,
         )
 

@@ -8,22 +8,28 @@ from vaml.model.util import load_param
 
 
 class Qwen3Layer(nnx.Module):
-    def __init__(self, config: LLMConfig, *, rngs: nnx.Rngs):
+    def __init__(
+        self,
+        config: LLMConfig,
+        *,
+        param_dtype=jnp.bfloat16,
+        rngs: nnx.Rngs,
+    ):
         super().__init__()
-        self.attn = AttentionLayer(config, rngs=rngs)
-        self.mlp = MlpLayer(config, rngs=rngs)
+        self.attn = AttentionLayer(config, param_dtype=param_dtype, rngs=rngs)
+        self.mlp = MlpLayer(config, param_dtype=param_dtype, rngs=rngs)
 
         self.attn_pre_norm = nnx.RMSNorm(
             config.embed,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             epsilon=config.norm_eps,
             rngs=rngs,
         )
         self.attn_post_norm = nnx.RMSNorm(
             config.embed,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             epsilon=config.norm_eps,
             rngs=rngs,
         )

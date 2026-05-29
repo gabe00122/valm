@@ -32,14 +32,20 @@ class LoRALinear(nnx.Module):
         self.use_lora = False
 
         linear_key = rngs.params()
-        self.linear = nnx.Param(kernel_init(linear_key, (self._prod_in, self._prod_out), jnp.bfloat16))
+        self.linear = nnx.Param(
+            kernel_init(linear_key, (self._prod_in, self._prod_out), jnp.bfloat16)
+        )
 
     def initialize_lora(self, rank: int, *, rngs: nnx.Rngs):
         lora_a_key = rngs.params()
         lora_b_key = rngs.params()
 
-        self.lora_a = nnx.LoRAParam(default_a_initializer(lora_a_key, (self._prod_in, rank), jnp.bfloat16))
-        self.lora_b = nnx.LoRAParam(default_b_initializer(lora_b_key, (rank, self._prod_out), jnp.bfloat16))
+        self.lora_a = nnx.LoRAParam(
+            default_a_initializer(lora_a_key, (self._prod_in, rank), jnp.float32)
+        )
+        self.lora_b = nnx.LoRAParam(
+            default_b_initializer(lora_b_key, (rank, self._prod_out), jnp.float32)
+        )
         self.use_lora = True
 
     def merge_lora(self):
@@ -85,6 +91,7 @@ class LoRAGeneral(nnx.Module):
         rank: int,
         out_features: int | tuple[int, ...],
         *,
+        param_dtype=jnp.float32,
         rngs: nnx.Rngs,
     ) -> None:
         prod_in = prod_features(in_features)
@@ -99,7 +106,7 @@ class LoRAGeneral(nnx.Module):
             rank,
             prod_out,
             dtype=jnp.bfloat16,
-            param_dtype=jnp.bfloat16,
+            param_dtype=param_dtype,
             rngs=rngs,
         )
 
