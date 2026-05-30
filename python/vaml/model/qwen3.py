@@ -8,7 +8,6 @@ from vaml.model.layer import Qwen3Layer
 from vaml.model.util import load_param, wrap_param
 from vaml.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
 
-
 class Qwen3(nnx.Module):
     def __init__(
         self,
@@ -55,6 +54,10 @@ class Qwen3(nnx.Module):
     def initialize_lora(self, lora_config: LoraConfig, *, rngs: nnx.Rngs):
         for layer in self.layers:
             layer.initialize_lora(lora_config, rngs=rngs)
+
+    def merge_lora(self):
+        for layer in self.layers:
+            layer.merge_lora()
 
     def load_params(self, params: dict[str, Any]):
         embed_params = jnp.asarray(

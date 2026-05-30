@@ -38,6 +38,10 @@ class Qwen3Layer(nnx.Module):
         self.attn.initialize_lora(lora_config, rngs=rngs)
         self.mlp.initialize_lora(lora_config, rngs=rngs)
 
+    def merge_lora(self):
+        self.attn.merge_lora()
+        self.mlp.merge_lora()
+
     def __call__(
         self, inputs: jax.Array, positions: jax.Array, carry: KVCache | None = None
     ) -> tuple[jax.Array, KVCache | None]:

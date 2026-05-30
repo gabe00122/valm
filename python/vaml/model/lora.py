@@ -21,6 +21,7 @@ class LoRALinear(nnx.Module):
         in_features: int | tuple[int, ...],
         out_features: int | tuple[int, ...],
         *,
+        param_dtype=jnp.bfloat16,
         rngs: nnx.Rngs
     ):
         self._prod_in = prod_features(in_features)
@@ -33,7 +34,7 @@ class LoRALinear(nnx.Module):
 
         linear_key = rngs.params()
         self.linear = nnx.Param(
-            kernel_init(linear_key, (self._prod_in, self._prod_out), jnp.bfloat16)
+            kernel_init(linear_key, (self._prod_in, self._prod_out), param_dtype)
         )
 
     def initialize_lora(self, rank: int, *, rngs: nnx.Rngs):
@@ -47,9 +48,10 @@ class LoRALinear(nnx.Module):
             default_b_initializer(lora_b_key, (rank, self._prod_out), jnp.float32)
         )
         self.use_lora = True
+        self._lora_merged = False
 
     def merge_lora(self):
-        if not self.use_lora:
+        if not self.use_lora or self._lora_merged:
             return
 
         base_dtype = self.linear.value.dtype
@@ -63,22 +65,24 @@ class LoRALinear(nnx.Module):
             self.linear.value.astype(jnp.float32) + delta
         ).astype(base_dtype)
 
-        # Important: avoid applying LoRA again in __call__
-        self.use_lora = False
+        self._lora_merged = True
 
     def load_params(self, param: np.ndarray):
         lp(self.linear, param)
+
+        if self.use_lora:
+            self._lora_merged = False
 
     def __call__(self, x: jax.Array) -> jax.Array:
         batch = x.shape[0]
         seq_length = x.shape[1]
 
-        linear_in = x.reshape(batch, seq_length, -1)
+        linear_in = x.reshape(batch, seq_length, -1).astype(jnp.bfloat16)
 
-        x = linear_in @ self.linear[...]
-        if self.use_lora:
+        x = linear_in @ self.linear[...].astype(jnp.bfloat16)
+        if self.use_lora and not self._lora_merged:
             lora = linear_in @ self.lora_a[...] @ self.lora_b[...]
-            x = x + lora
+            x = x + lora.astype(jnp.bfloat16)
         x = x.reshape(batch, seq_length, *self._out_shape)
 
         return x
