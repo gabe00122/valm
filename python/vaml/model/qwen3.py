@@ -8,6 +8,14 @@ from vaml.model.layer import Qwen3Layer
 from vaml.model.util import load_param, wrap_param
 from vaml.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
 
+
+@jax.jit(static_argnums=0, donate_argnums=1)
+def merge_lora(model_def, model_state):
+    model: Qwen3 = nnx.merge(model_def, model_state)
+    model.merge_lora()
+    return nnx.split(model)
+
+
 class Qwen3(nnx.Module):
     def __init__(
         self,

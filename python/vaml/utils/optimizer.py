@@ -58,6 +58,12 @@ def make_optimizer(
     else:
         raise ValueError(f"Unsupported optimizer type: {opt_config.opt.type}")
 
+    if opt_config.max_grad_norm is not None:
+        tx = optax.chain(
+            optax.clip_by_global_norm(opt_config.max_grad_norm),
+            tx
+        )
+
     if opt_config.multi_step is not None:
         tx = optax.MultiSteps(tx, every_k_schedule=opt_config.multi_step)
 

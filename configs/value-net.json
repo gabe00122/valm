@@ -37,7 +37,7 @@
     "policy_optimizer": {
         "opt": {
             "type": "adamw",
-            "lr": 0.00001,
+            "lr": 0.00002,
             "beta1": 0.9,
             "beta2": 0.999,
             "weight_decay": 0.0,
@@ -52,7 +52,7 @@
     "value_optimizer": {
         "opt": {
             "type": "adamw",
-            "lr": 0.0001,
+            "lr": 0.00005,
             "beta1": 0.9,
             "beta2": 0.999,
             "weight_decay": 0.0,
@@ -62,7 +62,8 @@
             "type": "warmup_cosine",
             "warmup_ratio": 0.05
         },
-        "multi_step": 4
+        "max_grad_norm": 1.0,
+        "multi_step": 2
     },
     "loss": {
         "gae_lambda": 1.0,
@@ -77,8 +78,8 @@
         "max_guesses": 6
     },
     "eval_envs": 32,
-    "update_envs": 8,
-    "max_seq_length": 2048,
+    "update_envs": 16,
+    "max_seq_length": 1024,
     "total_update_episodes": 40000,
     "checkpoint_every": 1000
 }

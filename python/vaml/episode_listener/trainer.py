@@ -16,6 +16,12 @@ class ModelProvider(Protocol):
     model_def: nnx.GraphDef
     model_state: nnx.State
 
+    def pre_update(self):
+        ...
+
+    def post_update(self):
+        ...
+
 
 class Trainer(EpisodeListener):
     def __init__(

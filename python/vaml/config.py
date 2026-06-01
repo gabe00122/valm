@@ -108,6 +108,7 @@ ScheduleConfig = WarmupCosineConfig | None
 class OptimizerConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     opt: AdamWConfig | SGDConfig = Field(discriminator="type")
+    max_grad_norm: float | None = None
     schedule: ScheduleConfig = None
     multi_step: int | None = None
 
