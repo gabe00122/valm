@@ -77,6 +77,10 @@ def train_value_cli(config_url: str, offline_data_url: str):
     input_buffer.store(first_batch)
 
     total_updates = (len(data_files) * num_episodes_per_file) // config.update_envs
+    if config.value_optimizer.multi_step is not None:
+        # to correct for the scheduling
+        total_updates //= config.value_optimizer.multi_step
+
     value_opt = make_optimizer(model, config.value_optimizer, total_updates, ValueParam)
     value_opt_def, value_opt_state = nnx.split(value_opt)
     model_def, model_state = nnx.split(model)

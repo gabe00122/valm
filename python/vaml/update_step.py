@@ -7,6 +7,7 @@ from jax import numpy as jnp
 from vaml.buffer import UpdateBatch
 from vaml.config import LossConfig
 from vaml.model.qwen3 import Qwen3
+from einops import rearrange
 
 
 def summery_stats(
@@ -76,7 +77,10 @@ def loss_fn(
     positions = jnp.repeat(jnp.arange(seq_len, dtype=jnp.int32)[None, :], batch_len, 0)
 
     logits, value_repr, _, rng_key = model(
-        jnp.asarray(rollout.context), positions, rewards=jnp.asarray(rollout.rewards, dtype=jnp.bfloat16), rng_key=rng_key
+        jnp.asarray(rollout.context),
+        positions,
+        rewards=jnp.asarray(rollout.rewards, dtype=jnp.bfloat16),
+        rng_key=rng_key,
     )
     assert value_repr is not None
 
@@ -120,7 +124,13 @@ def loss_fn(
         "episode_length": rollout.context_length.mean(),
     }
 
-    token_metrics = {"value_loss": value_loss, "value": values, "advantage": advantages, "discount": td_discount, "lambda": td_lambda}
+    token_metrics = {
+        "value_loss": value_loss,
+        "value": values,
+        "advantage": advantages,
+        "discount": td_discount,
+        "lambda": td_lambda,
+    }
 
     if not value_only:
         pg_loss1 = pg_ratio * advantages
@@ -148,6 +158,82 @@ def loss_fn(
         loss = loss + actor_loss.mean(where=policy_mask)
 
     return loss, (summery_metrics, token_metrics, rng_key)
+
+
+@jax.jit(
+    static_argnames=(
+        "policy_opt_def",
+        "value_opt_def",
+        "model_def",
+        "config",
+        "value_only",
+        "steps",
+    ),
+    donate_argnames=("policy_opt_state", "value_opt_state", "model_state"),
+)
+def multi_update_step(
+    policy_opt_def,
+    policy_opt_state,
+    value_opt_def,
+    value_opt_state,
+    model_def,
+    model_state,
+    rng_key: jax.Array,
+    rollout: UpdateBatch,
+    config: LossConfig,
+    steps: int,
+    value_only: bool,
+):
+    rollout = jax.tree.map(
+        lambda xs: rearrange(xs, "(s b) ... -> s b ...", s=steps), rollout
+    )
+
+    def body(carry, x):
+        policy_opt_state, value_opt_state, model_state, rng_key = carry
+        (
+            policy_opt_state,
+            value_opt_state,
+            model_state,
+            summery_metrics,
+            token_metrics,
+            rng_key,
+        ) = update_step(
+            policy_opt_def,
+            policy_opt_state,
+            value_opt_def,
+            value_opt_state,
+            model_def,
+            model_state,
+            rng_key,
+            x,
+            config,
+            value_only,
+        )
+        return (policy_opt_state, value_opt_state, model_state, rng_key), (
+            summery_metrics,
+            token_metrics,
+        )
+
+    (
+        (policy_opt_state, value_opt_state, model_state, rng_key),
+        (summery_metrics, token_metrics),
+    ) = jax.lax.scan(
+        body, (policy_opt_state, value_opt_state, model_state, rng_key), rollout
+    )
+
+    summery_metrics = jax.tree.map(lambda xs: jnp.mean(xs, axis=0), summery_metrics)
+    token_metrics = jax.tree.map(
+        lambda xs: rearrange(xs, "s b ... -> (s b) ..."), token_metrics
+    )
+
+    return (
+        policy_opt_state,
+        value_opt_state,
+        model_state,
+        summery_metrics,
+        token_metrics,
+        rng_key,
+    )
 
 
 @jax.jit(

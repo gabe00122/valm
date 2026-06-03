@@ -15,6 +15,12 @@ def merge_lora(model_def, model_state):
     model.merge_lora()
     return nnx.split(model)
 
+@jax.jit(static_argnums=0, donate_argnums=1)
+def unmerge_lora(model_def, model_state):
+    model: Qwen3 = nnx.merge(model_def, model_state)
+    model.unmerge_lora()
+    return nnx.split(model)
+
 
 class Qwen3(nnx.Module):
     def __init__(
@@ -66,6 +72,10 @@ class Qwen3(nnx.Module):
     def merge_lora(self):
         for layer in self.layers:
             layer.merge_lora()
+
+    def unmerge_lora(self):
+        for layer in self.layers:
+            layer.unmerge_lora()
 
     def load_params(self, params: dict[str, Any]):
         embed_params = jnp.asarray(
@@ -147,7 +157,7 @@ class Qwen3(nnx.Module):
         )
         value_carry = (
             self.value_net.initialize_carry(batch_size, seq_length)
-            if hasattr(self, 'value_net')
+            if hasattr(self, "value_net")
             else None
         )
         return base_carry, value_carry

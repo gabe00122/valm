@@ -102,6 +102,12 @@ class AttentionLayer(nnx.Module):
         self.query_proj.merge_lora()
         self.out.merge_lora()
 
+    def unmerge_lora(self):
+        self.key_proj.unmerge_lora()
+        self.value_proj.unmerge_lora()
+        self.query_proj.unmerge_lora()
+        self.out.unmerge_lora()
+
     def initialize_carry(self, batch_size: int, seq_length: int) -> KVCache:
         shape = (batch_size, seq_length, self._num_kv_heads, self._head_dim)
         key = jnp.zeros(shape, dtype=jnp.bfloat16)

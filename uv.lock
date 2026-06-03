@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.14"
 
 [options]
-exclude-newer = "2026-05-20T01:57:35.59596081Z"
+exclude-newer = "2026-05-25T01:33:13.104641075Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -1423,23 +1423,6 @@ wheels = [
 ]
 
 [[package]]
-name = "qwix"
-version = "0.1.6"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "absl-py" },
-    { name = "flax" },
-    { name = "jax" },
-    { name = "jaxlib" },
-    { name = "numpy" },
-    { name = "opt-einsum" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/34/06/2bcfa17d78b2433943186356730540e53d89fb35e4a8a5629dc996cddafb/qwix-0.1.6.tar.gz", hash = "sha256:7ccd4968be320b19eb9349cd953e689a1fd6e97bbde4ac788d8a2280f0f24acc", size = 114694, upload-time = "2026-04-15T19:53:44.272Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d8/b2/664a923f9c9a9cb589a80a95e3ae0f536982e047cd89d65066ee8bc0f33e/qwix-0.1.6-py3-none-any.whl", hash = "sha256:e7aae2a781fb1459da8a46523c2fae193682b8285b0ace0b39838e998486c394", size = 143932, upload-time = "2026-04-15T19:53:43.138Z" },
-]
-
-[[package]]
 name = "regex"
 version = "2026.4.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1931,7 +1914,6 @@ dependencies = [
     { name = "ml-dtypes" },
     { name = "optax" },
     { name = "pydantic" },
-    { name = "qwix" },
     { name = "rich" },
     { name = "safetensors" },
     { name = "tensorboardx" },
@@ -1965,7 +1947,6 @@ requires-dist = [
     { name = "ml-dtypes", specifier = ">=0.5.3" },
     { name = "optax", specifier = ">=0.2.6" },
     { name = "pydantic", specifier = ">=2.12.5" },
-    { name = "qwix", specifier = ">=0.1.6" },
     { name = "rich", specifier = ">=14.2.0" },
     { name = "safetensors", specifier = ">=0.6.2" },
     { name = "tensorboardx", specifier = ">=2.6.2.2" },

@@ -62,6 +62,7 @@ def train_cli(
         env.max_turns,
         rngs.agent(),
     )
+    # agent.post_update() # just to merge the lora
 
     agent.set_episode_instructions(env.instructions())
 

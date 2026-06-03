@@ -9,18 +9,16 @@ from vaml.config import Config
 from vaml.episode_listener.base import EpisodeListener
 from vaml.logger import BaseLogger
 from vaml.model.value_network import ValueParam
-from vaml.update_step import update_step
+from vaml.update_step import update_step, multi_update_step
 
 
 class ModelProvider(Protocol):
     model_def: nnx.GraphDef
     model_state: nnx.State
 
-    def pre_update(self):
-        ...
+    def pre_update(self): ...
 
-    def post_update(self):
-        ...
+    def post_update(self): ...
 
 
 class Trainer(EpisodeListener):
@@ -98,6 +96,7 @@ class Trainer(EpisodeListener):
         return self._update_step / self._config.total_update_episodes
 
     def on_episodes(self, batch: UpdateBatch):
+        self._model_provider.pre_update()
         (
             self._policy_opt_state,
             self._value_opt_state,
@@ -105,7 +104,7 @@ class Trainer(EpisodeListener):
             summery_metrics,
             token_metrics,
             self._rng_key,
-        ) = update_step(
+        ) = multi_update_step(
             self._policy_opt_def,
             self._policy_opt_state,
             self._value_opt_def,
@@ -115,8 +114,10 @@ class Trainer(EpisodeListener):
             self._rng_key,
             batch,
             self._config.loss,
+            self._config.value_optimizer.multi_step, # this could be a issue is policy multi step dose not match
             False,
         )
+        self._model_provider.post_update()
 
         seq_length = batch.rewards.shape[1]
 

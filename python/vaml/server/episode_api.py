@@ -15,7 +15,7 @@ episodes_per_file = 100
 @cache
 def get_update_batch(chunk_id: int) -> UpdateBatch:
     return UpdateBatch.load_npz(
-        f"./results/dynamic-husky-of-tempering/rollouts/episodes_{chunk_id}.npz"
+        f"./results/victorious-gorilla-of-patience/rollouts/episodes_{chunk_id}.npz"
     )
 
 

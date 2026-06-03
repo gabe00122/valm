@@ -23,7 +23,6 @@ dependencies = [
     "jax[cuda13]>=0.8.2",
     "matplotlib>=3.10.8",
     "httpx>=0.28.1",
-    "qwix>=0.1.6",
 ]
 
 [build-system]

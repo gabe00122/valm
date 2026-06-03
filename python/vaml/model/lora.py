@@ -15,6 +15,7 @@ default_b_initializer = nnx.initializers.zeros
 def prod_features(feat):
     return feat if isinstance(feat, int) else math.prod(feat)
 
+
 class LoRALinear(nnx.Module):
     def __init__(
         self,
@@ -22,7 +23,7 @@ class LoRALinear(nnx.Module):
         out_features: int | tuple[int, ...],
         *,
         param_dtype=jnp.bfloat16,
-        rngs: nnx.Rngs
+        rngs: nnx.Rngs,
     ):
         self._prod_in = prod_features(in_features)
         self._prod_out = prod_features(out_features)
@@ -36,6 +37,9 @@ class LoRALinear(nnx.Module):
         self.linear = nnx.Param(
             kernel_init(linear_key, (self._prod_in, self._prod_out), param_dtype)
         )
+        # self._backup_linear = nnx.Variable(
+        #     self.linear[...].copy()
+        # )
 
     def initialize_lora(self, rank: int, *, rngs: nnx.Rngs):
         lora_a_key = rngs.params()
@@ -56,19 +60,23 @@ class LoRALinear(nnx.Module):
 
         base_dtype = self.linear.value.dtype
 
-        delta = (
-            self.lora_a.value.astype(jnp.float32)
-            @ self.lora_b.value.astype(jnp.float32)
+        delta = self.lora_a.value.astype(jnp.float32) @ self.lora_b.value.astype(
+            jnp.float32
         )
 
-        self.linear.value = (
-            self.linear.value.astype(jnp.float32) + delta
-        ).astype(base_dtype)
+        self.linear.value = (self.linear.value.astype(jnp.float32) + delta).astype(
+            base_dtype
+        )
 
         self._lora_merged = True
 
+    def unmerge_lora(self):
+        # self.linear[...] = self._backup_linear[...].copy()
+        self._lora_merged = False
+
     def load_params(self, param: np.ndarray):
-        lp(self.linear, param)
+        # self._backup_linear[...] = jnp.asarray(param, device=self.linear[...].device)
+        self.linear[...] = jnp.asarray(param, device=self.linear[...].device)
 
         if self.use_lora:
             self._lora_merged = False

@@ -44,12 +44,15 @@ class MlpLayer(nnx.Module):
         self.up_proj.merge_lora()
         self.down_proj.merge_lora()
 
+    def unmerge_lora(self):
+        self.up_proj.unmerge_lora()
+        self.down_proj.unmerge_lora()
+
     def load_params(self, params):
         # pass in the mlp dict
-        up_proj = np.concatenate([
-            params["gate_proj"]["weight"].T,
-            params["up_proj"]["weight"].T
-        ], axis=-1)
+        up_proj = np.concatenate(
+            [params["gate_proj"]["weight"].T, params["up_proj"]["weight"].T], axis=-1
+        )
         self.up_proj.load_params(up_proj)
         self.down_proj.load_params(params["down_proj"]["weight"].T)
 

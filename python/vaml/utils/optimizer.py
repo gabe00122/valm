@@ -10,14 +10,14 @@ from vaml.config import (
 )
 
 
-def scheduled_optimizer_steps(total_steps: int, multi_step: int | None) -> int:
-    if multi_step is None:
-        return max(1, total_steps)
+# def scheduled_optimizer_steps(total_steps: int, multi_step: int | None) -> int:
+#     if multi_step is None:
+#         return max(1, total_steps)
 
-    if multi_step <= 0:
-        raise ValueError("multi_step must be positive")
+#     if multi_step <= 0:
+#         raise ValueError("multi_step must be positive")
 
-    return max(1, total_steps // multi_step)
+#     return max(1, total_steps // multi_step)
 
 
 def make_optimizer(
@@ -26,7 +26,7 @@ def make_optimizer(
     total_steps: int,
     wrt: nnx.filterlib.Filter,
 ) -> nnx.Optimizer:
-    schedule_steps = scheduled_optimizer_steps(total_steps, opt_config.multi_step)
+    schedule_steps = total_steps
 
     if opt_config.schedule is None:
         tx_lr = opt_config.opt.lr
@@ -59,10 +59,7 @@ def make_optimizer(
         raise ValueError(f"Unsupported optimizer type: {opt_config.opt.type}")
 
     if opt_config.max_grad_norm is not None:
-        tx = optax.chain(
-            optax.clip_by_global_norm(opt_config.max_grad_norm),
-            tx
-        )
+        tx = optax.chain(optax.clip_by_global_norm(opt_config.max_grad_norm), tx)
 
     if opt_config.multi_step is not None:
         tx = optax.MultiSteps(tx, every_k_schedule=opt_config.multi_step)
