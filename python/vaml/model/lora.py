@@ -37,9 +37,6 @@ class LoRALinear(nnx.Module):
         self.linear = nnx.Param(
             kernel_init(linear_key, (self._prod_in, self._prod_out), param_dtype)
         )
-        # self._backup_linear = nnx.Variable(
-        #     self.linear[...].copy()
-        # )
 
     def initialize_lora(self, rank: int, *, rngs: nnx.Rngs):
         lora_a_key = rngs.params()
@@ -71,11 +68,11 @@ class LoRALinear(nnx.Module):
         self._lora_merged = True
 
     def unmerge_lora(self):
-        # self.linear[...] = self._backup_linear[...].copy()
         self._lora_merged = False
 
     def load_params(self, param: np.ndarray):
-        # self._backup_linear[...] = jnp.asarray(param, device=self.linear[...].device)
+        assert self.linear.shape == param.shape
+        assert self.linear.dtype == param.dtype
         self.linear[...] = jnp.asarray(param, device=self.linear[...].device)
 
         if self.use_lora:
