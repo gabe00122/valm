@@ -1,11 +1,9 @@
 import math
 
 import jax
+import numpy as np
 from flax import nnx
 from jax import numpy as jnp
-import numpy as np
-from vaml.model.util import load_param as lp
-
 
 kernel_init = nnx.initializers.lecun_normal()
 default_a_initializer = nnx.initializers.he_uniform()
@@ -49,34 +47,11 @@ class LoRALinear(nnx.Module):
             default_b_initializer(lora_b_key, (rank, self._prod_out), jnp.float32)
         )
         self.use_lora = True
-        self._lora_merged = False
-
-    def merge_lora(self):
-        if not self.use_lora or self._lora_merged:
-            return
-
-        base_dtype = self.linear.value.dtype
-
-        delta = self.lora_a.value.astype(jnp.float32) @ self.lora_b.value.astype(
-            jnp.float32
-        )
-
-        self.linear.value = (self.linear.value.astype(jnp.float32) + delta).astype(
-            base_dtype
-        )
-
-        self._lora_merged = True
-
-    def unmerge_lora(self):
-        self._lora_merged = False
 
     def load_params(self, param: np.ndarray):
         assert self.linear.shape == param.shape
         assert self.linear.dtype == param.dtype
         self.linear[...] = jnp.asarray(param, device=self.linear[...].device)
-
-        if self.use_lora:
-            self._lora_merged = False
 
     def __call__(self, x: jax.Array) -> jax.Array:
         batch = x.shape[0]
@@ -85,7 +60,7 @@ class LoRALinear(nnx.Module):
         linear_in = x.reshape(batch, seq_length, -1).astype(jnp.bfloat16)
 
         x = linear_in @ self.linear[...].astype(jnp.bfloat16)
-        if self.use_lora and not self._lora_merged:
+        if self.use_lora:
             lora = linear_in @ self.lora_a[...] @ self.lora_b[...]
             x = x + lora.astype(jnp.bfloat16)
         x = x.reshape(batch, seq_length, *self._out_shape)

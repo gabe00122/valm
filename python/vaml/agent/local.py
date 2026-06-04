@@ -1,4 +1,3 @@
-import gc
 from typing import Self, override
 
 import jax
@@ -19,7 +18,7 @@ from vaml.chat import (
 )
 from vaml.config import Config
 from vaml.episode_listener.base import EpisodeListener
-from vaml.model.qwen3 import Qwen3, merge_lora, unmerge_lora
+from vaml.model.qwen3 import Qwen3
 
 
 class TurnData:
@@ -138,21 +137,6 @@ class LocalAgent(Agent):
     @override
     def reset(self) -> None:
         pass
-
-    def pre_update(self):
-        pass
-        # cpu = jax.devices("cpu")[0]
-        # self._gen = jax.device_put(self._gen, cpu)
-        # jax.block_until_ready(self._gen)
-        # gc.collect()
-
-    def post_update(self):
-        pass
-        # gpu = jax.devices("gpu")[0]
-        # self._gen = jax.device_put(self._gen, gpu, donate=True)
-        # jax.block_until_ready(self._gen)
-        # gc.collect()
-        # self.model_def, self.model_state = merge_lora(self.model_def, self.model_state)
 
     @override
     def act(

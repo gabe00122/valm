@@ -9,19 +9,6 @@ from vaml.model.util import load_param, wrap_param
 from vaml.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
 
 
-@jax.jit(static_argnums=0, donate_argnums=1)
-def merge_lora(model_def, model_state):
-    model: Qwen3 = nnx.merge(model_def, model_state)
-    model.merge_lora()
-    return nnx.split(model)
-
-@jax.jit(static_argnums=0, donate_argnums=1)
-def unmerge_lora(model_def, model_state):
-    model: Qwen3 = nnx.merge(model_def, model_state)
-    model.unmerge_lora()
-    return nnx.split(model)
-
-
 class Qwen3(nnx.Module):
     def __init__(
         self,
@@ -68,14 +55,6 @@ class Qwen3(nnx.Module):
     def initialize_lora(self, lora_config: LoraConfig, *, rngs: nnx.Rngs):
         for layer in self.layers:
             layer.initialize_lora(lora_config, rngs=rngs)
-
-    def merge_lora(self):
-        for layer in self.layers:
-            layer.merge_lora()
-
-    def unmerge_lora(self):
-        for layer in self.layers:
-            layer.unmerge_lora()
 
     def load_params(self, params: dict[str, Any]):
         embed_params = jnp.asarray(

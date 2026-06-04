@@ -4,7 +4,7 @@ import jax
 from flax import nnx
 from jax import numpy as jnp
 from vaml.config import LLMConfig, LoraConfig
-from vaml.model.lora import LoRAGeneral, LoRALinear
+from vaml.model.lora import LoRALinear
 from vaml.model.rope import apply_rope
 from vaml.model.util import load_param
 from vaml.util import batched_put
@@ -95,18 +95,6 @@ class AttentionLayer(nnx.Module):
             lora_config.rank,
             rngs=rngs,
         )
-
-    def merge_lora(self):
-        self.key_proj.merge_lora()
-        self.value_proj.merge_lora()
-        self.query_proj.merge_lora()
-        self.out.merge_lora()
-
-    def unmerge_lora(self):
-        self.key_proj.unmerge_lora()
-        self.value_proj.unmerge_lora()
-        self.query_proj.unmerge_lora()
-        self.out.unmerge_lora()
 
     def initialize_carry(self, batch_size: int, seq_length: int) -> KVCache:
         shape = (batch_size, seq_length, self._num_kv_heads, self._head_dim)
