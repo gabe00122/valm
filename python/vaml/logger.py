@@ -136,7 +136,7 @@ class WandbLogger(BaseLogger):
         wandb.init(
             project=settings.logger.project_name,
             name=unique_token,
-            config=settings.model_dump(),
+            config={"hypers": settings.model_dump()},
         )
 
     def log_dict(self, data: Metrics, step: int) -> None:
