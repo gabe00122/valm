@@ -1,9 +1,8 @@
 import jax
-from flax import nnx
 import numpy as np
+from flax import nnx
 from jax import numpy as jnp
 from vaml.config import LLMConfig, LoraConfig
-from vaml.model.util import load_param
 from vaml.model.lora import LoRALinear
 
 
@@ -39,14 +38,6 @@ class MlpLayer(nnx.Module):
 
         self.up_proj.initialize_lora(lora_config.rank, rngs=rngs)
         self.down_proj.initialize_lora(lora_config.rank, rngs=rngs)
-
-    def merge_lora(self):
-        self.up_proj.merge_lora()
-        self.down_proj.merge_lora()
-
-    def unmerge_lora(self):
-        self.up_proj.unmerge_lora()
-        self.down_proj.unmerge_lora()
 
     def load_params(self, params):
         # pass in the mlp dict

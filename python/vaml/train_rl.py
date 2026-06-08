@@ -49,10 +49,15 @@ def train_cli(
         model,
         config.policy_optimizer,
         config.total_update_episodes,
+        config.gradient_accumulations,
         nnx.LoRAParam,
     )
     value_opt = make_optimizer(
-        model, config.value_optimizer, config.total_update_episodes, ValueParam
+        model,
+        config.value_optimizer,
+        config.total_update_episodes,
+        config.gradient_accumulations,
+        ValueParam,
     )
 
     agent = LocalAgent(
@@ -62,7 +67,6 @@ def train_cli(
         env.max_turns,
         rngs.agent(),
     )
-    # agent.post_update() # just to merge the lora
 
     agent.set_episode_instructions(env.instructions())
 
