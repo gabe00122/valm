@@ -1,7 +1,6 @@
 from pathlib import Path
 
 import jax
-import numpy as np
 from flax import nnx
 from jax import numpy as jnp
 from rich.console import Console
@@ -77,11 +76,17 @@ def train_value_cli(config_url: str, offline_data_url: str):
     input_buffer.store(first_batch)
 
     total_updates = (len(data_files) * num_episodes_per_file) // config.update_envs
-    if config.value_optimizer.multi_step is not None:
+    if config.gradient_accumulations is not None:
         # to correct for the scheduling
-        total_updates //= config.value_optimizer.multi_step
+        total_updates //= config.gradient_accumulations
 
-    value_opt = make_optimizer(model, config.value_optimizer, total_updates, ValueParam)
+    value_opt = make_optimizer(
+        model,
+        config.value_optimizer,
+        total_updates,
+        config.gradient_accumulations,
+        ValueParam,
+    )
     value_opt_def, value_opt_state = nnx.split(value_opt)
     model_def, model_state = nnx.split(model)
 

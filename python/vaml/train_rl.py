@@ -49,10 +49,15 @@ def train_cli(
         model,
         config.policy_optimizer,
         config.total_update_episodes,
+        config.gradient_accumulations,
         nnx.LoRAParam,
     )
     value_opt = make_optimizer(
-        model, config.value_optimizer, config.total_update_episodes, ValueParam
+        model,
+        config.value_optimizer,
+        config.total_update_episodes,
+        config.gradient_accumulations,
+        ValueParam,
     )
 
     agent = LocalAgent(

@@ -9,7 +9,7 @@ from vaml.config import Config
 from vaml.episode_listener.base import EpisodeListener
 from vaml.logger import BaseLogger
 from vaml.model.value_network import ValueParam
-from vaml.update_step import update_step, multi_update_step
+from vaml.update_step import multi_update_step
 
 
 class ModelProvider(Protocol):
@@ -109,7 +109,7 @@ class Trainer(EpisodeListener):
             self._rng_key,
             batch,
             self._config.loss,
-            self._config.value_optimizer.multi_step, # this could be a issue is policy multi step dose not match
+            self._config.gradient_accumulations,
             False,
         )
 

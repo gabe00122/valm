@@ -110,7 +110,6 @@ class OptimizerConfig(BaseModel):
     opt: AdamWConfig | SGDConfig = Field(discriminator="type")
     max_grad_norm: float | None = None
     schedule: ScheduleConfig = None
-    multi_step: int | None = None
 
 
 class LossConfig(BaseModel):
@@ -136,6 +135,7 @@ class Config(BaseModel):
     loss: LossConfig
     env: ArithmeticEnvConfig | WordleEnvConfig = Field(discriminator="name")
 
+    gradient_accumulations: int | None = None
     eval_envs: int
     update_envs: int
     max_seq_length: int
