@@ -105,10 +105,6 @@ def loss_fn(
     if config.entropy_coef is not None:
         loss = loss + config.entropy_coef * -entropy.mean(where=policy_mask)
 
-    # clip fraction
-    # explained variance
-    # gradient norm
-
     loss = loss + value_loss.mean(where=bounds_mask[:, :-1])
 
     # high level metrics are all well and good but we should return token aligned values like advantage and clip for the vizualizer

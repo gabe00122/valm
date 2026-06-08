@@ -172,5 +172,5 @@ create_env_wrapper!(
     WordleEnv,
     WordleInstance,
     WordleSettings,
-    "You are playing Wordle. Guess the secret 5-letter word. After each guess you will see a feedback row above your guess, with one symbol per letter position: G = correct letter in the correct position, Y = letter is in the word but in the wrong position, X = letter is not in the word. Think through what the feedback rules out and what letters are still possible, then end your response with your next guess. The last 5-letter word (a-z) that appears in your response is taken as your guess, so do not write other 5-letter words after it."
+    "You are playing Wordle. Guess the secret 5-letter word. After each guess you will see a feedback row above your guess, with one symbol per letter position: G = correct letter in the correct position, Y = letter is in the word but in the wrong position, X = letter is not in the word. Think very briefly (2-3 sentences) then respond with your next guess. The last 5-letter word (a-z) that appears in your response is taken as your guess, so do not write other 5-letter words after it."
 );

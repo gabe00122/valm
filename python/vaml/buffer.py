@@ -177,7 +177,7 @@ class UpdateBuffer:
         for name, value in batch.update_metrics.items():
             if name not in self._update_metrics:
                 self._update_metrics[name] = CircularBuffer(
-                    self._batch_size, value.shape[1:], value.dtype
+                    self._buffer_size, value.shape[1:], value.dtype
                 )
 
             self._update_metrics[name].push(value)

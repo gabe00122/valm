@@ -68,7 +68,7 @@ def train_cli(
 
     rollout_log_size = 100
     rollout_logger = BufferedEpisodeListener(
-        rollout_log_size + config.eval_envs,
+        rollout_log_size + config.update_envs,
         rollout_log_size,
         config.max_seq_length,
         env.max_turns,

@@ -55,6 +55,7 @@ class TurnData:
             return
 
         turns = self._turn_counts[batch_idx]
+        print(turn_start_positions)
         self._turn_start_positions[batch_idx, turns] = turn_start_positions
 
         for name, values in updates.items():
@@ -177,10 +178,10 @@ class LocalAgent(Agent):
         done_idx = batch_indices[np.where(dones)]
 
         if dones.any():
+            turn_counts, turn_start_positions, turn_metrics = self._turn_data.take(
+                done_idx
+            )
             if self.episode_listener is not None:
-                turn_counts, turn_start_positions, turn_metrics = self._turn_data.take(
-                    done_idx
-                )
                 self.episode_listener.on_episodes(
                     UpdateBatch(
                         context_length=lengths[done_idx],
