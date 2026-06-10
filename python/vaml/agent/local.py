@@ -54,7 +54,6 @@ class TurnData:
             return
 
         turns = self._turn_counts[batch_idx]
-        print(turn_start_positions)
         self._turn_start_positions[batch_idx, turns] = turn_start_positions
 
         for name, values in updates.items():

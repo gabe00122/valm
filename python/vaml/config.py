@@ -65,7 +65,8 @@ class HlGaussConfig(BaseModel):
 class ValueConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     latent_encoder_rank: int
-    backbone: LLMConfig
+    dropout: float | None = None
+    backbone: LLMConfig | None = None
     head: HlGaussConfig | MseCriticConfig = Field(discriminator="type")
 
 

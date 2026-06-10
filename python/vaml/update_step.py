@@ -93,6 +93,10 @@ def loss_fn(
     pg_ratio = jnp.exp(log_ratio)
     pg_ratio = jnp.where(policy_mask, pg_ratio, 1.0)
     td_lambda = jnp.minimum(pg_ratio, td_lambda)
+
+    transition_mask = bounds_mask[:, 1:]
+    td_discount = jnp.where(transition_mask, td_discount, 0.0)
+
     advantages, targets = calculate_advantages(
         jnp.asarray(rollout.rewards), values, td_discount, td_lambda
     )

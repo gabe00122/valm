@@ -57,12 +57,16 @@ def train_value_cli(config_url: str, offline_data_url: str):
 
     first_batch = UpdateBatch.load_npz(data_files[0])
     num_episodes_per_file = first_batch.context.shape[0]
-    buffer_size = config.update_envs + num_episodes_per_file
+    update_envs = config.update_envs
+    if config.gradient_accumulations is not None:
+        update_envs //= config.gradient_accumulations
+
+    buffer_size = update_envs + num_episodes_per_file
 
     max_turns = first_batch.turn_start_positions.shape[1]
     input_buffer = UpdateBuffer(
         buffer_size,
-        config.update_envs,
+        update_envs,
         config.max_seq_length,
         max_turns,
     )
@@ -76,9 +80,6 @@ def train_value_cli(config_url: str, offline_data_url: str):
     input_buffer.store(first_batch)
 
     total_updates = (len(data_files) * num_episodes_per_file) // config.update_envs
-    if config.gradient_accumulations is not None:
-        # to correct for the scheduling
-        total_updates //= config.gradient_accumulations
 
     value_opt = make_optimizer(
         model,
