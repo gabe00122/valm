@@ -90,6 +90,12 @@ def eval_api_cmd(
     seed: Annotated[
         int, typer.Option("--seed", "-s", help="Environment random seed")
     ] = 42,
+    reasoning: Annotated[
+        bool,
+        typer.Option(
+            "--reasoning/--no-reasoning", help="Enable reasoning in API requests"
+        ),
+    ] = True,
 ):
     """
     Evaluate an api based model against an environment.
@@ -108,6 +114,7 @@ def eval_api_cmd(
         base_url=base_url,
         api_key=api_key,
         env_seed=seed,
+        reasoning_enabled=reasoning,
     )
 
 

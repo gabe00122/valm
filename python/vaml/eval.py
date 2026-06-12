@@ -109,6 +109,7 @@ def eval_api(
     base_url: str,
     api_key: str,
     env_seed: int,
+    reasoning_enabled: bool = True,
 ) -> EvalResult:
     """
     Evaluate an OpenRouter/LiteLLM model against an environment.
@@ -121,6 +122,7 @@ def eval_api(
         base_url: Base URL for the API
         api_key: API key for the endpoint
         env_seed: Random seed for the environment
+        reasoning_enabled: Whether to enable reasoning in API requests
 
     Returns:
         EvalResult with evaluation statistics
@@ -133,6 +135,7 @@ def eval_api(
         agent_count=num_envs,
         base_url=base_url,
         api_key=api_key,
+        reasoning_enabled=reasoning_enabled,
     )
     agent.set_episode_instructions(env.instructions())
 

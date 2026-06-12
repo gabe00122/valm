@@ -21,11 +21,13 @@ class ApiAgent(Agent):
         *,
         base_url: str,
         api_key: str,
+        reasoning_enabled: bool = True,
     ) -> None:
         self._model = model
         self._agent_count = agent_count
         self._base_url = base_url
         self._api_key = api_key
+        self._reasoning_enabled = reasoning_enabled
 
         self._instructions: str | None = None
         self._messages: list[list[Message]] = []
@@ -54,6 +56,7 @@ class ApiAgent(Agent):
             base_url=self._base_url,
             api_key=self._api_key,
             model=self._model,
+            reasoning_enabled=self._reasoning_enabled,
         )
 
     @override
