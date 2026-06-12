@@ -130,7 +130,6 @@ class ValueNetEncode(nnx.Module):
         *,
         rngs: nnx.Rngs,
     ):
-        self._dropout = nnx.Dropout(0.1)
         self._normalize = nnx.RMSNorm(
             latent_size,
             dtype=jnp.bfloat16,
@@ -162,10 +161,8 @@ class ValueNetEncode(nnx.Module):
     def __call__(
         self, x: jax.Array, *, rng_key: jax.Array
     ) -> tuple[jax.Array, jax.Array]:
-        rng_key, dropout_rng = jax.random.split(rng_key)
 
         x = jax.lax.stop_gradient(x)
-        x = self._dropout(x, rngs=dropout_rng)
         x = self._normalize(x)
         gate = self._up_gate(x)
         x = self._encode_up(x)

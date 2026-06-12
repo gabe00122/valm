@@ -23,7 +23,7 @@ def completion(
             "Content-Type": "application/json",
             "Authorization": f"Bearer {api_key}",
         },
-        json={"model": model, "messages": message_dicts},
+        json={"model": model, "messages": message_dicts, "reasoning": {"enabled": True}},
         timeout=None,
     )
     response_json = response.json()

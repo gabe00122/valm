@@ -15,7 +15,7 @@ episodes_per_file = 100
 @cache
 def get_update_batch(chunk_id: int) -> UpdateBatch:
     return UpdateBatch.load_npz(
-        f"./results/succinct-vague-shellfish/rollouts/episodes_{chunk_id}.npz"
+        f"./results/natural-thundering-mouflon/rollouts/episodes_{chunk_id}.npz"
     )
 
 
