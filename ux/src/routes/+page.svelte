@@ -1,19 +1,38 @@
 <script lang="ts">
-    import { getEpisode } from "./episode.remote";
+    import { getEpisode, getRunInfo, getRuns } from "./episode.remote";
     import TokenViewer from "$lib/components/tokensViewer.svelte";
     import * as Resizable from "$lib/components/ui/resizable";
     import { ScrollArea } from "$lib/components/ui/scroll-area/index.js";
+    import * as Select from "$lib/components/ui/select/index.js";
+    import { Slider } from "$lib/components/ui/slider";
     import { decodeEpisodes } from "$lib/decode";
     import TokenDetail from "$lib/components/tokenDetail.svelte";
     import Separator from "$lib/components/ui/separator/separator.svelte";
     import ShowControl from "$lib/components/showControl.svelte";
     import MetricGraph from "$lib/components/metricGraph.svelte";
 
+    let runs = $derived(await getRuns());
+    let selectedRun: string = $state("");
+    let run = $derived(selectedRun || runs[0]);
+    let episodeCount = $derived((await getRunInfo(run)).episodeCount);
+
     let episodeId = $state(0);
     let selectedIndex: number | null = $state(0);
     let hoveredIndex: number | null = $state(null);
     let metricKey: string = $state("none");
-    let episode = $derived(decodeEpisodes(await getEpisode(episodeId)));
+    let episode = $derived(
+        decodeEpisodes(
+            await getEpisode({
+                run,
+                episodeId: Math.min(episodeId, episodeCount - 1),
+            }),
+        ),
+    );
+
+    $effect(() => {
+        run;
+        episodeId = 0;
+    });
 
     $effect(() => {
         episodeId;
@@ -24,8 +43,26 @@
 
 <Resizable.PaneGroup direction="horizontal">
     <Resizable.Pane defaultSize={0.2}>
-        Episode:
-        <input type="number" bind:value={episodeId} />
+        Run:
+        <Select.Root type="single" name="trainingRun" bind:value={selectedRun}>
+            <Select.Trigger class="w-full">{run}</Select.Trigger>
+            <Select.Content>
+                {#each runs as runName (runName)}
+                    <Select.Item value={runName} label={runName}>
+                        {runName}
+                    </Select.Item>
+                {/each}
+            </Select.Content>
+        </Select.Root>
+        <Separator />
+        Episode: {episodeId} / {episodeCount - 1}
+        <Slider
+            type="single"
+            bind:value={episodeId}
+            min={0}
+            max={Math.max(episodeCount - 1, 0)}
+            step={1}
+        />
         <Separator />
         <ShowControl bind:metricKey {episode} />
         <Separator />
