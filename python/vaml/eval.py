@@ -18,6 +18,8 @@ from vaml.base_model_loader import load_base_model
 from vaml.env.base import Env
 from vaml.env.make import make_env
 from vaml.experiment import Experiment
+from vaml.checkpointer import Checkpointer
+from vaml.model.value_network import ValueParam
 
 
 @dataclass
@@ -190,11 +192,11 @@ def eval_checkpoint(
     # Load model
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, _ = load_base_model(config.base_model, rngs)
-    # model.initialize_lora(config.lora, rngs=rngs)
-    # model.initialize_value_net(config.value_net, rngs=rngs)
+    model.initialize_lora(config.lora, rngs=rngs)
+    model.initialize_value_net(config.value_net, rngs=rngs)
 
     # Load checkpoint
-    # checkpointer = Checkpointer(experiment.checkpoints_url)
+    checkpointer = Checkpointer(experiment.checkpoints_url)
     # if checkpoint_step is not None:
     #     checkpointer.restore(
     #         {"model": model},

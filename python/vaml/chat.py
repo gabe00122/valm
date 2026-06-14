@@ -17,6 +17,7 @@ from vaml.util import batched_put_where, batched_take
 
 # these should come from the tokenizer
 STOP_TOKEN = 151645
+NEW_LINE_TOKEN = 198
 
 
 class GenerationState(NamedTuple):
@@ -252,7 +253,8 @@ def generate(
             turn_finished = carry.turn_finished | (
                 carry.kv_cache_length + 2 >= seq_length
             )
-            use_sample = ~turn_finished & over_start_position
+            is_stop = (in_tokens == STOP_TOKEN) & over_start_position
+            use_sample = ~turn_finished & over_start_position & ~is_stop
 
             kv_cache_length = jnp.where(
                 turn_finished, carry.kv_cache_length, carry.kv_cache_length + 1
@@ -266,6 +268,9 @@ def generate(
         with jax.named_scope("chat_write_generation_state"):
             context = batched_put_where(
                 carry.context, kv_cache_length, sample_tokens, use_sample
+            )
+            context = batched_put_where(
+                context, kv_cache_length, jnp.full_like(sample_tokens, 198), is_stop
             )
             log_probs = batched_put_where(
                 carry.log_probs, carry.kv_cache_length, log_prob, use_sample
@@ -282,9 +287,7 @@ def generate(
 
         with jax.named_scope("chat_finish_checks"):
             tokens_processed = carry.tokens_processed + jnp.sum(~turn_finished)
-            turn_finished = turn_finished | (
-                (in_tokens == STOP_TOKEN) & over_start_position
-            )
+            turn_finished = turn_finished | is_stop
 
         return carry._replace(
             kv_cache=kv_cache,

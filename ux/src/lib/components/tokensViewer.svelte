@@ -83,6 +83,10 @@
         hoveredIndex = index;
     }
 
+    function getDisplayToken(token: string) {
+        return token.replace(/\r\n|\r|\n/g, "↵\n");
+    }
+
     function handleKeydown(event: KeyboardEvent, index: number) {
         if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
@@ -120,7 +124,7 @@
             onclick={() => selectToken(index)}
             onpointerenter={() => hoverToken(index)}
             onpointerleave={() => hoverToken(null)}
-            onkeydown={(event) => handleKeydown(event, index)}>{token}</span
+            onkeydown={(event) => handleKeydown(event, index)}>{getDisplayToken(token)}</span
         >
     {/each}
 </div>

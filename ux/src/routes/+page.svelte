@@ -43,30 +43,40 @@
 
 <Resizable.PaneGroup direction="horizontal">
     <Resizable.Pane defaultSize={0.2}>
-        Run:
-        <Select.Root type="single" name="trainingRun" bind:value={selectedRun}>
-            <Select.Trigger class="w-full">{run}</Select.Trigger>
-            <Select.Content>
-                {#each runs as runName (runName)}
-                    <Select.Item value={runName} label={runName}>
-                        {runName}
-                    </Select.Item>
-                {/each}
-            </Select.Content>
-        </Select.Root>
-        <Separator />
-        Episode: {episodeId} / {episodeCount - 1}
-        <Slider
-            type="single"
-            bind:value={episodeId}
-            min={0}
-            max={Math.max(episodeCount - 1, 0)}
-            step={1}
-        />
-        <Separator />
-        <ShowControl bind:metricKey {episode} />
-        <Separator />
-        <TokenDetail {selectedIndex} {episode} />
+        <div class="flex h-full min-h-0 flex-col gap-3 p-3 text-sm">
+            <div class="grid gap-1.5">
+                Run:
+                <Select.Root
+                    type="single"
+                    name="trainingRun"
+                    bind:value={selectedRun}
+                >
+                    <Select.Trigger class="w-full">{run}</Select.Trigger>
+                    <Select.Content>
+                        {#each runs as runName (runName)}
+                            <Select.Item value={runName} label={runName}>
+                                {runName}
+                            </Select.Item>
+                        {/each}
+                    </Select.Content>
+                </Select.Root>
+            </div>
+            <Separator />
+            <div class="grid gap-1.5">
+                Episode: {episodeId} / {episodeCount - 1}
+                <Slider
+                    type="single"
+                    bind:value={episodeId}
+                    min={0}
+                    max={Math.max(episodeCount - 1, 0)}
+                    step={1}
+                />
+            </div>
+            <Separator />
+            <ShowControl bind:metricKey {episode} />
+            <Separator />
+            <TokenDetail {selectedIndex} {episode} />
+        </div>
     </Resizable.Pane>
     <Resizable.Handle />
     <Resizable.Pane defaultSize={0.8}>
