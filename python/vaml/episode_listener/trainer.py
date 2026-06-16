@@ -9,7 +9,7 @@ from vaml.config import Config
 from vaml.episode_listener.base import EpisodeListener
 from vaml.logger import BaseLogger
 from vaml.model.value_network import ValueParam
-from vaml.update_step import multi_update_step
+from vaml.update_step import multi_update_step_v2
 
 
 class ModelProvider(Protocol):
@@ -99,7 +99,7 @@ class Trainer(EpisodeListener):
             summery_metrics,
             token_metrics,
             self._rng_key,
-        ) = multi_update_step(
+        ) = multi_update_step_v2(
             self._policy_opt_def,
             self._policy_opt_state,
             self._value_opt_def,
@@ -109,7 +109,7 @@ class Trainer(EpisodeListener):
             self._rng_key,
             batch,
             self._config.loss,
-            self._config.gradient_accumulations,
+            self._config.gradient_accumulations or 1,
             False,
         )
 
@@ -122,7 +122,7 @@ class Trainer(EpisodeListener):
         }
         summery_metrics["env"] = env_metrics
         summery_metrics["turns"] = np.mean(batch.turn_counts)
-        summery_metrics["truncated"] = np.mean(batch.context_length >= seq_length)
+        summery_metrics["truncated"] = np.mean(batch.context_length >= seq_length - 2)
 
         self._model_provider.model_state = new_model_state
 

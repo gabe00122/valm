@@ -44,8 +44,16 @@ def train(
 def train_value(
     config_url: str,
     offline_data_url: str,
+    track_values: Annotated[
+        bool,
+        typer.Option(
+            "--track-values/--no-track-values",
+            help="Track the first episode's value function each update and render it "
+            "as an animation (extra forward pass per update; disable to save compute)",
+        ),
+    ] = True,
 ):
-    train_value_cli(config_url, offline_data_url)
+    train_value_cli(config_url, offline_data_url, track_values=track_values)
 
 
 @app.command()

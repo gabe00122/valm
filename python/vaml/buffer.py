@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import NamedTuple
+from typing import NamedTuple, Iterator, cast
 
 import numpy as np
 
@@ -70,6 +70,35 @@ class UpdateBatch(NamedTuple):
             return cls(
                 turn_metrics=turn_metrics, update_metrics=update_metrics, **fields
             )
+
+_BATCH_FIELDS = (
+    "context_length", "context", "log_probs", "rewards",
+    "policy_mask", "turn_counts", "turn_start_positions",
+)
+
+_SEQUENCE_FIELDS = (
+    "context", "rewards", "policy_mask"
+)
+
+def array_chunks(batch: UpdateBatch, chunk_size: int) -> Iterator[UpdateBatch]:
+    n = batch.context.shape[0]
+    for start in range(0, n, chunk_size):
+        sl = slice(start, start + chunk_size)
+        updates = {f: getattr(batch, f)[sl] for f in _BATCH_FIELDS}
+        updates["turn_metrics"] = {k: v[sl] for k, v in batch.turn_metrics.items()}
+        updates["update_metrics"] =  {k: v[sl] for k, v in batch.update_metrics.items()}
+        yield bucket_chunk(batch._replace(**updates))
+
+
+def bucket_chunk(batch: UpdateBatch) -> UpdateBatch:
+    length = np.max(batch.context_length).item()
+    bucket = 1 << length.bit_length()
+    bucket = max(128, bucket)
+    sl = slice(bucket)
+    updates = {f: getattr(batch, f)[:, sl] for f in _SEQUENCE_FIELDS}
+    updates["log_probs"] = batch.log_probs[:, :bucket - 1]
+    updates["update_metrics"] =  {k: v[:, sl] for k, v in batch.update_metrics.items()}
+    return batch._replace(**updates)
 
 
 class CircularBuffer:

@@ -1,83 +1,87 @@
 {
-    "seed": 1487432481,
-    "base_model": "Qwen/Qwen3-4B-Instruct-2507",
-    "lora": {
-        "mlp": true,
-        "attn": true,
-        "rank": 32
+  "seed": 1487432481,
+  "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+  "lora": {
+    "mlp": true,
+    "attn": true,
+    "rank": 64
+  },
+  "value_net": {
+    "latent_encoder_rank": 256,
+    "dropout": null,
+    "backbone": {
+      "embed": 256,
+      "q_heads": 8,
+      "kv_heads": 8,
+      "num_layers": 12,
+      "head_dim": 32,
+      "vocab_size": -1,
+      "mlp_ffw_size": 512,
+      "norm_eps": 1e-6,
+      "rope_theta": 500000.0
     },
-    "value_net": {
-        "latent_encoder_rank": 256,
-        "backbone": {
-            "embed": 256,
-            "q_heads": 8,
-            "kv_heads": 8,
-            "num_layers": 12,
-            "head_dim": 32,
-            "vocab_size": -1,
-            "mlp_ffw_size": 512,
-            "norm_eps": 1e-6,
-            "rope_theta": 500000.0
-        },
-        "head": {
-            "type": "hl_gauss",
-            "min": -0.1,
-            "max": 1.1,
-            "n_logits": 51,
-            "sigma": 0.01
-        }
+    "head": {
+      "type": "hl_gauss",
+      "min": -0.1,
+      "max": 1.1,
+      "n_logits": 51,
+      "sigma": 0.02
+    }
+  },
+  "logger": {
+    "project_name": "vaml",
+    "use_tb": false,
+    "use_console": true,
+    "use_wandb": true,
+    "use_jsonl": true
+  },
+  "policy_optimizer": {
+    "opt": {
+      "type": "adamw",
+      "lr": 0.00004,
+      "beta1": 0.9,
+      "beta2": 0.98,
+      "weight_decay": 0.01,
+      "eps": 1e-8
     },
-    "logger": {
-        "project_name": "vaml",
-        "use_tb": false,
-        "use_console": false,
-        "use_wandb": false
+    "max_grad_norm": 1.0,
+    "schedule": {
+      "type": "warmup_cosine",
+      "warmup_ratio": 0.1
+    }
+  },
+  "value_optimizer": {
+    "opt": {
+      "type": "adamw",
+      "lr": 0.0001,
+      "beta1": 0.9,
+      "beta2": 0.98,
+      "weight_decay": 0.01,
+      "eps": 1e-8
     },
-    "policy_optimizer": {
-        "opt": {
-            "type": "adamw",
-            "lr": 0.00001,
-            "beta1": 0.9,
-            "beta2": 0.999,
-            "weight_decay": 0.0,
-            "eps": 1e-8
-        },
-        "schedule": {
-            "type": "warmup_cosine",
-            "warmup_ratio": 0.1
-        },
-        "multi_step": null
-    },
-    "value_optimizer": {
-        "opt": {
-            "type": "adamw",
-            "lr": 0.0001,
-            "beta1": 0.0,
-            "beta2": 0.99,
-            "weight_decay": 0.0001,
-            "eps": 0.00001
-        },
-        "schedule": {
-            "type": "warmup_cosine",
-            "warmup_ratio": 0.1
-        },
-        "multi_step": null
-    },
-    "loss": {
-        "gae_lambda": 0.99,
-        "gae_discount": 1.0,
-        "turn_lambda": 0.8,
-        "turn_discount": 0.9,
-        "pg_clip_high": 0.28,
-        "pg_clip_low": 0.2
-    },
-    "env": {
-        "name": "wordle",
-        "max_guesses": 6
-    },
-    "eval_envs": 128,
-    "update_envs": 4,
-    "max_seq_length": 1024,
-    "total_update_episodes": 40000,
-    "checkpoint_every": 1000
+    "max_grad_norm": 1.0,
+    "schedule": {
+      "type": "warmup_cosine",
+      "warmup_ratio": 0.1
+    }
+  },
+  "loss": {
+    "gae_lambda": 0.95,
+    "gae_discount": 1.0,
+    "turn_lambda": 0.97,
+    "turn_discount": 0.97,
+    "pg_clip_high": 0.28,
+    "pg_clip_low": 0.2,
+    "entropy_coef": null
+  },
+  "env": {
+    "name": "wordle",
+    "max_guesses": 6
+  },
+  "gradient_accumulations": 8,
+  "eval_envs": 128,
+  "update_envs": 32,
+  "max_seq_length": 1024,
+  "total_update_episodes": 5000,
+  "checkpoint_every": 1000
 }

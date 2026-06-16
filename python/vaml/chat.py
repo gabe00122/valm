@@ -269,6 +269,7 @@ def generate(
             context = batched_put_where(
                 carry.context, kv_cache_length, sample_tokens, use_sample
             )
+            # hardcode newline
             context = batched_put_where(
                 context, kv_cache_length, jnp.full_like(sample_tokens, 198), is_stop
             )

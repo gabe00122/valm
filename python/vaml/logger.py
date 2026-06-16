@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import jax
+import numpy as np
 import wandb
 from rich.console import Console
 from rich.live import Live
@@ -23,7 +24,7 @@ def json_normalize(data: dict, sep: str = ".") -> dict:
             for a in x:
                 flatten(x[a], name + a + sep)
         else:
-            if isinstance(x, jax.Array):
+            if hasattr(x, "item"):
                 x = x.item()
 
             out[name[: -len(sep)]] = x

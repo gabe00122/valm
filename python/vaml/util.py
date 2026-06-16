@@ -32,6 +32,7 @@ def batched_put(target: jax.Array, indices: jax.Array, values: jax.Array) -> jax
         dnums,
         indices_are_sorted=True,
         unique_indices=True,
+        mode="drop"
     )
 
 
@@ -53,7 +54,7 @@ def batched_take(target: jax.Array, indices: jax.Array) -> jax.Array:
         slice_sizes,
         unique_indices=True,
         indices_are_sorted=True,
-        mode="promise_in_bounds",
+        mode="clip",
     )
 
 
