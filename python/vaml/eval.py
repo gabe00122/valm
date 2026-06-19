@@ -197,21 +197,21 @@ def eval_checkpoint(
 
     # Load checkpoint
     checkpointer = Checkpointer(experiment.checkpoints_url)
-    # if checkpoint_step is not None:
-    #     checkpointer.restore(
-    #         {"model": model},
-    #         checkpoint_step,
-    #         nnx.Any(nnx.LoRAParam, ValueParam),
-    #     )
-    #     console.print(f"[bold]Checkpoint step:[/bold] {checkpoint_step}")
-    # else:
-    #     checkpointer.restore_latest(
-    #         {"model": model},
-    #         nnx.Any(nnx.LoRAParam, ValueParam),
-    #     )
-    #     console.print(
-    #         f"[bold]Checkpoint step:[/bold] latest ({checkpointer.mngr.latest_step()})"
-    #     )
+    if checkpoint_step is not None:
+        checkpointer.restore(
+            {"model": model},
+            checkpoint_step,
+            nnx.Any(nnx.LoRAParam, ValueParam),
+        )
+        console.print(f"[bold]Checkpoint step:[/bold] {checkpoint_step}")
+    else:
+        checkpointer.restore_latest(
+            {"model": model},
+            nnx.Any(nnx.LoRAParam, ValueParam),
+        )
+        console.print(
+            f"[bold]Checkpoint step:[/bold] latest ({checkpointer.mngr.latest_step()})"
+        )
     console.print()
 
     # Create environment

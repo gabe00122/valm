@@ -68,7 +68,6 @@ def train_value_cli(config_url: str, offline_data_url: str, track_values: bool =
     first_episode_rewards = jnp.asarray(first_batch.rewards[0], dtype=jnp.bfloat16)
     update_envs = config.update_envs
     grad_accum = config.gradient_accumulations or 1
-    micro_batch_size = update_envs // grad_accum
 
     buffer_size = update_envs + num_episodes_per_file
 
@@ -133,7 +132,7 @@ def train_value_cli(config_url: str, offline_data_url: str, track_values: bool =
                 rng_key,
                 batch,
                 config.loss,
-                micro_batch_size,
+                grad_accum,
                 True,
             )
         )
