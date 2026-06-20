@@ -204,6 +204,8 @@ class ValueNetLayer(nnx.Module):
 
 class ValueBackbone(nnx.Module):
     def __init__(self, config: ValueConfig, latent_size: int, *, rngs: nnx.Rngs):
+        self._last_latent_only = config.last_latent_only
+
         self._reward_encode = nnx.Linear(
             1,
             config.backbone.embed,
@@ -254,6 +256,9 @@ class ValueBackbone(nnx.Module):
         rng_key: jax.Array,
     ) -> tuple[ValueRepresentation, tuple[Any, ...] | None, jax.Array]:
         x, *layer_latents = latents
+
+        if self._last_latent_only:
+            x = latents[-1]
 
         take_every = len(layer_latents) // len(self.layers)
         layer_latents = layer_latents[::take_every][: len(self.layers)]

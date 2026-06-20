@@ -13,10 +13,8 @@ if [ ! -d "$MODEL_DIR" ] || [ -z "$(ls -A "$MODEL_DIR")" ]; then
 
     # Using the CLI installed by huggingface-hub
     # --local-dir-use-symlinks False ensures actual files are in the volume, not symlinks to a cache
-    huggingface-cli download $REPO_ID \
-        --local-dir $MODEL_DIR \
-        --local-dir-use-symlinks False \
-        --exclude "*.bin"  # Optional: Exclude pickle files if using safetensors
+    hf download $REPO_ID \
+        --local-dir $MODEL_DIR
 else
     echo "Model found at $MODEL_DIR. Skipping download."
 fi

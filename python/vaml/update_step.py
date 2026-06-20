@@ -93,7 +93,9 @@ def loss_fn(
     log_ratio = log_prob - rollout.log_probs
     pg_ratio = jnp.exp(log_ratio)
     pg_ratio = jnp.where(policy_mask, pg_ratio, 1.0)
-    td_lambda = jnp.minimum(pg_ratio, td_lambda)
+
+    if config.is_correction:
+        td_lambda = jnp.minimum(pg_ratio, td_lambda)
 
     transition_mask = bounds_mask[:, 1:]
     td_discount = jnp.where(transition_mask, td_discount, 0.0)

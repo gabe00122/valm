@@ -87,24 +87,13 @@ class Qwen3(nnx.Module):
             x = self.embeddings(tokens)
 
         if carry is not None:
-            base_carry, value_carry = carry
-
             out_carry = []
-            latents = [x]
-            for i, (layer, carry_in) in enumerate(zip(self.layers, base_carry)):
+            for i, (layer, carry_in) in enumerate(zip(self.layers, carry)):
                 with jax.named_scope(f"qwen3_layer_{i:02d}"):
                     x, layer_carry_out = layer(x, positions, carry_in)
                 out_carry.append(layer_carry_out)
-                latents.append(x)
 
-            base_carry = tuple(out_carry)
-
-            # if hasattr(self, "value_net"):
-            #     with jax.named_scope("qwen3_value_net"):
-            #         value_repr, value_carry, rng_key = self.value_net(
-            #             latents, positions, value_carry, rng_key=rng_key
-            #         )
-            carry = base_carry, value_carry
+            carry = tuple(out_carry)
         else:
             latents = [x]
             for i, layer in enumerate(self.layers):

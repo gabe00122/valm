@@ -65,8 +65,8 @@ class HlGaussConfig(BaseModel):
 class ValueConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     latent_encoder_rank: int
-    dropout: float | None = None
-    backbone: LLMConfig | None = None
+    backbone: LLMConfig
+    last_latent_only: bool = False
     head: HlGaussConfig | MseCriticConfig = Field(discriminator="type")
 
 
@@ -122,6 +122,7 @@ class LossConfig(BaseModel):
     pg_clip_high: float
     pg_clip_low: float
     entropy_coef: float | None = None
+    is_correction: bool = True
 
 
 class Config(BaseModel):
