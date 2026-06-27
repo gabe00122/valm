@@ -12,10 +12,10 @@ impl GroupSequence {
         let mut rng = SmallRng::seed_from_u64(seed);
         let group_id = rng.next_u64();
         Self {
-            rng: rng,
-            group_size: group_size,
+            rng,
+            group_size,
+            group_id,
             position_in_group: 0,
-            group_id: group_id,
         }
     }
 

@@ -1,6 +1,5 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use itertools::Itertools;
 use numpy::ndarray::Array1;
@@ -17,12 +16,17 @@ pub trait EnvInstance {
 
     const MAX_TURNS: usize;
 
-    fn new(group_seq: &mut GroupSequence, shared: Arc<Self::Shared>) -> Self;
-    fn reset(&mut self, group_seq: &mut GroupSequence) -> (String, HashMap<String, f32>);
+    fn new(shared: &Self::Shared, group_seq: &mut GroupSequence) -> Self;
+    fn reset(
+        &mut self,
+        shared: &Self::Shared,
+        group_seq: &mut GroupSequence,
+    ) -> (String, HashMap<String, f32>);
     fn step(
         &mut self,
-        action: &str,
+        shared: &Self::Shared,
         group_seq: &mut GroupSequence,
+        action: &str,
     ) -> (String, f32, bool, HashMap<String, f32>);
 
     /// The id of the problem the instance is currently solving. Members of the
@@ -30,7 +34,8 @@ pub trait EnvInstance {
     fn group_id(&self) -> u64;
 }
 
-pub struct Envs<E> {
+pub struct Envs<E, S> {
+    shared: S,
     envs: Vec<E>,
     group_seq: GroupSequence,
 }
@@ -53,21 +58,23 @@ fn collect_metrics(metrics: Vec<HashMap<String, f32>>) -> HashMap<String, Array1
     collected
 }
 
-impl<E, S> Envs<E>
+impl<E, S> Envs<E, S>
 where
     E: EnvInstance<Shared = S>,
     S: EnvShared,
 {
     pub fn new(num: usize, group_size: usize, seed: u64, settings: S::Settings) -> Self {
-        let shared = Arc::new(S::new(settings));
+        let shared = S::new(settings);
         let group_size = group_size.max(1);
         let mut group_seq = GroupSequence::new(seed, group_size);
 
-        let envs = (0..num)
-            .map(|_| E::new(&mut group_seq, shared.clone()))
-            .collect();
+        let envs = (0..num).map(|_| E::new(&shared, &mut group_seq)).collect();
 
-        Self { envs, group_seq }
+        Self {
+            envs,
+            group_seq,
+            shared,
+        }
     }
 
     pub fn reset<I>(&mut self, indices: I) -> (Vec<String>, Vec<u64>, HashMap<String, Array1<f32>>)
@@ -79,7 +86,7 @@ where
             .into_iter()
             .map(|i| {
                 let env = self.envs.get_mut(*i.borrow() as usize).unwrap();
-                let (obs, metrics) = env.reset(&mut self.group_seq);
+                let (obs, metrics) = env.reset(&self.shared, &mut self.group_seq);
                 (obs, env.group_id(), metrics)
             })
             .multiunzip();
@@ -122,7 +129,8 @@ where
                 // instance to the next problem, so this is the id of the episode
                 // that just finished.
                 let group_id = env.group_id();
-                let (obs, reward, done, metrics) = env.step(action, &mut self.group_seq);
+                let (obs, reward, done, metrics) =
+                    env.step(&self.shared, &mut self.group_seq, action);
 
                 (obs, reward, done, group_id, metrics)
             })
@@ -137,7 +145,7 @@ macro_rules! create_env_wrapper {
     ($py_name:ident, $rust_env:ty, $setting_struct:ty, $instr:literal) => {
         #[pyclass]
         pub struct $py_name {
-            envs: Envs<$rust_env>,
+            envs: Envs<$rust_env, <$rust_env as EnvInstance>::Shared>,
         }
 
         #[pymethods]

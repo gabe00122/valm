@@ -7,7 +7,6 @@ use rand::prelude::*;
 use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
-use std::sync::Arc;
 
 #[derive(Clone, FromPyObject)]
 pub struct WordleSettings {
@@ -39,7 +38,6 @@ impl EnvShared for WordleShared {
 }
 
 struct WordleInstance {
-    shared: Arc<WordleShared>,
     group_id: u64,
     secret_word_index: usize,
     guesses: usize,
@@ -48,8 +46,8 @@ struct WordleInstance {
 }
 
 impl WordleInstance {
-    fn generate_feedback(&mut self, guess: &str) -> (String, f32) {
-        let secret_word: &str = &self.shared.words[self.secret_word_index];
+    fn generate_feedback(&mut self, shared: &WordleShared, guess: &str) -> (String, f32) {
+        let secret_word = &shared.words[self.secret_word_index];
         let mut output: Vec<String> = Vec::new();
         let mut remaining_letters = HashMap::<char, u8>::new();
         let mut feedback = ['X'; 5];
@@ -112,9 +110,8 @@ impl EnvInstance for WordleInstance {
 
     const MAX_TURNS: usize = 6;
 
-    fn new(group_seq: &mut GroupSequence, shared: Arc<Self::Shared>) -> Self {
+    fn new(_shared: &WordleShared, group_seq: &mut GroupSequence) -> Self {
         WordleInstance {
-            shared,
             group_id: group_seq.take_group_id(),
             secret_word_index: 0,
             guesses: 0,
@@ -123,12 +120,16 @@ impl EnvInstance for WordleInstance {
         }
     }
 
-    fn reset(&mut self, group_seq: &mut GroupSequence) -> (String, HashMap<String, f32>) {
+    fn reset(
+        &mut self,
+        shared: &WordleShared,
+        group_seq: &mut GroupSequence,
+    ) -> (String, HashMap<String, f32>) {
         self.group_id = group_seq.take_group_id();
         let mut prng = SmallRng::seed_from_u64(self.group_id);
 
         self.guesses = 0;
-        self.secret_word_index = prng.random_range(0..self.shared.words.len());
+        self.secret_word_index = prng.random_range(0..shared.words.len());
         self.got_yellow = [false; 5];
         self.got_green = [false; 5];
 
@@ -137,19 +138,19 @@ impl EnvInstance for WordleInstance {
 
     fn step(
         &mut self,
-        action: &str,
+        shared: &WordleShared,
         group_seq: &mut GroupSequence,
+        action: &str,
     ) -> (String, f32, bool, HashMap<String, f32>) {
-        let guess = self
-            .shared
+        let guess = shared
             .guess_re
             .find_iter(action)
             .last()
             .map(|m| m.as_str().to_uppercase());
 
         let (obs, reward, word_found) = if let Some(guess) = guess {
-            let (feedback, reward) = self.generate_feedback(&guess);
-            let word_found = guess == self.shared.words[self.secret_word_index];
+            let (feedback, reward) = self.generate_feedback(shared, &guess);
+            let word_found = guess == shared.words[self.secret_word_index];
 
             let reward = reward + if word_found { 0.75 } else { 0.0 }; // big bonus for the complete word correct
 
@@ -159,14 +160,14 @@ impl EnvInstance for WordleInstance {
         };
         self.guesses += 1;
 
-        let remaining = self.shared.settings.max_guesses - self.guesses;
+        let remaining = shared.settings.max_guesses - self.guesses;
         let guess_word = if remaining > 1 { "guesses" } else { "guess" };
         let obs = format!("{}\nYou have {} {} left", obs, remaining, guess_word);
 
         let metrics = self.metrics(word_found);
 
-        if word_found || self.guesses >= self.shared.settings.max_guesses {
-            (self.reset(group_seq).0, reward, true, metrics)
+        if word_found || self.guesses >= shared.settings.max_guesses {
+            (self.reset(shared, group_seq).0, reward, true, metrics)
         } else {
             (obs, reward, false, metrics)
         }

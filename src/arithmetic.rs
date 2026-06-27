@@ -1,7 +1,6 @@
 extern crate rand;
 
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::create_env_wrapper;
 use crate::env::{EnvInstance, EnvShared, Envs};
@@ -42,7 +41,6 @@ impl EnvShared for ArithmeticShared {
 }
 
 struct ArithmeticEnvInstance {
-    shared: Arc<ArithmeticShared>,
     group_id: u64,
     op: Operator,
     x: f32,
@@ -98,9 +96,8 @@ impl EnvInstance for ArithmeticEnvInstance {
 
     const MAX_TURNS: usize = 1;
 
-    fn new(group_seq: &mut GroupSequence, shared: Arc<Self::Shared>) -> Self {
+    fn new(_shared: &ArithmeticShared, group_seq: &mut GroupSequence) -> Self {
         ArithmeticEnvInstance {
-            shared,
             group_id: group_seq.take_group_id(),
             op: Operator::Add,
             x: 0.0,
@@ -109,12 +106,16 @@ impl EnvInstance for ArithmeticEnvInstance {
         }
     }
 
-    fn reset(&mut self, group_seq: &mut GroupSequence) -> (String, HashMap<String, f32>) {
+    fn reset(
+        &mut self,
+        shared: &ArithmeticShared,
+        group_seq: &mut GroupSequence,
+    ) -> (String, HashMap<String, f32>) {
         self.group_id = group_seq.take_group_id();
         let mut prng = SmallRng::seed_from_u64(self.group_id);
 
-        let x_dist = Uniform::new(0.0, self.shared.settings.max_x.max(1) as f32).unwrap();
-        let y_dist = Uniform::new(0.0, self.shared.settings.max_y.max(1) as f32).unwrap();
+        let x_dist = Uniform::new(0.0, shared.settings.max_x.max(1) as f32).unwrap();
+        let y_dist = Uniform::new(0.0, shared.settings.max_y.max(1) as f32).unwrap();
         let x: f32 = prng.sample::<f32, _>(x_dist).round();
         let y: f32 = prng.sample::<f32, _>(y_dist).round();
         let op = sample_op(&mut prng);
@@ -132,10 +133,11 @@ impl EnvInstance for ArithmeticEnvInstance {
 
     fn step(
         &mut self,
-        action: &str,
+        shared: &ArithmeticShared,
         group_seq: &mut GroupSequence,
+        action: &str,
     ) -> (String, f32, bool, HashMap<String, f32>) {
-        let parsed = parse_response(&self.shared.number_re, action);
+        let parsed = parse_response(&shared.number_re, action);
 
         let corrected = if let Some(p) = parsed {
             (p - self.result).abs() < 0.001
@@ -145,7 +147,7 @@ impl EnvInstance for ArithmeticEnvInstance {
         let reward = if corrected { 1.0 } else { 0.0 };
         let done = true;
 
-        let (obs, metrics) = self.reset(group_seq);
+        let (obs, metrics) = self.reset(shared, group_seq);
 
         (obs, reward, done, metrics)
     }
