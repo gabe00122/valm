@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use crate::create_env_wrapper;
 use crate::env::{EnvInstance, EnvShared, Envs};
+use crate::groups::GroupSequence;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use rand::{distr::Uniform, prelude::*};
@@ -42,7 +43,6 @@ impl EnvShared for ArithmeticShared {
 
 struct ArithmeticEnvInstance {
     shared: Arc<ArithmeticShared>,
-    meta_rng: SmallRng,
     group_id: u64,
     op: Operator,
     x: f32,
@@ -98,11 +98,10 @@ impl EnvInstance for ArithmeticEnvInstance {
 
     const MAX_TURNS: usize = 1;
 
-    fn new(seed: u64, shared: Arc<Self::Shared>) -> Self {
+    fn new(group_seq: &mut GroupSequence, shared: Arc<Self::Shared>) -> Self {
         ArithmeticEnvInstance {
             shared,
-            meta_rng: SmallRng::seed_from_u64(seed),
-            group_id: 0,
+            group_id: group_seq.take_group_id(),
             op: Operator::Add,
             x: 0.0,
             y: 0.0,
@@ -110,16 +109,14 @@ impl EnvInstance for ArithmeticEnvInstance {
         }
     }
 
-    fn reset(&mut self) -> (String, HashMap<String, f32>) {
-        // The drawn id is the GRPO group id; seeding the problem from it makes
-        // the problem fully determined by the id.
-        let gid = self.meta_rng.next_u64();
-        self.group_id = gid;
-        let mut prng = SmallRng::seed_from_u64(gid);
+    fn reset(&mut self, group_seq: &mut GroupSequence) -> (String, HashMap<String, f32>) {
+        self.group_id = group_seq.take_group_id();
+        let mut prng = SmallRng::seed_from_u64(self.group_id);
 
-        let dist = Uniform::new(0.0, 10000.0).unwrap();
-        let x: f32 = prng.sample::<f32, _>(dist).round();
-        let y: f32 = prng.sample::<f32, _>(dist).round();
+        let x_dist = Uniform::new(0.0, self.shared.settings.max_x.max(1) as f32).unwrap();
+        let y_dist = Uniform::new(0.0, self.shared.settings.max_y.max(1) as f32).unwrap();
+        let x: f32 = prng.sample::<f32, _>(x_dist).round();
+        let y: f32 = prng.sample::<f32, _>(y_dist).round();
         let op = sample_op(&mut prng);
 
         self.x = x;
@@ -133,7 +130,11 @@ impl EnvInstance for ArithmeticEnvInstance {
         (prompt, self.metrics())
     }
 
-    fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>) {
+    fn step(
+        &mut self,
+        action: &str,
+        group_seq: &mut GroupSequence,
+    ) -> (String, f32, bool, HashMap<String, f32>) {
         let parsed = parse_response(&self.shared.number_re, action);
 
         let corrected = if let Some(p) = parsed {
@@ -144,7 +145,7 @@ impl EnvInstance for ArithmeticEnvInstance {
         let reward = if corrected { 1.0 } else { 0.0 };
         let done = true;
 
-        let (obs, metrics) = self.reset();
+        let (obs, metrics) = self.reset(group_seq);
 
         (obs, reward, done, metrics)
     }

@@ -1,5 +1,6 @@
 use crate::create_env_wrapper;
 use crate::env::{EnvInstance, EnvShared, Envs};
+use crate::groups::GroupSequence;
 use numpy::{IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use rand::prelude::*;
@@ -39,7 +40,6 @@ impl EnvShared for WordleShared {
 
 struct WordleInstance {
     shared: Arc<WordleShared>,
-    meta_rng: SmallRng,
     group_id: u64,
     secret_word_index: usize,
     guesses: usize,
@@ -112,11 +112,10 @@ impl EnvInstance for WordleInstance {
 
     const MAX_TURNS: usize = 6;
 
-    fn new(seed: u64, shared: Arc<Self::Shared>) -> Self {
+    fn new(group_seq: &mut GroupSequence, shared: Arc<Self::Shared>) -> Self {
         WordleInstance {
             shared,
-            meta_rng: SmallRng::seed_from_u64(seed),
-            group_id: 0,
+            group_id: group_seq.take_group_id(),
             secret_word_index: 0,
             guesses: 0,
             got_yellow: [false; 5],
@@ -124,12 +123,9 @@ impl EnvInstance for WordleInstance {
         }
     }
 
-    fn reset(&mut self) -> (String, HashMap<String, f32>) {
-        // The drawn id is the GRPO group id; seeding the problem from it makes
-        // the secret word fully determined by the id.
-        let gid = self.meta_rng.next_u64();
-        self.group_id = gid;
-        let mut prng = SmallRng::seed_from_u64(gid);
+    fn reset(&mut self, group_seq: &mut GroupSequence) -> (String, HashMap<String, f32>) {
+        self.group_id = group_seq.take_group_id();
+        let mut prng = SmallRng::seed_from_u64(self.group_id);
 
         self.guesses = 0;
         self.secret_word_index = prng.random_range(0..self.shared.words.len());
@@ -139,7 +135,11 @@ impl EnvInstance for WordleInstance {
         ("Make your first guess now".to_string(), self.metrics(false))
     }
 
-    fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>) {
+    fn step(
+        &mut self,
+        action: &str,
+        group_seq: &mut GroupSequence,
+    ) -> (String, f32, bool, HashMap<String, f32>) {
         let guess = self
             .shared
             .guess_re
@@ -166,7 +166,7 @@ impl EnvInstance for WordleInstance {
         let metrics = self.metrics(word_found);
 
         if word_found || self.guesses >= self.shared.settings.max_guesses {
-            (self.reset().0, reward, true, metrics)
+            (self.reset(group_seq).0, reward, true, metrics)
         } else {
             (obs, reward, false, metrics)
         }

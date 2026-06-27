@@ -1,5 +1,6 @@
 mod arithmetic;
 mod env;
+mod groups;
 mod td_lambda;
 mod wordle;
 

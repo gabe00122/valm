@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use itertools::Itertools;
 use numpy::ndarray::Array1;
-use rand::prelude::*;
+
+use crate::groups::GroupSequence;
 
 pub trait EnvShared {
     type Settings;
@@ -16,9 +17,13 @@ pub trait EnvInstance {
 
     const MAX_TURNS: usize;
 
-    fn new(seed: u64, shared: Arc<Self::Shared>) -> Self;
-    fn reset(&mut self) -> (String, HashMap<String, f32>);
-    fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>);
+    fn new(group_seq: &mut GroupSequence, shared: Arc<Self::Shared>) -> Self;
+    fn reset(&mut self, group_seq: &mut GroupSequence) -> (String, HashMap<String, f32>);
+    fn step(
+        &mut self,
+        action: &str,
+        group_seq: &mut GroupSequence,
+    ) -> (String, f32, bool, HashMap<String, f32>);
 
     /// The id of the problem the instance is currently solving. Members of the
     /// same GRPO group share the same id for the same problem (see `Envs::new`).
@@ -27,6 +32,7 @@ pub trait EnvInstance {
 
 pub struct Envs<E> {
     envs: Vec<E>,
+    group_seq: GroupSequence,
 }
 
 fn collect_metrics(metrics: Vec<HashMap<String, f32>>) -> HashMap<String, Array1<f32>> {
@@ -53,28 +59,18 @@ where
     S: EnvShared,
 {
     pub fn new(num: usize, group_size: usize, seed: u64, settings: S::Settings) -> Self {
-        let mut rng = SmallRng::seed_from_u64(seed);
         let shared = Arc::new(S::new(settings));
-
-        // GRPO groups: instances are partitioned into contiguous groups that
-        // share a seed, so every member generates the same sequence of problems
-        // (and the same per-problem group id). group_size == 1 reproduces the
-        // old behaviour of one independent seed per instance.
         let group_size = group_size.max(1);
-        let num_groups = num.div_ceil(group_size);
-        let group_seeds: Vec<u64> = (0..num_groups).map(|_| rng.next_u64()).collect();
+        let mut group_seq = GroupSequence::new(seed, group_size);
 
         let envs = (0..num)
-            .map(|i| E::new(group_seeds[i / group_size], shared.clone()))
+            .map(|_| E::new(&mut group_seq, shared.clone()))
             .collect();
 
-        Self { envs }
+        Self { envs, group_seq }
     }
 
-    pub fn reset<I>(
-        &mut self,
-        indices: I,
-    ) -> (Vec<String>, Vec<u64>, HashMap<String, Array1<f32>>)
+    pub fn reset<I>(&mut self, indices: I) -> (Vec<String>, Vec<u64>, HashMap<String, Array1<f32>>)
     where
         I: IntoIterator,
         I::Item: Borrow<i32>,
@@ -83,7 +79,7 @@ where
             .into_iter()
             .map(|i| {
                 let env = self.envs.get_mut(*i.borrow() as usize).unwrap();
-                let (obs, metrics) = env.reset();
+                let (obs, metrics) = env.reset(&mut self.group_seq);
                 (obs, env.group_id(), metrics)
             })
             .multiunzip();
@@ -126,7 +122,7 @@ where
                 // instance to the next problem, so this is the id of the episode
                 // that just finished.
                 let group_id = env.group_id();
-                let (obs, reward, done, metrics) = env.step(action);
+                let (obs, reward, done, metrics) = env.step(action, &mut self.group_seq);
 
                 (obs, reward, done, group_id, metrics)
             })
@@ -193,8 +189,7 @@ macro_rules! create_env_wrapper {
             )> {
                 let indices = batch_indices.as_array();
 
-                let (obs, rewards, dones, group_ids, metrics) =
-                    self.envs.step(&indices, &actions);
+                let (obs, rewards, dones, group_ids, metrics) = self.envs.step(&indices, &actions);
 
                 let rewards = rewards.into_pyarray(py);
                 let dones = dones.into_pyarray(py);
