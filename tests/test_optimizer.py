@@ -1,16 +1,52 @@
-import pytest
-
-from vaml.utils.optimizer import scheduled_optimizer_steps
-
-
-def test_scheduled_optimizer_steps_uses_emitted_multistep_updates():
-    assert scheduled_optimizer_steps(40000, 8) == 5000
+from vaml.config import AdamWConfig, OptimizerConfig, WarmupCosineConfig
+from vaml.utils.optimizer import make_optimizer
 
 
-def test_scheduled_optimizer_steps_without_multistep_uses_rollout_updates():
-    assert scheduled_optimizer_steps(40000, None) == 40000
+def test_make_optimizer_uses_total_steps_as_schedule_steps(monkeypatch):
+    schedule_calls = []
+    optimizer_calls = []
 
+    def fake_schedule(**kwargs):
+        schedule_calls.append(kwargs)
+        return "lr_schedule"
 
-def test_scheduled_optimizer_steps_rejects_non_positive_multistep():
-    with pytest.raises(ValueError):
-        scheduled_optimizer_steps(40000, 0)
+    def fake_adamw(**kwargs):
+        return ("adamw", kwargs)
+
+    def fake_multisteps(tx, every_k_schedule):
+        return ("multisteps", tx, every_k_schedule)
+
+    def fake_optimizer(**kwargs):
+        optimizer_calls.append(kwargs)
+        return kwargs
+
+    monkeypatch.setattr(
+        "vaml.utils.optimizer.optax.warmup_cosine_decay_schedule",
+        fake_schedule,
+    )
+    monkeypatch.setattr("vaml.utils.optimizer.optax.adamw", fake_adamw)
+    monkeypatch.setattr("vaml.utils.optimizer.optax.MultiSteps", fake_multisteps)
+    monkeypatch.setattr("vaml.utils.optimizer.nnx.Optimizer", fake_optimizer)
+
+    opt_config = OptimizerConfig(
+        opt=AdamWConfig(lr=0.1),
+        schedule=WarmupCosineConfig(warmup_ratio=0.1),
+    )
+
+    make_optimizer(
+        model=object(),
+        opt_config=opt_config,
+        total_steps=5000,
+        gradient_accumulations=8,
+        wrt=object(),
+    )
+
+    assert schedule_calls == [
+        {
+            "init_value": 0.0,
+            "peak_value": 0.1,
+            "warmup_steps": 500,
+            "decay_steps": 5000,
+        }
+    ]
+    assert optimizer_calls[0]["tx"][2] == 8

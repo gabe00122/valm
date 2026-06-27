@@ -1,12 +1,11 @@
+from pathlib import Path
 from typing import Annotated, Literal, Optional
 
 import typer
-from vaml.buffer import UpdateBatch
 from vaml.build_offline import build_offline as build_offline_fn
+from vaml.server.export_episode import export_episode as export_episode_fn
 from vaml.train_rl import train_cli
 from vaml.train_value import train_value_cli
-from vaml.util import load_tokenizer
-from vaml.utils.episode_to_jsonl import episode_to_jsonl as episode_to_jsonl_fn
 
 app = typer.Typer(pretty_exceptions_show_locals=False)
 eval_app = typer.Typer(help="Evaluate agents against environments")
@@ -62,13 +61,34 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
 
 
 @app.command()
-def episode_to_jsonl():
-    tokenizer = load_tokenizer("./base-models/Qwen/Qwen3-4B-Instruct-2507")
-    episode_to_jsonl_fn(
-        "./episode_viewer/episodes.jsonl",
-        UpdateBatch.load_npz("./episode_viewer/episodes.npz"),
-        tokenizer,
-    )
+def export_episode(
+    out: Annotated[
+        Path, typer.Option("--out", "-o", help="Destination JSON file")
+    ],
+    run: Annotated[
+        str,
+        typer.Option("--run", help="Run name under results/<run>/rollouts"),
+    ],
+    episode_id: Annotated[
+        int,
+        typer.Option(
+            "--episode-id",
+            "-e",
+            help="Global episode id",
+        ),
+    ] = 0,
+) -> None:
+    """Export one episode from a run to a static JSON file."""
+    try:
+        payload = export_episode_fn(
+            out,
+            run=run,
+            episode_id=episode_id,
+        )
+    except (ValueError, FileNotFoundError, IndexError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    typer.echo(f"Wrote {len(payload['tokens'])} tokens to {out}")
 
 
 @eval_app.command("api")

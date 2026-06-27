@@ -1,17 +1,15 @@
-import base64
 from functools import lru_cache
 from pathlib import Path
 
-import numpy as np
 from fastapi import FastAPI, HTTPException
 from vaml.buffer import UpdateBatch
+from vaml.server.episode_payload import EPISODES_PER_FILE, encode_episode
 from vaml.util import load_tokenizer
 
 app = FastAPI()
 
 tokenizer = load_tokenizer("./base-models/Qwen/Qwen3-4B-Instruct-2507")
 results_dir = Path("./results")
-episodes_per_file = 100
 
 
 def _rollouts_dir(run_name: str) -> Path:
@@ -27,11 +25,6 @@ def get_update_batch(run_name: str, chunk_id: int) -> UpdateBatch:
     if not path.is_file():
         raise HTTPException(status_code=404, detail=f"Missing chunk: {path}")
     return UpdateBatch.load_npz(path)
-
-
-def _base64_encode(array: np.ndarray) -> str:
-    array = np.asarray(array, dtype=np.float32)
-    return base64.b64encode(array.tobytes()).decode("utf-8")
 
 
 @app.get("/runs")
@@ -52,33 +45,22 @@ def read_run(run_name: str):
         return {"name": run_name, "episodeCount": 0}
 
     last_chunk = max(chunk_ids)
-    last_chunk_size = int(get_update_batch(run_name, last_chunk).context_length.shape[0])
+    last_chunk_size = int(
+        get_update_batch(run_name, last_chunk).context_length.shape[0]
+    )
     return {
         "name": run_name,
-        "episodeCount": last_chunk * episodes_per_file + last_chunk_size,
+        "episodeCount": last_chunk * EPISODES_PER_FILE + last_chunk_size,
     }
 
 
 @app.get("/runs/{run_name}/episode/{episode_id}")
 def read_item(run_name: str, episode_id: int):
-    chunk = episode_id // episodes_per_file
-    episode_idx = episode_id % episodes_per_file
+    chunk = episode_id // EPISODES_PER_FILE
+    episode_idx = episode_id % EPISODES_PER_FILE
     ub = get_update_batch(run_name, chunk)
 
-    length = int(ub.context_length[episode_idx])
-    context = ub.context[episode_idx, :length].tolist()
-    toks = [tokenizer.decode([token_id]) for token_id in context]
-
-    token_metrics = {
-        name: _base64_encode(np.asarray(value[episode_idx, :length], dtype=np.float32))
-        for name, value in ub.update_metrics.items()
-    }
-
-    token_metrics["log_probs"] = _base64_encode(ub.log_probs[episode_idx, :length])
-    token_metrics["rewards"] = _base64_encode(ub.rewards[episode_idx, :length])
-    token_metrics["policy_mask"] = _base64_encode(ub.policy_mask[episode_idx, :length])
-
-    return {
-        "tokens": toks,
-        "tokenMetrics": token_metrics,
-    }
+    try:
+        return encode_episode(ub, episode_idx, tokenizer)
+    except IndexError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
