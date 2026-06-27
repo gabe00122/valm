@@ -42,7 +42,8 @@ impl EnvShared for ArithmeticShared {
 
 struct ArithmeticEnvInstance {
     shared: Arc<ArithmeticShared>,
-    rng: SmallRng,
+    meta_rng: SmallRng,
+    group_id: u64,
     op: Operator,
     x: f32,
     y: f32,
@@ -100,7 +101,8 @@ impl EnvInstance for ArithmeticEnvInstance {
     fn new(seed: u64, shared: Arc<Self::Shared>) -> Self {
         ArithmeticEnvInstance {
             shared,
-            rng: SmallRng::seed_from_u64(seed),
+            meta_rng: SmallRng::seed_from_u64(seed),
+            group_id: 0,
             op: Operator::Add,
             x: 0.0,
             y: 0.0,
@@ -109,10 +111,16 @@ impl EnvInstance for ArithmeticEnvInstance {
     }
 
     fn reset(&mut self) -> (String, HashMap<String, f32>) {
+        // The drawn id is the GRPO group id; seeding the problem from it makes
+        // the problem fully determined by the id.
+        let gid = self.meta_rng.next_u64();
+        self.group_id = gid;
+        let mut prng = SmallRng::seed_from_u64(gid);
+
         let dist = Uniform::new(0.0, 10000.0).unwrap();
-        let x: f32 = self.rng.sample::<f32, _>(dist).round();
-        let y: f32 = self.rng.sample::<f32, _>(dist).round();
-        let op = sample_op(&mut self.rng);
+        let x: f32 = prng.sample::<f32, _>(dist).round();
+        let y: f32 = prng.sample::<f32, _>(dist).round();
+        let op = sample_op(&mut prng);
 
         self.x = x;
         self.y = y;
@@ -139,6 +147,10 @@ impl EnvInstance for ArithmeticEnvInstance {
         let (obs, metrics) = self.reset();
 
         (obs, reward, done, metrics)
+    }
+
+    fn group_id(&self) -> u64 {
+        self.group_id
     }
 }
 

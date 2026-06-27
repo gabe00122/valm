@@ -58,7 +58,7 @@ def _run_eval_loop(
     rewards = np.zeros((num_envs,), dtype=np.float32)
     dones = np.zeros((num_envs,), dtype=np.bool_)
 
-    obs, metrics = env.reset(env_indices)
+    obs, group_ids, metrics = env.reset(env_indices)
 
     episode_rewards: list[float] = []
     current_episode_rewards = np.zeros((num_envs,), dtype=np.float32)
@@ -73,8 +73,10 @@ def _run_eval_loop(
         task = progress.add_task("Evaluating...", total=num_episodes)
 
         while len(episode_rewards) < num_episodes:
-            env_indices, actions = agent.act(env_indices, obs, rewards, dones, metrics)
-            obs, rewards, dones, metrics = env.step(env_indices, actions)
+            env_indices, actions = agent.act(
+                env_indices, obs, rewards, dones, group_ids, metrics
+            )
+            obs, rewards, dones, group_ids, metrics = env.step(env_indices, actions)
 
             # Accumulate rewards for current episodes
             current_episode_rewards[env_indices] += rewards
@@ -130,7 +132,7 @@ def eval_api(
         EvalResult with evaluation statistics
     """
     console = Console()
-    env = make_env(env_name, num_envs, env_seed, None)
+    env = make_env(env_name, num_envs, 1, env_seed, None)
 
     agent = ApiAgent(
         model=model,
@@ -219,6 +221,7 @@ def eval_checkpoint(
     env = make_env(
         config.env.name,
         num_envs,
+        1,
         experiment.environments_seed,
         config.env,
     )

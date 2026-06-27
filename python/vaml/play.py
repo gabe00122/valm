@@ -9,7 +9,7 @@ from vaml.env.make import make_env
 
 def play(env_name: str, seed: int = 42):
     console = Console()
-    env = make_env(env_name, 1, seed, None)
+    env = make_env(env_name, 1, 1, seed, None)
     console.print(env.max_turns)
 
     console.print(Rule(f"[bold cyan]{env_name.upper()}[/bold cyan]"))
@@ -24,7 +24,7 @@ def play(env_name: str, seed: int = 42):
     console.print("[dim]Type 'quit' to exit.[/dim]\n")
 
     idx = np.array([0], dtype=np.int32)
-    obs, metrics = env.reset(idx)
+    obs, _, metrics = env.reset(idx)
 
     total_reward = 0.0
 
@@ -38,7 +38,7 @@ def play(env_name: str, seed: int = 42):
         if action.strip().lower() == "quit":
             break
 
-        obs, rewards, dones, metrics = env.step(idx, [action])
+        obs, rewards, dones, _, metrics = env.step(idx, [action])
         reward = rewards[0]
         done = dones[0]
         total_reward += reward

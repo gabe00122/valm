@@ -19,6 +19,10 @@ pub trait EnvInstance {
     fn new(seed: u64, shared: Arc<Self::Shared>) -> Self;
     fn reset(&mut self) -> (String, HashMap<String, f32>);
     fn step(&mut self, action: &str) -> (String, f32, bool, HashMap<String, f32>);
+
+    /// The id of the problem the instance is currently solving. Members of the
+    /// same GRPO group share the same id for the same problem (see `Envs::new`).
+    fn group_id(&self) -> u64;
 }
 
 pub struct Envs<E> {
@@ -48,28 +52,43 @@ where
     E: EnvInstance<Shared = S>,
     S: EnvShared,
 {
-    pub fn new(num: usize, seed: u64, settings: S::Settings) -> Self {
+    pub fn new(num: usize, group_size: usize, seed: u64, settings: S::Settings) -> Self {
         let mut rng = SmallRng::seed_from_u64(seed);
         let shared = Arc::new(S::new(settings));
 
+        // GRPO groups: instances are partitioned into contiguous groups that
+        // share a seed, so every member generates the same sequence of problems
+        // (and the same per-problem group id). group_size == 1 reproduces the
+        // old behaviour of one independent seed per instance.
+        let group_size = group_size.max(1);
+        let num_groups = num.div_ceil(group_size);
+        let group_seeds: Vec<u64> = (0..num_groups).map(|_| rng.next_u64()).collect();
+
         let envs = (0..num)
-            .map(|_| E::new(rng.next_u64(), shared.clone()))
+            .map(|i| E::new(group_seeds[i / group_size], shared.clone()))
             .collect();
 
         Self { envs }
     }
 
-    pub fn reset<I>(&mut self, indices: I) -> (Vec<String>, HashMap<String, Array1<f32>>)
+    pub fn reset<I>(
+        &mut self,
+        indices: I,
+    ) -> (Vec<String>, Vec<u64>, HashMap<String, Array1<f32>>)
     where
         I: IntoIterator,
         I::Item: Borrow<i32>,
     {
-        let (obs, metrics): (Vec<String>, Vec<HashMap<String, f32>>) = indices
+        let (obs, group_ids, metrics): (Vec<String>, Vec<u64>, Vec<HashMap<String, f32>>) = indices
             .into_iter()
-            .map(|i| self.envs.get_mut(*i.borrow() as usize).unwrap().reset())
-            .unzip();
+            .map(|i| {
+                let env = self.envs.get_mut(*i.borrow() as usize).unwrap();
+                let (obs, metrics) = env.reset();
+                (obs, env.group_id(), metrics)
+            })
+            .multiunzip();
 
-        (obs, collect_metrics(metrics))
+        (obs, group_ids, collect_metrics(metrics))
     }
 
     pub fn step<I, A>(
@@ -80,6 +99,7 @@ where
         Vec<String>,
         Vec<f32>,
         Vec<bool>,
+        Vec<u64>,
         HashMap<String, Array1<f32>>,
     )
     where
@@ -88,10 +108,11 @@ where
         A: IntoIterator,
         A::Item: AsRef<str>,
     {
-        let (obs, reward, done, metrics): (
+        let (obs, reward, done, group_ids, metrics): (
             Vec<String>,
             Vec<f32>,
             Vec<bool>,
+            Vec<u64>,
             Vec<HashMap<String, f32>>,
         ) = indices
             .into_iter()
@@ -100,11 +121,18 @@ where
                 let index = *index.borrow();
                 let action = action.as_ref();
 
-                self.envs.get_mut(index as usize).unwrap().step(action)
+                let env = self.envs.get_mut(index as usize).unwrap();
+                // Capture the id *before* stepping: a `done` step resets the
+                // instance to the next problem, so this is the id of the episode
+                // that just finished.
+                let group_id = env.group_id();
+                let (obs, reward, done, metrics) = env.step(action);
+
+                (obs, reward, done, group_id, metrics)
             })
             .multiunzip();
 
-        (obs, reward, done, collect_metrics(metrics))
+        (obs, reward, done, group_ids, collect_metrics(metrics))
     }
 }
 
@@ -119,9 +147,14 @@ macro_rules! create_env_wrapper {
         #[pymethods]
         impl $py_name {
             #[new]
-            fn new(num_agents: usize, seed: u64, settings: $setting_struct) -> Self {
+            fn new(
+                num_agents: usize,
+                group_size: usize,
+                seed: u64,
+                settings: $setting_struct,
+            ) -> Self {
                 Self {
-                    envs: Envs::new(num_agents, seed, settings),
+                    envs: Envs::new(num_agents, group_size, seed, settings),
                 }
             }
 
@@ -129,16 +162,21 @@ macro_rules! create_env_wrapper {
                 &mut self,
                 py: Python<'py>,
                 batch_indices: PyReadonlyArray1<'py, i32>,
-            ) -> PyResult<(Vec<String>, HashMap<String, Bound<'py, PyArray1<f32>>>)> {
+            ) -> PyResult<(
+                Vec<String>,
+                Bound<'py, PyArray1<u64>>,
+                HashMap<String, Bound<'py, PyArray1<f32>>>,
+            )> {
                 let indices = batch_indices.as_array();
-                let (obs, metrics) = self.envs.reset(indices);
+                let (obs, group_ids, metrics) = self.envs.reset(indices);
 
+                let group_ids = group_ids.into_pyarray(py);
                 let metrics = metrics
                     .into_iter()
                     .map(|(k, v)| (k, v.into_pyarray(py)))
                     .collect();
 
-                Ok((obs, metrics))
+                Ok((obs, group_ids, metrics))
             }
 
             fn step<'py>(
@@ -150,20 +188,23 @@ macro_rules! create_env_wrapper {
                 Vec<String>,
                 Bound<'py, PyArray1<f32>>,
                 Bound<'py, PyArray1<bool>>,
+                Bound<'py, PyArray1<u64>>,
                 HashMap<String, Bound<'py, PyArray1<f32>>>,
             )> {
                 let indices = batch_indices.as_array();
 
-                let (obs, rewards, dones, metrics) = self.envs.step(&indices, &actions);
+                let (obs, rewards, dones, group_ids, metrics) =
+                    self.envs.step(&indices, &actions);
 
                 let rewards = rewards.into_pyarray(py);
                 let dones = dones.into_pyarray(py);
+                let group_ids = group_ids.into_pyarray(py);
                 let metrics = metrics
                     .into_iter()
                     .map(|(k, v)| (k, v.into_pyarray(py)))
                     .collect();
 
-                Ok((obs, rewards, dones, metrics))
+                Ok((obs, rewards, dones, group_ids, metrics))
             }
 
             fn instructions(&self) -> PyResult<&'static str> {

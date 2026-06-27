@@ -145,6 +145,7 @@ class LocalAgent(Agent):
         obs: list[str],
         rewards: np.ndarray,
         dones: np.ndarray,
+        group_ids: np.ndarray,
         metrics: dict[str, np.ndarray],
     ) -> tuple[np.ndarray, list[str]]:
         lengths = self._np_gen.kv_cache_length
@@ -174,6 +175,7 @@ class LocalAgent(Agent):
                         policy_mask=self._np_gen.policy_mask[done_idx],
                         turn_counts=turn_counts,
                         turn_start_positions=turn_start_positions,
+                        group_id=group_ids[np.where(dones)],
                         turn_metrics=turn_metrics,
                     )
                 )

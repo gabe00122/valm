@@ -66,6 +66,7 @@ class ApiAgent(Agent):
         obs: list[str],
         rewards: np.ndarray,
         dones: np.ndarray,
+        group_ids: np.ndarray,
         metrics: dict[str, np.ndarray],
     ) -> tuple[np.ndarray, list[str]]:
         """

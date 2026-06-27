@@ -61,6 +61,7 @@ def test_update_buffer_lazily_initializes_turn_metrics():
         ),
         turn_counts=np.array([1, 2], dtype=np.int32),
         turn_start_positions=np.array([[0, 2], [0, 1]], dtype=np.int32),
+        group_id=np.array([0, 1], dtype=np.uint64),
         turn_metrics=turn_metrics,
     )
 
@@ -115,6 +116,7 @@ def _buffer_shaped_batch(
         policy_mask=(grid % 2 == 0),
         turn_counts=np.ones(n, dtype=np.int32),
         turn_start_positions=np.zeros((n, max_turns), dtype=np.int32),
+        group_id=np.arange(n, dtype=np.uint64),
         turn_metrics=turn_metrics,
         update_metrics=update_metrics,
     )

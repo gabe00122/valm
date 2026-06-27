@@ -39,7 +39,8 @@ impl EnvShared for WordleShared {
 
 struct WordleInstance {
     shared: Arc<WordleShared>,
-    rng: SmallRng,
+    meta_rng: SmallRng,
+    group_id: u64,
     secret_word_index: usize,
     guesses: usize,
     got_yellow: [bool; 5],
@@ -112,11 +113,10 @@ impl EnvInstance for WordleInstance {
     const MAX_TURNS: usize = 6;
 
     fn new(seed: u64, shared: Arc<Self::Shared>) -> Self {
-        let rng = SmallRng::seed_from_u64(seed);
-
         WordleInstance {
             shared,
-            rng,
+            meta_rng: SmallRng::seed_from_u64(seed),
+            group_id: 0,
             secret_word_index: 0,
             guesses: 0,
             got_yellow: [false; 5],
@@ -125,8 +125,14 @@ impl EnvInstance for WordleInstance {
     }
 
     fn reset(&mut self) -> (String, HashMap<String, f32>) {
+        // The drawn id is the GRPO group id; seeding the problem from it makes
+        // the secret word fully determined by the id.
+        let gid = self.meta_rng.next_u64();
+        self.group_id = gid;
+        let mut prng = SmallRng::seed_from_u64(gid);
+
         self.guesses = 0;
-        self.secret_word_index = self.rng.random_range(0..self.shared.words.len());
+        self.secret_word_index = prng.random_range(0..self.shared.words.len());
         self.got_yellow = [false; 5];
         self.got_green = [false; 5];
 
@@ -164,6 +170,10 @@ impl EnvInstance for WordleInstance {
         } else {
             (obs, reward, false, metrics)
         }
+    }
+
+    fn group_id(&self) -> u64 {
+        self.group_id
     }
 }
 

@@ -1,7 +1,7 @@
 import random
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 # Environment Config
@@ -143,6 +143,19 @@ class Config(BaseModel):
     max_seq_length: int
     total_update_episodes: int
     checkpoint_every: int
+
+    # GRPO group size. 1 means no grouping (each episode is its own group).
+    group_size: int = 1
+
+    @model_validator(mode="after")
+    def _check_group_size(self):
+        if self.group_size < 1:
+            raise ValueError("group_size must be >= 1")
+        if self.eval_envs % self.group_size != 0:
+            raise ValueError("eval_envs must be a multiple of group_size")
+        if self.update_envs % self.group_size != 0:
+            raise ValueError("update_envs must be a multiple of group_size")
+        return self
 
 
 def load_config(json_config: str) -> Config:

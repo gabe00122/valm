@@ -8,6 +8,7 @@ from vaml.env.make import make_env
 from vaml.episode_listener import (
     BufferedEpisodeListener,
     EpisodeSaver,
+    GroupedEpisodeListener,
     Trainer,
 )
 from vaml.experiment import Experiment
@@ -37,12 +38,13 @@ def train_cli(
     env = make_env(
         config.env.name,
         eval_batch_size,
+        config.group_size,
         experiment.environments_seed,
         config.env,
     )
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)
-    obs, metrics = env.reset(env_indices)
+    obs, group_ids, metrics = env.reset(env_indices)
 
     assert config.policy_optimizer is not None
     policy_opt = make_optimizer(
@@ -95,11 +97,9 @@ def train_cli(
         with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
             trainer.restore_checkpoint(checkpointer=other_checkpointer, wrt=ValueParam)
 
-    trainer_listener = BufferedEpisodeListener(
-        config.update_envs + config.eval_envs,
+    trainer_listener = GroupedEpisodeListener(
+        config.group_size,
         config.update_envs,
-        config.max_seq_length,
-        env.max_turns,
         trainer,
     )
 
@@ -111,8 +111,10 @@ def train_cli(
     logger.start()
 
     while trainer.progress < 1.0:
-        env_indices, actions = agent.act(env_indices, obs, rewards, dones, metrics)
-        obs, rewards, dones, metrics = env.step(env_indices, actions)
+        env_indices, actions = agent.act(
+            env_indices, obs, rewards, dones, group_ids, metrics
+        )
+        obs, rewards, dones, group_ids, metrics = env.step(env_indices, actions)
 
     logger.close()
     checkpointer.close()

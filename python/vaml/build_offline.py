@@ -44,12 +44,13 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
     env = make_env(
         config.env.name,
         eval_batch_size,
+        1,
         experiment.environments_seed,
         config.env,
     )
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)
-    obs, metrics = env.reset(env_indices)
+    obs, group_ids, metrics = env.reset(env_indices)
 
     agent = LocalAgent(
         model,
@@ -91,8 +92,10 @@ def build_offline(config_url: str, output_path: str, file_size: int, file_count:
         chunk_task = progress.add_task("Current    ", total=file_size)
 
         while saver.chunk_num < file_count:
-            env_indices, actions = agent.act(env_indices, obs, rewards, dones, metrics)
-            obs, rewards, dones, metrics = env.step(env_indices, actions)
+            env_indices, actions = agent.act(
+                env_indices, obs, rewards, dones, group_ids, metrics
+            )
+            obs, rewards, dones, group_ids, metrics = env.step(env_indices, actions)
 
             progress.update(chunks_task, completed=saver.chunk_num)
             progress.update(chunk_task, completed=buffered_listener.size)

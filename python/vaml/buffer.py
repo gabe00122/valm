@@ -19,6 +19,11 @@ class UpdateBatch(NamedTuple):
     # these arrays are turn aligned not token aligned
     turn_counts: ArrayData
     turn_start_positions: ArrayData
+
+    # per-episode GRPO group id (uint64). Optional + trailing default so old
+    # rollout .npz files (saved without it) still load.
+    group_id: ArrayData | None = None
+
     turn_metrics: Mapping[str, ArrayData] = {}
 
     # from the update step
@@ -33,6 +38,9 @@ class UpdateBatch(NamedTuple):
         """Save the batch to an .npz file."""
 
         payload = self._asdict()
+
+        if self.group_id is None:
+            del payload["group_id"]
 
         del payload["turn_metrics"]
         for name, value in self.turn_metrics.items():
@@ -73,7 +81,7 @@ class UpdateBatch(NamedTuple):
 
 _BATCH_FIELDS = (
     "context_length", "context", "log_probs", "rewards",
-    "policy_mask", "turn_counts", "turn_start_positions",
+    "policy_mask", "turn_counts", "turn_start_positions", "group_id",
 )
 
 _SEQUENCE_FIELDS = (
@@ -84,10 +92,33 @@ def array_chunks(batch: UpdateBatch, chunk_size: int) -> Iterator[UpdateBatch]:
     n = batch.context.shape[0]
     for start in range(0, n, chunk_size):
         sl = slice(start, start + chunk_size)
-        updates = {f: getattr(batch, f)[sl] for f in _BATCH_FIELDS}
+        updates = {
+            f: getattr(batch, f)[sl]
+            for f in _BATCH_FIELDS
+            if getattr(batch, f) is not None
+        }
         updates["turn_metrics"] = {k: v[sl] for k, v in batch.turn_metrics.items()}
         updates["update_metrics"] =  {k: v[sl] for k, v in batch.update_metrics.items()}
         yield bucket_chunk(batch._replace(**updates))
+
+
+def concat_batches(batches: list[UpdateBatch]) -> UpdateBatch:
+    """Concatenate UpdateBatches along the batch (episode) axis."""
+    first = batches[0]
+    fields = {
+        f: np.concatenate([getattr(b, f) for b in batches], axis=0)
+        for f in _BATCH_FIELDS
+        if getattr(first, f) is not None
+    }
+    fields["turn_metrics"] = {
+        k: np.concatenate([b.turn_metrics[k] for b in batches], axis=0)
+        for k in first.turn_metrics
+    }
+    fields["update_metrics"] = {
+        k: np.concatenate([b.update_metrics[k] for b in batches], axis=0)
+        for k in first.update_metrics
+    }
+    return UpdateBatch(**fields)
 
 
 def bucket_chunk(batch: UpdateBatch) -> UpdateBatch:
@@ -173,6 +204,7 @@ class UpdateBuffer:
 
         self._turn_counts = CircularBuffer(buffer_size, (), np.int32)
         self._turn_start_positions = CircularBuffer(buffer_size, (max_turns,), np.int32)
+        self._group_id = CircularBuffer(buffer_size, (), np.uint64)
         self._turn_metrics = {}
 
         self._update_metrics = {}
@@ -194,6 +226,12 @@ class UpdateBuffer:
 
         self._turn_counts.push(batch.turn_counts)
         self._turn_start_positions.push(batch.turn_start_positions)
+        # Tolerate batches without a group id (e.g. offline .npz saved before
+        # group ids existed) so value-only training keeps working.
+        group_id = batch.group_id
+        if group_id is None:
+            group_id = np.zeros(batch.context_length.shape[0], dtype=np.uint64)
+        self._group_id.push(group_id)
 
         for name, value in batch.turn_metrics.items():
             if name not in self._turn_metrics:
@@ -222,6 +260,7 @@ class UpdateBuffer:
             turn_start_positions=self._turn_start_positions.pop_oldest(
                 self._batch_size
             ),
+            group_id=self._group_id.pop_oldest(self._batch_size),
             turn_metrics={
                 name: buffer.pop_oldest(self._batch_size)
                 for name, buffer in self._turn_metrics.items()

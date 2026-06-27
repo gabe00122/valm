@@ -12,13 +12,15 @@ ENV_DEFAULTS = {
 }
 
 
-def make_env(env_name: str, num_agents: int, seed: int, settings) -> Env:
+def make_env(
+    env_name: str, num_agents: int, group_size: int, seed: int, settings
+) -> Env:
     if settings is None:
         settings = SimpleNamespace(**ENV_DEFAULTS[env_name])
 
     if env_name == "arithmetic":
-        return ArithmeticEnv(num_agents, seed, settings)
+        return ArithmeticEnv(num_agents, group_size, seed, settings)
     elif env_name == "wordle":
-        return WordleEnv(num_agents, seed, settings)
+        return WordleEnv(num_agents, group_size, seed, settings)
     else:
         raise ValueError(f"Unknown environment: {env_name}")
