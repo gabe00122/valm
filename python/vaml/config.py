@@ -113,8 +113,18 @@ class OptimizerConfig(BaseModel):
     schedule: ScheduleConfig = None
 
 
-class LossConfig(BaseModel):
+class GRPOLossConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
+    type: Literal["grpo"] = "grpo"
+    pg_clip_high: float
+    pg_clip_low: float
+    entropy_coef: float | None = None
+    is_correction: bool = True
+
+
+class PPOLossConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    type: Literal["ppo"] = "ppo"
     gae_lambda: float
     gae_discount: float
     turn_lambda: float
@@ -134,7 +144,7 @@ class Config(BaseModel):
     logger: LoggerConfig
     policy_optimizer: OptimizerConfig | None = None
     value_optimizer: OptimizerConfig
-    loss: LossConfig
+    loss: PPOLossConfig | GRPOLossConfig = Field(discriminator="type")
     env: ArithmeticEnvConfig | WordleEnvConfig = Field(discriminator="name")
 
     gradient_accumulations: int | None = None

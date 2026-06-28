@@ -1,37 +1,37 @@
-from typing import Protocol
-
 import jax
 import numpy as np
 from flax import nnx
 from vaml.buffer import UpdateBatch
 from vaml.checkpointer import Checkpointer
-from vaml.config import Config
+from vaml.config import Config, GRPOLossConfig
 from vaml.episode_listener.base import EpisodeListener
+from vaml.episode_listener.trainer import ModelProvider
 from vaml.logger import BaseLogger
-from vaml.model.value_network import ValueParam
-from vaml.update_step.ppo import multi_update_step_bucket
+from vaml.update_step.grpo import multi_grpo_update_bucketed
 
 
-class ModelProvider(Protocol):
-    model_def: nnx.GraphDef
-    model_state: nnx.State
+class GRPOTrainer(EpisodeListener):
+    """GRPO update loop: policy-only, no value network.
 
+    Mirrors Trainer but drops the critic entirely. Advantages come from
+    group-relative reward normalization (see update_step.grpo), so there is no
+    value optimizer to build, checkpoint, or restore.
+    """
 
-class Trainer(EpisodeListener):
     def __init__(
         self,
         model_provider: ModelProvider,
         policy_opt: nnx.Optimizer,
-        value_opt: nnx.Optimizer,
         rng_key: jax.Array,
         checkpointer: Checkpointer,
         logger: BaseLogger,
         config: Config,
         episode_listener: EpisodeListener | None = None,
     ):
+        assert isinstance(config.loss, GRPOLossConfig)
+
         self._model_provider = model_provider
         self._policy_opt_def, self._policy_opt_state = nnx.split(policy_opt)
-        self._value_opt_def, self._value_opt_state = nnx.split(value_opt)
         self._rng_key = rng_key
 
         self._checkpointer = checkpointer
@@ -42,49 +42,30 @@ class Trainer(EpisodeListener):
 
     def save_checkpoint(self):
         policy_opt = nnx.merge(self._policy_opt_def, self._policy_opt_state)
-        value_opt = nnx.merge(self._value_opt_def, self._value_opt_state)
         model = nnx.merge(
             self._model_provider.model_def, self._model_provider.model_state
         )
         self._checkpointer.save(
-            {"policy_opt": policy_opt, "value_opt": value_opt, "model": model},
+            {"policy_opt": policy_opt, "model": model},
             self._update_step,
-            nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt),
+            nnx.filterlib.Any(nnx.OptState, policy_opt.wrt),
         )
 
-    def restore_checkpoint(
-        self,
-        *,
-        checkpointer: Checkpointer | None = None,
-        wrt: nnx.filterlib.Filter | None = None,
-    ):
+    def restore_checkpoint(self):
         policy_opt: nnx.Optimizer = nnx.merge(
             self._policy_opt_def, self._policy_opt_state
         )
-        value_opt: nnx.Optimizer = nnx.merge(self._value_opt_def, self._value_opt_state)
         model = nnx.merge(
             self._model_provider.model_def, self._model_provider.model_state
         )
 
-        restore_filter = nnx.filterlib.Any(nnx.OptState, policy_opt.wrt, value_opt.wrt)
-
-        if checkpointer is None:
-            step = self._checkpointer.restore_latest(
-                {
-                    "policy_opt": policy_opt,
-                    "value_opt": value_opt,
-                    "model": model,
-                },
-                restore_filter,
-            )
-            self._update_step = step
-            self._policy_opt_state = nnx.state(policy_opt)
-            self._value_opt_state = nnx.state(value_opt)
-        else:
-            # This should be the value_opt
-            checkpointer.restore_latest({"model": model}, ValueParam)
-            # self._value_opt_state = nnx.state(value_opt)
-
+        restore_filter = nnx.filterlib.Any(nnx.OptState, policy_opt.wrt)
+        step = self._checkpointer.restore_latest(
+            {"policy_opt": policy_opt, "model": model},
+            restore_filter,
+        )
+        self._update_step = step
+        self._policy_opt_state = nnx.state(policy_opt)
         self._model_provider.model_state = nnx.state(model)
 
     @property
@@ -94,23 +75,20 @@ class Trainer(EpisodeListener):
     def on_episodes(self, batch: UpdateBatch):
         (
             self._policy_opt_state,
-            self._value_opt_state,
             new_model_state,
             summery_metrics,
             token_metrics,
             self._rng_key,
-        ) = multi_update_step_bucket(
+        ) = multi_grpo_update_bucketed(
             self._policy_opt_def,
             self._policy_opt_state,
-            self._value_opt_def,
-            self._value_opt_state,
             self._model_provider.model_def,
             self._model_provider.model_state,
             self._rng_key,
             batch,
             self._config.loss,
             self._config.gradient_accumulations or 1,
-            False,
+            self._config.group_size,
         )
 
         seq_length = batch.rewards.shape[1]

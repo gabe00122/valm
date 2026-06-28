@@ -13,7 +13,7 @@ from vaml.episode_listener.saver import EpisodeSaver
 from vaml.experiment import Experiment
 from vaml.logger import create_logger
 from vaml.model.value_network import ValueParam
-from vaml.update_step import multi_update_step_v2
+from vaml.update_step.ppo import multi_update_step_bucket
 from vaml.utils.optimizer import make_optimizer
 
 
@@ -122,7 +122,7 @@ def train_value_cli(config_url: str, offline_data_url: str, track_values: bool =
 
         batch = input_buffer.take_batch()
         _, value_opt_state, model_state, summery_metrics, token_metrics, rng_key = (
-            multi_update_step_v2(
+            multi_update_step_bucket(
                 None,
                 None,
                 value_opt_def,
@@ -142,7 +142,7 @@ def train_value_cli(config_url: str, offline_data_url: str, track_values: bool =
 
         if track_values:
             # Recalculate the first episode's value function with the updated model.
-            # multi_update_step_v2 applies exactly one optimizer update per call, so
+            # multi_update_step_bucket applies exactly one optimizer update per call, so
             # every iteration corresponds to a distinct set of model params.
             first_episode_values, value_rng_key = calculate_values(
                 model_def,

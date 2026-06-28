@@ -2,24 +2,14 @@ from typing import Any, cast
 
 import distrax
 import jax
-from flax import nnx
 import numpy as np
+from einops import rearrange
+from flax import nnx
 from jax import numpy as jnp
 from vaml.buffer import UpdateBatch, array_chunks
-from vaml.config import LossConfig
+from vaml.config import PPOLossConfig
 from vaml.model.qwen3 import Qwen3
-from einops import rearrange
-
-
-def summery_stats(
-    values: jax.Array, where: jax.Array | None = None
-) -> dict[str, jax.Array]:
-    return {
-        "mean": jnp.mean(values, where=where),
-        "std": jnp.std(values, where=where),
-        "min": jnp.min(values, initial=1000, where=where),
-        "max": jnp.max(values, initial=-1000, where=where),
-    }
+from vaml.update_step.util import summery_stats
 
 
 def calculate_advantages(
@@ -66,7 +56,7 @@ def loss_fn(
     rollout: UpdateBatch,
     td_discount: jax.Array,
     td_lambda: jax.Array,
-    config: LossConfig,
+    config: PPOLossConfig,
     bounds_mask: jax.Array,
     value_only: bool,
     rng_key: jax.Array,
@@ -162,7 +152,8 @@ def loss_fn(
 
     return loss, (summery_metrics, token_metrics, rng_key)
 
-def multi_update_step_v2(
+
+def multi_update_step_bucket(
     policy_opt_def,
     policy_opt_state,
     value_opt_def,
@@ -171,7 +162,7 @@ def multi_update_step_v2(
     model_state,
     rng_key: jax.Array,
     rollout: UpdateBatch,
-    config: LossConfig,
+    config: PPOLossConfig,
     steps: int,
     value_only: bool,
 ):
@@ -210,7 +201,14 @@ def multi_update_step_v2(
         lambda *xs: np.mean(np.stack(xs, axis=0), axis=0), *summary_chunks
     )
     token_metrics = jax.tree.map(
-        lambda *xs: np.concatenate([np.pad(x, pad_width=((0, 0), (0, seq_length + 1 - x.shape[1]))) for x in xs], axis=0), *token_chunks
+        lambda *xs: np.concatenate(
+            [
+                np.pad(x, pad_width=((0, 0), (0, seq_length + 1 - x.shape[1])))
+                for x in xs
+            ],
+            axis=0,
+        ),
+        *token_chunks,
     )
 
     return (
@@ -243,7 +241,7 @@ def multi_update_step(
     model_state,
     rng_key: jax.Array,
     rollout: UpdateBatch,
-    config: LossConfig,
+    config: PPOLossConfig,
     steps: int,
     value_only: bool,
 ):
@@ -318,7 +316,7 @@ def update_step(
     model_state,
     rng_key: jax.Array,
     rollout: UpdateBatch,
-    config: LossConfig,
+    config: PPOLossConfig,
     value_only: bool,
 ):
     if not value_only:

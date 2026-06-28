@@ -9,6 +9,7 @@ from vaml.episode_listener import (
     BufferedEpisodeListener,
     EpisodeSaver,
     GroupedEpisodeListener,
+    GRPOTrainer,
     Trainer,
 )
 from vaml.experiment import Experiment
@@ -29,7 +30,9 @@ def train_cli(
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
-    model.initialize_value_net(config.value_net, rngs=rngs)
+    # GRPO has no critic; only build the value net for the PPO loss.
+    if config.loss.type == "ppo":
+        model.initialize_value_net(config.value_net, rngs=rngs)
     model.initialize_lora(config.lora, rngs=rngs)
 
     checkpointer = Checkpointer(experiment.checkpoints_url)
@@ -54,13 +57,6 @@ def train_cli(
         config.gradient_accumulations,
         nnx.LoRAParam,
     )
-    value_opt = make_optimizer(
-        model,
-        config.value_optimizer,
-        config.total_update_episodes,
-        config.gradient_accumulations,
-        ValueParam,
-    )
 
     agent = LocalAgent(
         model,
@@ -81,21 +77,41 @@ def train_cli(
         EpisodeSaver(experiment.rollout_dir),
     )
 
-    trainer = Trainer(
-        agent,
-        policy_opt,
-        value_opt,
-        rngs.trainer(),
-        checkpointer,
-        logger,
-        config,
-        episode_listener=rollout_logger,
-    )
+    if config.loss.type == "ppo":
+        value_opt = make_optimizer(
+            model,
+            config.value_optimizer,
+            config.total_update_episodes,
+            config.gradient_accumulations,
+            ValueParam,
+        )
+        trainer = Trainer(
+            agent,
+            policy_opt,
+            value_opt,
+            rngs.trainer(),
+            checkpointer,
+            logger,
+            config,
+            episode_listener=rollout_logger,
+        )
 
-    if value_net_id is not None:
-        other_exp = Experiment.load(value_net_id)
-        with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
-            trainer.restore_checkpoint(checkpointer=other_checkpointer, wrt=ValueParam)
+        if value_net_id is not None:
+            other_exp = Experiment.load(value_net_id)
+            with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
+                trainer.restore_checkpoint(
+                    checkpointer=other_checkpointer, wrt=ValueParam
+                )
+    else:
+        trainer = GRPOTrainer(
+            agent,
+            policy_opt,
+            rngs.trainer(),
+            checkpointer,
+            logger,
+            config,
+            episode_listener=rollout_logger,
+        )
 
     trainer_listener = GroupedEpisodeListener(
         config.group_size,
