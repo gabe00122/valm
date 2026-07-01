@@ -9,14 +9,10 @@
     "rank": 64
   },
   "loss": {
-    "type": "ppo",
-    "gae_lambda": 0.95,
+    "type": "grpo",
+    "entropy_coef": 0.003,
     "pg_clip_low": 0.2,
-    "turn_lambda": 0.97,
-    "entropy_coef": null,
-    "gae_discount": 1,
     "pg_clip_high": 0.28,
-    "turn_discount": 0.97,
     "is_correction": false
   },
   "seed": 1487432481,
@@ -50,7 +46,7 @@
     "latent_encoder_rank": 256
   },
   "base_model": "Qwen/Qwen3-4B-Instruct-2507",
-  "update_envs": 16,
+  "update_envs": 32,
   "max_seq_length": 1024,
   "value_optimizer": {
     "opt": {
@@ -70,7 +66,7 @@
   "checkpoint_every": 1000,
   "policy_optimizer": {
     "opt": {
-      "lr": 0.00004,
+      "lr": 0.00001,
       "eps": 1e-8,
       "type": "adamw",
       "beta1": 0.9,
@@ -84,5 +80,6 @@
     "max_grad_norm": 1
   },
   "total_update_episodes": 25000,
-  "gradient_accumulations": 8
+  "gradient_accumulations": 16,
+  "group_size": 8
 }

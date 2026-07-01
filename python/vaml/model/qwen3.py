@@ -120,12 +120,6 @@ class Qwen3(nnx.Module):
         return logits, value_repr, carry, rng_key
 
     def initialize_carry(self, batch_size: int, seq_length: int):
-        base_carry = tuple(
+        return tuple(
             layer.initialize_carry(batch_size, seq_length) for layer in self.layers
         )
-        value_carry = (
-            self.value_net.initialize_carry(batch_size, seq_length)
-            if hasattr(self, "value_net")
-            else None
-        )
-        return base_carry, value_carry
