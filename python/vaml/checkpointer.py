@@ -24,7 +24,11 @@ class Checkpointer:
         self.mngr.save(global_step, args=ocp.args.Composite(**data_state))
 
     def restore(
-        self, data: dict[str, Any], step: int, param_filter: Filter = nnx.Param
+        self,
+        data: dict[str, Any],
+        step: int,
+        param_filter: Filter = nnx.Param,
+        partial: bool = False,
     ):
         device = jax.devices()[0]
         mesh = Mesh((device,), ("batch",))
@@ -43,7 +47,21 @@ class Checkpointer:
                     value_state,
                     nnx.get_named_sharding(value_state, mesh),
                 )
-                data_abstract_state[key] = ocp.args.StandardRestore(abstract_state)
+                if partial:
+                    # The on-disk checkpoint may hold more parameters than we ask
+                    # for (e.g. loading only LoRA weights from a run that also
+                    # saved a value net). StandardRestore requires the tree
+                    # structures to match exactly, so fall back to PyTreeRestore
+                    # with partial_restore to load just the requested subset.
+                    data_abstract_state[key] = ocp.args.PyTreeRestore(
+                        item=abstract_state,
+                        restore_args=ocp.checkpoint_utils.construct_restore_args(
+                            abstract_state
+                        ),
+                        partial_restore=True,
+                    )
+                else:
+                    data_abstract_state[key] = ocp.args.StandardRestore(abstract_state)
 
         restored_state = self.mngr.restore(
             step, args=ocp.args.Composite(**data_abstract_state)
@@ -52,11 +70,13 @@ class Checkpointer:
         for key, value in restored_state.items():
             nnx.update(data[key], value)
 
-    def restore_latest(self, model, param_filter: Filter = nnx.Param) -> int:
+    def restore_latest(
+        self, model, param_filter: Filter = nnx.Param, partial: bool = False
+    ) -> int:
         step = self.mngr.latest_step()
         if step is None:
             return 0
-        self.restore(model, step, param_filter)
+        self.restore(model, step, param_filter, partial=partial)
         return step
 
     def close(self):

@@ -66,6 +66,7 @@
     }
   },
   "loss": {
+    "type": "ppo",
     "gae_lambda": 0.95,
     "gae_discount": 1.0,
     "turn_lambda": 0.97,

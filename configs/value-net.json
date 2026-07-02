@@ -66,6 +66,7 @@
         "multi_step": 2
     },
     "loss": {
+        "type": "ppo",
         "gae_lambda": 1.0,
         "gae_discount": 1.0,
         "turn_lambda": 0.97,
