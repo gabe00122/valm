@@ -119,7 +119,6 @@ class GRPOLossConfig(BaseModel):
     pg_clip_high: float
     pg_clip_low: float
     entropy_coef: float | None = None
-    is_correction: bool = True
 
 
 class PPOLossConfig(BaseModel):
