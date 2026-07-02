@@ -93,11 +93,12 @@ class Experiment:
         config_file: str,
         base_dir: str = "results",
         create_directories: bool = True,
+        unique_token: str | None = None,
     ) -> "Experiment":
         with fsspec.open(config_file, "r") as f:
             config = load_config(f.read())
         return cls.from_config(
-            generate_unique_token(),
+            unique_token if unique_token is not None else generate_unique_token(),
             config,
             base_dir,
             create_directories=create_directories,

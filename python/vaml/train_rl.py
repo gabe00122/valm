@@ -21,12 +21,19 @@ from vaml.utils.optimizer import make_optimizer
 def train_cli(
     config_url: str,
     value_net_id: str | None = None,
+    run_id: str | None = None,
+    base_dir: str = "results",
+    save_checkpoints: bool = True,
+    save_rollouts: bool = True,
+    wandb_tags: list[str] | None = None,
 ):
-    experiment = Experiment.from_config_file(config_url)
+    experiment = Experiment.from_config_file(
+        config_url, base_dir=base_dir, unique_token=run_id
+    )
 
     config = experiment.config
     console = Console()
-    logger = create_logger(experiment, console)
+    logger = create_logger(experiment, console, wandb_tags)
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, sampling = load_base_model(config.base_model, rngs)
@@ -68,14 +75,16 @@ def train_cli(
 
     agent.set_episode_instructions(env.instructions())
 
-    rollout_log_size = 100
-    rollout_logger = BufferedEpisodeListener(
-        rollout_log_size + config.update_envs,
-        rollout_log_size,
-        config.max_seq_length,
-        env.max_turns,
-        EpisodeSaver(experiment.rollout_dir),
-    )
+    rollout_logger = None
+    if save_rollouts:
+        rollout_log_size = 100
+        rollout_logger = BufferedEpisodeListener(
+            rollout_log_size + config.update_envs,
+            rollout_log_size,
+            config.max_seq_length,
+            env.max_turns,
+            EpisodeSaver(experiment.rollout_dir),
+        )
 
     if config.loss.type == "ppo":
         value_opt = make_optimizer(
@@ -94,10 +103,11 @@ def train_cli(
             logger,
             config,
             episode_listener=rollout_logger,
+            save_periodic_checkpoints=save_checkpoints,
         )
 
         if value_net_id is not None:
-            other_exp = Experiment.load(value_net_id)
+            other_exp = Experiment.load(value_net_id, base_dir)
             with Checkpointer(other_exp.checkpoints_url) as other_checkpointer:
                 trainer.restore_checkpoint(
                     checkpointer=other_checkpointer, wrt=ValueParam
@@ -111,6 +121,7 @@ def train_cli(
             logger,
             config,
             episode_listener=rollout_logger,
+            save_periodic_checkpoints=save_checkpoints,
         )
 
     trainer_listener = GroupedEpisodeListener(
@@ -131,6 +142,10 @@ def train_cli(
             env_indices, obs, rewards, dones, group_ids, metrics
         )
         obs, rewards, dones, group_ids, metrics = env.step(env_indices, actions)
+
+    # Always keep the final policy, even when periodic checkpoints are disabled
+    # (no-op if the last periodic checkpoint already covers this step).
+    trainer.save_checkpoint()
 
     logger.close()
     checkpointer.close()

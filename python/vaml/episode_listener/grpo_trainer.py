@@ -27,6 +27,7 @@ class GRPOTrainer(EpisodeListener):
         logger: BaseLogger,
         config: Config,
         episode_listener: EpisodeListener | None = None,
+        save_periodic_checkpoints: bool = True,
     ):
         assert isinstance(config.loss, GRPOLossConfig)
 
@@ -38,9 +39,13 @@ class GRPOTrainer(EpisodeListener):
         self._logger = logger
         self._config = config
         self._episode_listener = episode_listener
+        self._save_periodic_checkpoints = save_periodic_checkpoints
         self._update_step = 0
+        self._last_checkpoint_step = -1
 
     def save_checkpoint(self):
+        if self._update_step == self._last_checkpoint_step:
+            return
         policy_opt = nnx.merge(self._policy_opt_def, self._policy_opt_state)
         model = nnx.merge(
             self._model_provider.model_def, self._model_provider.model_state
@@ -50,6 +55,7 @@ class GRPOTrainer(EpisodeListener):
             self._update_step,
             nnx.filterlib.Any(nnx.OptState, policy_opt.wrt),
         )
+        self._last_checkpoint_step = self._update_step
 
     def restore_checkpoint(self):
         policy_opt: nnx.Optimizer = nnx.merge(
@@ -65,6 +71,7 @@ class GRPOTrainer(EpisodeListener):
             restore_filter,
         )
         self._update_step = step
+        self._last_checkpoint_step = step
         self._policy_opt_state = nnx.state(policy_opt)
         self._model_provider.model_state = nnx.state(model)
 
@@ -112,5 +119,8 @@ class GRPOTrainer(EpisodeListener):
         self._logger.log_dict(summery_metrics, self._update_step)
         self._update_step += 1
 
-        if self._update_step % self._config.checkpoint_every == 0:
+        if (
+            self._save_periodic_checkpoints
+            and self._update_step % self._config.checkpoint_every == 0
+        ):
             self.save_checkpoint()

@@ -133,11 +133,14 @@ class JsonLogger(BaseLogger):
 
 
 class WandbLogger(BaseLogger):
-    def __init__(self, unique_token: str, settings: Config):
+    def __init__(
+        self, unique_token: str, settings: Config, tags: list[str] | None = None
+    ):
         wandb.init(
             project=settings.logger.project_name,
             name=unique_token,
             config={"hypers": settings.model_dump()},
+            tags=tags,
         )
 
     def log_dict(self, data: Metrics, step: int) -> None:
@@ -149,7 +152,11 @@ class WandbLogger(BaseLogger):
         wandb.finish()
 
 
-def create_logger(experiment: Experiment, console: Console) -> BaseLogger:
+def create_logger(
+    experiment: Experiment,
+    console: Console,
+    wandb_tags: list[str] | None = None,
+) -> BaseLogger:
     logger_config = experiment.config.logger
     loggers: list[BaseLogger] = []
 
@@ -158,7 +165,9 @@ def create_logger(experiment: Experiment, console: Console) -> BaseLogger:
     if logger_config.use_console:
         loggers.append(ConsoleLogger(experiment.unique_token, console))
     if logger_config.use_wandb:
-        loggers.append(WandbLogger(experiment.unique_token, experiment.config))
+        loggers.append(
+            WandbLogger(experiment.unique_token, experiment.config, wandb_tags)
+        )
     if logger_config.use_jsonl:
         loggers.append(JsonLogger(experiment.root))
 

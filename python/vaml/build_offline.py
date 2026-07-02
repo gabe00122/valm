@@ -30,10 +30,20 @@ def _get_start(p: str):
     return max_num
 
 
-def build_offline(config_url: str, output_path: str, file_size: int, file_count: int):
+def build_offline(
+    config_url: str,
+    output_path: str,
+    file_size: int,
+    file_count: int,
+    batch_size: int | None = None,
+):
     experiment = Experiment.from_config_file(config_url)
 
     config = experiment.config
+    if batch_size is not None:
+        # Data generation doesn't share VRAM with update steps, so it can run
+        # a larger env batch than the training config's eval_envs.
+        config = config.model_copy(update={"eval_envs": batch_size})
     console = Console()
 
     rngs = nnx.Rngs(experiment.params_seed)

@@ -9,6 +9,7 @@
     "rank": 64
   },
   "loss": {
+    "type": "ppo",
     "gae_lambda": 0.95,
     "pg_clip_low": 0.2,
     "turn_lambda": 0.97,
@@ -34,7 +35,6 @@
       "sigma": 0.02,
       "n_logits": 51
     },
-    "dropout": null,
     "backbone": {
       "embed": 256,
       "q_heads": 8,

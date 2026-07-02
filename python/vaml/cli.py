@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Optional
 
 import typer
 from vaml.build_offline import build_offline as build_offline_fn
+from vaml.pipeline import run_pipeline
 from vaml.server.export_episode import export_episode as export_episode_fn
 from vaml.train_rl import train_cli
 from vaml.train_value import train_value_cli
@@ -28,6 +29,41 @@ def play(
     play_fn(env, seed)
 
 
+RunIdOption = Annotated[
+    Optional[str],
+    typer.Option("--run-id", help="Experiment token for this run (default: generated)"),
+]
+BaseDirOption = Annotated[
+    str, typer.Option("--base-dir", help="Base directory for experiment output")
+]
+SaveRolloutsOption = Annotated[
+    bool,
+    typer.Option(
+        "--save-rollouts/--no-save-rollouts",
+        help="Save every episode to the run's rollouts directory",
+    ),
+]
+SaveCheckpointsOption = Annotated[
+    bool,
+    typer.Option(
+        "--save-checkpoints/--no-save-checkpoints",
+        help="Save periodic checkpoints (a final checkpoint is always written)",
+    ),
+]
+WandbTagOption = Annotated[
+    Optional[list[str]],
+    typer.Option("--wandb-tag", help="Tag added to the wandb run (repeatable)"),
+]
+TrackValuesOption = Annotated[
+    bool,
+    typer.Option(
+        "--track-values/--no-track-values",
+        help="Track the first episode's value function each update and render it "
+        "as an animation (extra forward pass per update; disable to save compute)",
+    ),
+]
+
+
 @app.command()
 def train(
     config_url: str,
@@ -35,29 +71,107 @@ def train(
         Optional[str],
         typer.Option("--value-net-id", help="Experiment token to start training from"),
     ] = None,
+    run_id: RunIdOption = None,
+    base_dir: BaseDirOption = "results",
+    save_checkpoints: SaveCheckpointsOption = True,
+    save_rollouts: SaveRolloutsOption = True,
+    wandb_tag: WandbTagOption = None,
 ):
-    train_cli(config_url, value_net_id)
+    train_cli(
+        config_url,
+        value_net_id,
+        run_id=run_id,
+        base_dir=base_dir,
+        save_checkpoints=save_checkpoints,
+        save_rollouts=save_rollouts,
+        wandb_tags=wandb_tag,
+    )
 
 
 @app.command()
 def train_value(
     config_url: str,
     offline_data_url: str,
-    track_values: Annotated[
-        bool,
-        typer.Option(
-            "--track-values/--no-track-values",
-            help="Track the first episode's value function each update and render it "
-            "as an animation (extra forward pass per update; disable to save compute)",
-        ),
-    ] = True,
+    track_values: TrackValuesOption = True,
+    run_id: RunIdOption = None,
+    base_dir: BaseDirOption = "results",
+    save_rollouts: SaveRolloutsOption = True,
+    wandb_tag: WandbTagOption = None,
 ):
-    train_value_cli(config_url, offline_data_url, track_values=track_values)
+    train_value_cli(
+        config_url,
+        offline_data_url,
+        track_values=track_values,
+        run_id=run_id,
+        base_dir=base_dir,
+        save_rollouts=save_rollouts,
+        wandb_tags=wandb_tag,
+    )
 
 
 @app.command()
-def build_offline(config_url: str, output_path: str, file_size: int, file_count: int):
-    build_offline_fn(config_url, output_path, file_size, file_count)
+def build_offline(
+    config_url: str,
+    output_path: str,
+    file_size: int,
+    file_count: int,
+    batch_size: Annotated[
+        Optional[int],
+        typer.Option(
+            "--batch-size",
+            help="Env batch size for data generation (default: config eval_envs)",
+        ),
+    ] = None,
+):
+    build_offline_fn(config_url, output_path, file_size, file_count, batch_size)
+
+
+@app.command()
+def pipeline(
+    config_url: str,
+    offline_data: Annotated[
+        str,
+        typer.Option(
+            "--offline-data",
+            help="Directory for offline episode data (reused if already populated)",
+        ),
+    ] = "./offline_data",
+    offline_file_size: Annotated[
+        int, typer.Option("--offline-file-size", help="Episodes per offline data file")
+    ] = 1000,
+    offline_file_count: Annotated[
+        int, typer.Option("--offline-file-count", help="Number of offline data files")
+    ] = 20,
+    offline_batch_size: Annotated[
+        Optional[int],
+        typer.Option(
+            "--offline-batch-size",
+            help="Env batch size for data generation (default: config eval_envs)",
+        ),
+    ] = None,
+    base_dir: BaseDirOption = "results",
+    save_checkpoints: SaveCheckpointsOption = True,
+    save_rollouts: SaveRolloutsOption = True,
+    track_values: TrackValuesOption = True,
+    wandb_tag: WandbTagOption = None,
+):
+    """Run the full pipeline for one config: offline data -> value net -> RL.
+
+    GRPO configs skip straight to RL (no critic to pretrain). Each stage runs
+    as a subprocess so JAX device memory is released between stages.
+    """
+    run_pipeline(
+        config_url,
+        offline_data_dir=offline_data,
+        offline_file_size=offline_file_size,
+        offline_file_count=offline_file_count,
+        offline_batch_size=offline_batch_size,
+        base_dir=base_dir,
+        save_checkpoints=save_checkpoints,
+        save_rollouts=save_rollouts,
+        track_values=track_values,
+        wandb_tags=wandb_tag,
+    )
 
 
 @app.command()

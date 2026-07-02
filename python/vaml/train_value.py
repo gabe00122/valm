@@ -39,12 +39,22 @@ def print_value_param_count(model):
     print(f"Value Parameters: {param_count}")
 
 
-def train_value_cli(config_url: str, offline_data_url: str, track_values: bool = False):
-    experiment = Experiment.from_config_file(config_url)
+def train_value_cli(
+    config_url: str,
+    offline_data_url: str,
+    track_values: bool = False,
+    run_id: str | None = None,
+    base_dir: str = "results",
+    save_rollouts: bool = True,
+    wandb_tags: list[str] | None = None,
+):
+    experiment = Experiment.from_config_file(
+        config_url, base_dir=base_dir, unique_token=run_id
+    )
 
     config = experiment.config
     console = Console()
-    logger = create_logger(experiment, console)
+    logger = create_logger(experiment, console, wandb_tags)
 
     rngs = nnx.Rngs(experiment.params_seed)
     model, _, _ = load_base_model(config.base_model, rngs)
@@ -78,13 +88,15 @@ def train_value_cli(config_url: str, offline_data_url: str, track_values: bool =
         config.max_seq_length,
         max_turns,
     )
-    output_buffer = BufferedEpisodeListener(
-        buffer_size,
-        num_episodes_per_file,
-        config.max_seq_length,
-        max_turns,
-        EpisodeSaver(experiment.rollout_dir),
-    )
+    output_buffer = None
+    if save_rollouts:
+        output_buffer = BufferedEpisodeListener(
+            buffer_size,
+            num_episodes_per_file,
+            config.max_seq_length,
+            max_turns,
+            EpisodeSaver(experiment.rollout_dir),
+        )
     input_buffer.store(first_batch)
 
     total_updates = (len(data_files) * num_episodes_per_file) // config.update_envs
@@ -153,8 +165,9 @@ def train_value_cli(config_url: str, offline_data_url: str, track_values: bool =
             )
             value_history.append(np.asarray(first_episode_values))
 
-        output_batch = batch._replace(update_metrics=token_metrics)
-        output_buffer.on_episodes(output_batch)
+        if output_buffer is not None:
+            output_batch = batch._replace(update_metrics=token_metrics)
+            output_buffer.on_episodes(output_batch)
 
     logger.close()
     with Checkpointer(experiment.checkpoints_url) as checkpointer:

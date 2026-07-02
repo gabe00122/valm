@@ -21,7 +21,31 @@ fi
 
 if [[ "$DEV_MODE" == "true" ]]; then
     echo "Running in development mode..."
-    sleep infinity
-else
-    uv run ./python/vaml/train_rl.py
+    exec sleep infinity
 fi
+
+CONFIG="${VAML_CONFIG:-/app/configs/test.json}"
+
+ARGS=(
+    pipeline "$CONFIG"
+    --offline-data "${VAML_OFFLINE_DATA:-./offline_data}"
+    --offline-file-size "${VAML_OFFLINE_FILE_SIZE:-1000}"
+    --offline-file-count "${VAML_OFFLINE_FILE_COUNT:-20}"
+    --base-dir "${VAML_RESULTS_DIR:-results}"
+)
+
+if [[ -n "$VAML_OFFLINE_BATCH_SIZE" ]]; then
+    ARGS+=(--offline-batch-size "$VAML_OFFLINE_BATCH_SIZE")
+fi
+
+# Remote runs keep only wandb curves plus the final checkpoint of each stage;
+# set VAML_SAVE_ARTIFACTS=true for local-style periodic checkpoints and rollout logs.
+if [[ "$VAML_SAVE_ARTIFACTS" != "true" ]]; then
+    ARGS+=(--no-save-checkpoints --no-save-rollouts --no-track-values)
+fi
+
+if [[ -n "$VAML_WANDB_TAG" ]]; then
+    ARGS+=(--wandb-tag "$VAML_WANDB_TAG")
+fi
+
+exec vaml "${ARGS[@]}"

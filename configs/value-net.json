@@ -46,8 +46,7 @@
         "schedule": {
             "type": "warmup_cosine",
             "warmup_ratio": 0.1
-        },
-        "multi_step": null
+        }
     },
     "value_optimizer": {
         "opt": {
@@ -62,10 +61,10 @@
             "type": "warmup_cosine",
             "warmup_ratio": 0.05
         },
-        "max_grad_norm": 1.0,
-        "multi_step": 2
+        "max_grad_norm": 1.0
     },
     "loss": {
+        "type": "ppo",
         "gae_lambda": 1.0,
         "gae_discount": 1.0,
         "turn_lambda": 0.97,
@@ -77,6 +76,7 @@
         "name": "wordle",
         "max_guesses": 6
     },
+    "gradient_accumulations": 2,
     "eval_envs": 32,
     "update_envs": 16,
     "max_seq_length": 1024,
