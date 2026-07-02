@@ -1,0 +1,85 @@
+{
+    "env": {
+        "name": "wordle",
+        "max_guesses": 6
+    },
+    "lora": {
+        "mlp": true,
+        "attn": true,
+        "rank": 64
+    },
+    "loss": {
+        "type": "ppo",
+        "gae_lambda": 0.95,
+        "pg_clip_low": 0.2,
+        "turn_lambda": 0.97,
+        "entropy_coef": null,
+        "gae_discount": 1,
+        "pg_clip_high": 0.28,
+        "turn_discount": 0.97,
+        "is_correction": false
+    },
+    "seed": 1487432481,
+    "logger": {
+        "use_tb": false,
+        "use_jsonl": true,
+        "use_wandb": true,
+        "use_console": true,
+        "project_name": "vaml"
+    },
+    "eval_envs": 64,
+    "value_net": {
+        "head": {
+            "type": "mse"
+        },
+        "backbone": {
+            "embed": 256,
+            "q_heads": 8,
+            "head_dim": 32,
+            "kv_heads": 8,
+            "norm_eps": 0.000001,
+            "num_layers": 0,
+            "rope_theta": 500000,
+            "vocab_size": -1,
+            "mlp_ffw_size": 512
+        },
+        "last_latent_only": true,
+        "latent_encoder_rank": 256
+    },
+    "base_model": "Qwen/Qwen3-4B-Instruct-2507",
+    "update_envs": 16,
+    "max_seq_length": 1024,
+    "value_optimizer": {
+        "opt": {
+            "lr": 0.0001,
+            "eps": 1e-8,
+            "type": "adamw",
+            "beta1": 0.9,
+            "beta2": 0.98,
+            "weight_decay": 0.01
+        },
+        "schedule": {
+            "type": "warmup_cosine",
+            "warmup_ratio": 0.1
+        },
+        "max_grad_norm": 1
+    },
+    "checkpoint_every": 1000,
+    "policy_optimizer": {
+        "opt": {
+            "lr": 0.00004,
+            "eps": 1e-8,
+            "type": "adamw",
+            "beta1": 0.9,
+            "beta2": 0.98,
+            "weight_decay": 0.01
+        },
+        "schedule": {
+            "type": "warmup_cosine",
+            "warmup_ratio": 0.1
+        },
+        "max_grad_norm": 1
+    },
+    "total_update_episodes": 25000,
+    "gradient_accumulations": 8
+}

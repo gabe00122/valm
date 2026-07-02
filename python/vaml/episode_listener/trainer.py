@@ -89,7 +89,7 @@ class Trainer(EpisodeListener):
             self._value_opt_state = nnx.state(value_opt)
         else:
             # This should be the value_opt
-            checkpointer.restore_latest({"model": model}, ValueParam)
+            checkpointer.restore_latest({"model": model}, ValueParam, partial=True)
             # self._value_opt_state = nnx.state(value_opt)
 
         self._model_provider.model_state = nnx.state(model)

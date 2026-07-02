@@ -260,7 +260,7 @@ class ValueBackbone(nnx.Module):
         if self._last_latent_only:
             x = latents[-1]
 
-        take_every = len(layer_latents) // len(self.layers)
+        take_every = len(layer_latents) // (len(self.layers) or 1)
         layer_latents = layer_latents[::take_every][: len(self.layers)]
 
         x, rng_key = self._embedding_encode(x, rng_key=rng_key)

@@ -71,6 +71,20 @@ def train(
         Optional[str],
         typer.Option("--value-net-id", help="Experiment token to start training from"),
     ] = None,
+    lora_init_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--lora-init-id",
+            help="Experiment token to warm-start LoRA parameters from (LoRA only)",
+        ),
+    ] = None,
+    lora_init_step: Annotated[
+        Optional[int],
+        typer.Option(
+            "--lora-init-step",
+            help="Checkpoint step to load LoRA parameters from (default: latest)",
+        ),
+    ] = None,
     run_id: RunIdOption = None,
     base_dir: BaseDirOption = "results",
     save_checkpoints: SaveCheckpointsOption = True,
@@ -80,6 +94,8 @@ def train(
     train_cli(
         config_url,
         value_net_id,
+        lora_init_id=lora_init_id,
+        lora_init_step=lora_init_step,
         run_id=run_id,
         base_dir=base_dir,
         save_checkpoints=save_checkpoints,

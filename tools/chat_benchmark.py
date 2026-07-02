@@ -1,4 +1,3 @@
-import qwix
 import argparse
 import gc
 import json
@@ -9,7 +8,6 @@ from pathlib import Path
 from typing import Any, Literal, Sequence
 
 import jax
-from jax import numpy as jnp
 import numpy as np
 from flax import nnx
 from rich.console import Console
@@ -374,47 +372,6 @@ def _new_generation_state(
     return gen, convert_to_np(gen)
 
 
-def _quantization_model_inputs(
-    model: Qwen3,
-    batch_size: int,
-    seq_length: int,
-    rng_key: jax.Array,
-) -> tuple[tuple[jax.Array, jax.Array, Any], dict[str, jax.Array]]:
-    tokens = jnp.zeros((batch_size, 1), dtype=jnp.int32)
-    positions = jnp.zeros((batch_size, 1), dtype=jnp.int32)
-    kv_cache = model.initialize_carry(batch_size, seq_length)
-    return (tokens, positions, kv_cache), {"rng_key": rng_key}
-
-
-def _quantize_int8_model(
-    model: Qwen3,
-    *,
-    batch_size: int,
-    seq_length: int,
-    seed: int,
-) -> tuple[Qwen3, int]:
-    rules = [
-        qwix.QuantizationRule(
-            module_path=".*",
-            weight_qtype="int8",
-        )
-    ]
-    provider = qwix.PtqProvider(rules)
-    model_inputs, model_input_kwargs = _quantization_model_inputs(
-        model,
-        batch_size,
-        seq_length,
-        jax.random.PRNGKey(seed),
-    )
-    quantized_model = qwix.quantize_model(
-        model,
-        provider,
-        *model_inputs,
-        **model_input_kwargs,
-    )
-    return quantized_model, sum(getattr(provider, "_rule_matches", ()))
-
-
 def _run_turn(
     *,
     tokenizer: PreTrainedTokenizerFast,
@@ -704,7 +661,6 @@ def print_report(
     *,
     model_name: str,
     lora_config: LoraConfig | None,
-    int8_quantized_modules: int | None,
     batch_size: int,
     seq_length: int,
     turns_requested: int,
@@ -723,13 +679,8 @@ def print_report(
         if lora_config is None
         else f"rank={lora_config.rank}, attn={lora_config.attn}, mlp={lora_config.mlp}"
     )
-    int8_label = (
-        "off"
-        if int8_quantized_modules is None
-        else f"qwix PTQ matched ops={int8_quantized_modules}"
-    )
     console.print(
-        f"Model: {model_name} | LoRA: {lora_label} | Int8: {int8_label} | "
+        f"Model: {model_name} | LoRA: {lora_label} | "
         f"batch={batch_size} | seq={seq_length} | "
         f"turns={totals.turns}/{turns_requested} | prompts={prompt_set} | wait_for={wait_for}"
     )
@@ -851,15 +802,6 @@ def parse_args() -> argparse.Namespace:
         help="LoRA adapter rank used when LoRA is enabled.",
     )
     parser.add_argument(
-        "--int8",
-        "--quantize-int8",
-        action="store_true",
-        dest="int8",
-        help=(
-            "Quantize model operations to int8 weights and activations with Qwix PTQ."
-        ),
-    )
-    parser.add_argument(
         "--prompt-set",
         choices=("mixed", "short", "long"),
         default="mixed",
@@ -940,14 +882,6 @@ def main() -> None:
     model, tokenizer, _ = load_base_model(args.model, rngs)
     if lora_config is not None:
         model.initialize_lora(lora_config, rngs=rngs)
-    int8_quantized_modules = None
-    if args.int8:
-        model, int8_quantized_modules = _quantize_int8_model(
-            model,
-            batch_size=args.batch_size,
-            seq_length=args.seq_length,
-            seed=args.seed,
-        )
 
     totals, turn_metrics, memory = run_benchmark(
         model=model,
@@ -970,7 +904,6 @@ def main() -> None:
         console,
         model_name=args.model,
         lora_config=lora_config,
-        int8_quantized_modules=int8_quantized_modules,
         batch_size=args.batch_size,
         seq_length=args.seq_length,
         turns_requested=args.turns,
@@ -1003,8 +936,6 @@ def main() -> None:
                                 "rank": lora_config.rank,
                             }
                         ),
-                        "int8": args.int8,
-                        "int8_quantized_modules": int8_quantized_modules,
                         "prompt_set": args.prompt_set,
                         "wait_for": wait_for,
                         "warmup_turns": args.warmup_turns,

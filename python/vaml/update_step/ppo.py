@@ -90,6 +90,9 @@ def loss_fn(
     transition_mask = bounds_mask[:, 1:]
     td_discount = jnp.where(transition_mask, td_discount, 0.0)
 
+    # _, targets = calculate_advantages(
+    #     jnp.asarray(rollout.rewards), values, td_discount, jnp.ones_like(td_lambda)
+    # )
     advantages, targets = calculate_advantages(
         jnp.asarray(rollout.rewards), values, td_discount, td_lambda
     )

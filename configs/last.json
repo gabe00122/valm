@@ -42,11 +42,12 @@
       "head_dim": 32,
       "kv_heads": 8,
       "norm_eps": 0.000001,
-      "num_layers": 12,
+      "num_layers": 0,
       "rope_theta": 500000,
       "vocab_size": -1,
       "mlp_ffw_size": 512
     },
+    "last_latent_only": true,
     "latent_encoder_rank": 256
   },
   "base_model": "Qwen/Qwen3-4B-Instruct-2507",

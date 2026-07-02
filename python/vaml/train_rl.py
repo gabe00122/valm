@@ -21,12 +21,17 @@ from vaml.utils.optimizer import make_optimizer
 def train_cli(
     config_url: str,
     value_net_id: str | None = None,
+    lora_init_id: str | None = None,
+    lora_init_step: int | None = None,
     run_id: str | None = None,
     base_dir: str = "results",
     save_checkpoints: bool = True,
     save_rollouts: bool = True,
     wandb_tags: list[str] | None = None,
 ):
+    if lora_init_step is not None and lora_init_id is None:
+        raise ValueError("lora_init_step requires lora_init_id to be set")
+
     experiment = Experiment.from_config_file(
         config_url, base_dir=base_dir, unique_token=run_id
     )
@@ -41,6 +46,20 @@ def train_cli(
     if config.loss.type == "ppo":
         model.initialize_value_net(config.value_net, rngs=rngs)
     model.initialize_lora(config.lora, rngs=rngs)
+
+    # Optionally warm-start the LoRA parameters (only) from another experiment's
+    # checkpoint. The value net is intentionally left untouched.
+    if lora_init_id is not None:
+        lora_exp = Experiment.load(lora_init_id, base_dir)
+        with Checkpointer(lora_exp.checkpoints_url) as lora_checkpointer:
+            if lora_init_step is None:
+                lora_checkpointer.restore_latest(
+                    {"model": model}, nnx.LoRAParam, partial=True
+                )
+            else:
+                lora_checkpointer.restore(
+                    {"model": model}, lora_init_step, nnx.LoRAParam, partial=True
+                )
 
     checkpointer = Checkpointer(experiment.checkpoints_url)
 
