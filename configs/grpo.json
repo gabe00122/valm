@@ -14,10 +14,10 @@
     "pg_clip_low": 0.2,
     "pg_clip_high": 0.28
   },
-  "seed": 1487432481,
+  "seed": "random",
   "logger": {
     "use_tb": false,
-    "use_jsonl": true,
+    "use_jsonl": false,
     "use_wandb": true,
     "use_console": true,
     "project_name": "vaml"

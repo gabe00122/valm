@@ -166,6 +166,14 @@ def pipeline(
         ),
     ] = None,
     base_dir: BaseDirOption = "results",
+    value_warmup: Annotated[
+        bool,
+        typer.Option(
+            "--value-warmup/--no-value-warmup",
+            help="Pretrain the value net on offline data before RL (PPO only; "
+            "--no-value-warmup trains the critic from scratch online)",
+        ),
+    ] = True,
     save_checkpoints: SaveCheckpointsOption = True,
     save_rollouts: SaveRolloutsOption = True,
     track_values: TrackValuesOption = True,
@@ -183,6 +191,7 @@ def pipeline(
         offline_file_count=offline_file_count,
         offline_batch_size=offline_batch_size,
         base_dir=base_dir,
+        value_warmup=value_warmup,
         save_checkpoints=save_checkpoints,
         save_rollouts=save_rollouts,
         track_values=track_values,

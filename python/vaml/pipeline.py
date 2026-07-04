@@ -20,6 +20,7 @@ def run_pipeline(
     offline_file_count: int = 20,
     offline_batch_size: int | None = None,
     base_dir: str = "results",
+    value_warmup: bool = True,
     save_checkpoints: bool = True,
     save_rollouts: bool = True,
     track_values: bool = True,
@@ -28,7 +29,9 @@ def run_pipeline(
     """Run the full training pipeline for one config.
 
     PPO: build offline data -> pretrain the value net -> train online.
-    GRPO has no critic, so the offline and value stages are skipped.
+    GRPO has no critic, so the offline and value stages are skipped, as they
+    are for PPO with value_warmup=False (the critic then learns from scratch
+    online).
 
     Stages run as subprocesses so each gets a fresh JAX process and device
     memory from one stage is fully released before the next starts.
@@ -41,7 +44,7 @@ def run_pipeline(
     rollout_args = [] if save_rollouts else ["--no-save-rollouts"]
 
     value_net_id = None
-    if config.loss.type == "ppo":
+    if config.loss.type == "ppo" and value_warmup:
         existing_files = len(list(Path(offline_data_dir).glob("*.npz")))
         if existing_files >= offline_file_count:
             console.print(

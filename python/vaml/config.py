@@ -132,6 +132,7 @@ class PPOLossConfig(BaseModel):
     pg_clip_low: float
     entropy_coef: float | None = None
     is_correction: bool = True
+    decoupled_gae: bool = False
 
 
 class Config(BaseModel):

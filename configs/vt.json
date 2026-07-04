@@ -11,18 +11,19 @@
   "loss": {
     "type": "ppo",
     "gae_lambda": 0.95,
+    "gae_discount": 1.0,
     "pg_clip_low": 0.2,
-    "turn_lambda": 0.97,
+    "turn_lambda": 1.0,
     "entropy_coef": null,
-    "gae_discount": 1,
     "pg_clip_high": 0.28,
     "turn_discount": 0.97,
-    "is_correction": false
+    "is_correction": false,
+    "decoupled_gae": true
   },
-  "seed": 1487432481,
+  "seed": "random",
   "logger": {
     "use_tb": false,
-    "use_jsonl": true,
+    "use_jsonl": false,
     "use_wandb": true,
     "use_console": true,
     "project_name": "vaml"
