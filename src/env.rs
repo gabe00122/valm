@@ -51,8 +51,8 @@ fn collect_metrics(metrics: Vec<HashMap<String, f32>>) -> HashMap<String, Array1
                 .entry(key)
                 .or_insert_with(|| Array1::zeros(metrics_len));
             array[i] = value;
-            i += 1;
         }
+        i += 1;
     }
 
     collected
