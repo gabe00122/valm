@@ -9,10 +9,16 @@
     "rank": 64
   },
   "loss": {
-    "type": "grpo",
+    "type": "ppo",
+    "gae_lambda": 0.9,
     "pg_clip_low": 0.2,
-    "entropy_coef": 0,
-    "pg_clip_high": 0.28
+    "turn_lambda": 0.9,
+    "entropy_coef": null,
+    "gae_discount": 1.0,
+    "pg_clip_high": 0.28,
+    "turn_discount": 0.97,
+    "is_correction": false,
+    "decoupled_gae": false
   },
   "seed": "random",
   "logger": {
@@ -25,11 +31,7 @@
   "eval_envs": 64,
   "value_net": {
     "head": {
-      "max": 1.1,
-      "min": -0.1,
-      "type": "hl_gauss",
-      "sigma": 0.02,
-      "n_logits": 51
+      "type": "mse"
     },
     "backbone": {
       "embed": 256,
@@ -37,7 +39,7 @@
       "head_dim": 32,
       "kv_heads": 8,
       "norm_eps": 0.000001,
-      "num_layers": 12,
+      "num_layers": 6,
       "rope_theta": 500000,
       "vocab_size": -1,
       "mlp_ffw_size": 512
@@ -46,7 +48,7 @@
     "latent_encoder_rank": 256
   },
   "base_model": "Qwen/Qwen3-4B-Instruct-2507",
-  "group_size": 8,
+  "group_size": 1,
   "update_envs": 16,
   "max_seq_length": 1024,
   "value_optimizer": {
@@ -60,7 +62,7 @@
     },
     "schedule": {
       "type": "warmup_cosine",
-      "warmup_ratio": 0.1
+      "warmup_ratio": 0.02
     },
     "max_grad_norm": 1
   },
@@ -76,7 +78,7 @@
     },
     "schedule": {
       "type": "warmup_cosine",
-      "warmup_ratio": 0.1
+      "warmup_ratio": 0.02
     },
     "max_grad_norm": 1
   },
