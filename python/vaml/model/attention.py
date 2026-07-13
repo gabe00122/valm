@@ -1,6 +1,7 @@
 from typing import NamedTuple
 
 import jax
+import numpy as np
 from flax import nnx
 from jax import numpy as jnp
 from vaml.config import LLMConfig, LoraConfig
@@ -31,23 +32,9 @@ class AttentionLayer(nnx.Module):
         self._head_dim = config.head_dim
         self._rope_theta = config.rope_theta
 
-        self.key_proj = LoRALinear(
+        self.qkv_proj = LoRALinear(
             in_features=config.embed,
-            out_features=(config.kv_heads, config.head_dim),
-            param_dtype=param_dtype,
-            rngs=rngs,
-        )
-
-        self.value_proj = LoRALinear(
-            in_features=config.embed,
-            out_features=(config.kv_heads, config.head_dim),
-            param_dtype=param_dtype,
-            rngs=rngs,
-        )
-
-        self.query_proj = LoRALinear(
-            in_features=config.embed,
-            out_features=(config.q_heads, config.head_dim),
+            out_features=(config.q_heads + 2 * config.kv_heads, config.head_dim),
             param_dtype=param_dtype,
             rngs=rngs,
         )
@@ -79,15 +66,7 @@ class AttentionLayer(nnx.Module):
             self._use_lora = False
             return
 
-        self.key_proj.initialize_lora(
-            lora_config.rank,
-            rngs=rngs,
-        )
-        self.value_proj.initialize_lora(
-            lora_config.rank,
-            rngs=rngs,
-        )
-        self.query_proj.initialize_lora(
+        self.qkv_proj.initialize_lora(
             lora_config.rank,
             rngs=rngs,
         )
@@ -118,9 +97,10 @@ class AttentionLayer(nnx.Module):
     def __call__(
         self, inputs: jax.Array, positions: jax.Array, carry: KVCache | None = None
     ) -> tuple[jax.Array, KVCache | None]:
-        key = self.key_proj(inputs)
-        value = self.value_proj(inputs)
-        query = self.query_proj(inputs)
+        qkv = self.qkv_proj(inputs)
+        query = qkv[:, :, : self._q_heads]
+        key = qkv[:, :, self._q_heads : self._q_heads + self._num_kv_heads]
+        value = qkv[:, :, self._q_heads + self._num_kv_heads :]
 
         key = self.key_norm(key)
         query = self.query_norm(query)
@@ -152,14 +132,17 @@ class AttentionLayer(nnx.Module):
         return out, carry
 
     def load_params(self, params):
-        k_proj = params["k_proj"]["weight"].T.reshape(self.key_proj.linear.shape)
-        q_proj = params["q_proj"]["weight"].T.reshape(self.query_proj.linear.shape)
-        v_proj = params["v_proj"]["weight"].T.reshape(self.value_proj.linear.shape)
+        qkv_proj = np.concatenate(
+            [
+                params["q_proj"]["weight"].T,
+                params["k_proj"]["weight"].T,
+                params["v_proj"]["weight"].T,
+            ],
+            axis=1,
+        ).reshape(self.qkv_proj.linear.shape)
         o_proj = params["o_proj"]["weight"].T.reshape(self.out.linear.shape)
 
-        self.key_proj.load_params(k_proj)
-        self.query_proj.load_params(q_proj)
-        self.value_proj.load_params(v_proj)
+        self.qkv_proj.load_params(qkv_proj)
         self.out.load_params(o_proj)
 
         load_param(self.query_norm.scale, params["q_norm"]["weight"])
