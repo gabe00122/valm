@@ -3,17 +3,20 @@ from typing import Self, override
 import jax
 import numpy as np
 from flax import nnx
+from jax import numpy as jnp
 from transformers import PreTrainedTokenizerFast
 from vaml.agent.base import Agent
 from vaml.buffer import UpdateBatch
 from vaml.chat import (
     append_prompt_tokens,
     append_user_prompts,
+    build_prefill_chunk,
     convert_to_np,
     create_generation_state,
     decode_responses,
     encode_input,
     generate,
+    prefill,
     update_gen_state,
 )
 from vaml.config import Config
@@ -189,6 +192,20 @@ class LocalAgent(Agent):
         append_user_prompts(self._np_gen, batch_indices, self._tokenizer, obs)
 
         self._gen = update_gen_state(self._gen, self._np_gen)
+        # ingest pending prompt tokens (system instructions, observations,
+        # re-evaluation after episode reset) in one chunked forward pass
+        # instead of one decode step per token
+        chunk = build_prefill_chunk(self._np_gen)
+        if chunk is not None:
+            tokens, positions, new_kv_len, _ = chunk
+            self._gen = prefill(
+                self.model_def,
+                self.model_state,
+                self._gen,
+                jnp.asarray(tokens),
+                jnp.asarray(positions),
+                jnp.asarray(new_kv_len),
+            )
         self._gen = generate(self.model_def, self.model_state, "simple", self._gen, 1)
         self._np_gen = convert_to_np(self._gen)
 
