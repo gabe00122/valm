@@ -71,7 +71,9 @@ def convert_to_np(gen: GenerationState) -> NpGenData:
     return NpGenData(*jax.tree.map(lambda x: np.array(x), jax.device_get(data)))
 
 
-def update_gen_state(gen: GenerationState, update: NpGenData) -> GenerationState:
+def update_gen_state(
+    gen: GenerationState, update: NpGenData, preserve_finished: bool = False
+) -> GenerationState:
     context, kv_cache_length, context_length, turn_start_positions = jax.device_put(
         (
             update.context,
@@ -85,7 +87,11 @@ def update_gen_state(gen: GenerationState, update: NpGenData) -> GenerationState
         turn_start_positions=turn_start_positions,
         context_length=context_length,
         kv_cache_length=kv_cache_length,
-        turn_finished=jnp.zeros_like(gen.turn_finished),
+        turn_finished=(
+            jax.device_put(update.turn_finished)
+            if preserve_finished
+            else jnp.zeros_like(gen.turn_finished)
+        ),
     )
 
 
@@ -204,6 +210,67 @@ def append_user_prompts(
     prompt_tokens = encode_input(tokenizer, conversation_turns)
 
     append_prompt_tokens(state, batch_indices, prompt_tokens)
+
+
+PREFILL_BUCKETS = (16, 32, 64, 128, 256, 512)
+
+
+def build_prefill_chunk(np_gen: NpGenData):
+    """Host-side: gather the not-yet-processed context tokens of every row
+    (everything before the final prompt token, which the decode loop must
+    consume itself so its logits produce the first response token).
+
+    Rows are ragged; the chunk is padded to a static bucket length by
+    repeating each row's last real (token, position) pair — the duplicate
+    writes land on the same cache cell with identical values, so no masking
+    is needed. Returns None when no row has anything to prefill."""
+    kv_len = np_gen.kv_cache_length.astype(np.int64)
+    target = np.maximum(np_gen.turn_start_positions.astype(np.int64) - 1, kv_len)
+    chunk_lens = target - kv_len
+    longest = int(chunk_lens.max())
+    if longest <= 1:
+        return None
+    padded = next((b for b in PREFILL_BUCKETS if b >= longest), longest)
+    offsets = np.minimum(np.arange(padded)[None, :], np.maximum(chunk_lens[:, None] - 1, 0))
+    positions = kv_len[:, None] + offsets
+    tokens = np.take_along_axis(np_gen.context.astype(np.int64), positions, axis=1)
+    return (
+        tokens.astype(np.int32),
+        positions.astype(np.int32),
+        (kv_len + chunk_lens).astype(np.int32),
+        int(chunk_lens.sum()),
+    )
+
+
+@jax.jit(static_argnames=("model_def",), donate_argnames=("kv_cache",))
+def _prefill_kv(model_def, model_state, kv_cache, tokens, positions):
+    """Fill the KV cache from a chunk of prompt tokens in one forward pass.
+    Takes/returns only the cache: passing the full GenerationState here made
+    the jit signature depend on layout details of unrelated fields that
+    generate() cycles through, causing repeated recompilation."""
+    model = nnx.merge(model_def, model_state)
+    _, _, kv_cache, _ = model(
+        tokens, positions, kv_cache, rng_key=jax.random.PRNGKey(0)
+    )
+    return kv_cache
+
+
+def prefill(
+    model_def,
+    model_state,
+    gen: GenerationState,
+    tokens: jax.Array,           # [B, T]
+    positions: jax.Array,        # [B, T]
+    new_kv_cache_length: jax.Array,
+) -> GenerationState:
+    """Process a chunk of prompt tokens in one forward pass instead of one
+    decode step per token. Logits are discarded; the decode loop picks up at
+    the final prompt token. NOTE: donates gen.kv_cache."""
+    kv_cache = _prefill_kv(model_def, model_state, gen.kv_cache, tokens, positions)
+    return gen._replace(
+        kv_cache=kv_cache,
+        kv_cache_length=jnp.asarray(new_kv_cache_length),
+    )
 
 
 @jax.jit(

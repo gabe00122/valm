@@ -16,7 +16,10 @@ from transformers import PreTrainedTokenizerFast
 from vaml.base_model_loader import load_base_model
 from vaml.chat import (
     NpGenData,
+    PREFILL_BUCKETS,
     append_prompt_tokens,
+    build_prefill_chunk,
+    prefill,
     convert_to_np,
     create_generation_state,
     decode_responses,
@@ -386,8 +389,10 @@ def _run_turn(
     prompt_kind: PromptKind,
     decode: bool,
     profile_enabled: bool,
+    serving: bool = False,
+    use_prefill: bool = False,
 ) -> tuple[Any, NpGenData, TurnMetrics]:
-    prompts = _build_prompts(batch_size, turn, prompt_kind)
+    prompts = _build_prompts(len(batch_indices), turn, prompt_kind)
     conversation_turns = [[{"role": "user", "content": content}] for content in prompts]
 
     with _trace_annotation("tokenize_prompts", profile_enabled):
@@ -407,9 +412,16 @@ def _run_turn(
     appended_prompt_tokens = int(np.sum(after_prompt_lengths - before_prompt_lengths))
     truncated_prompt_tokens = max(prompt_token_count - appended_prompt_tokens, 0)
 
+    if serving:
+        # Rows that actually received a new prompt go back to work; rows that
+        # are finished (or wedged at the context limit) stay finished instead
+        # of being resurrected only to insta-refinish and thrash wait_for=1.
+        got_prompt = after_prompt_lengths > before_prompt_lengths
+        np_gen.turn_finished[got_prompt] = False
+
     with _trace_annotation("numpy_to_jax_transfer", profile_enabled):
         start = time.perf_counter()
-        gen = update_gen_state(gen, np_gen)
+        gen = update_gen_state(gen, np_gen, preserve_finished=serving)
         _block_until_ready(
             (
                 gen.context,
@@ -420,6 +432,23 @@ def _run_turn(
             )
         )
         np_to_jax_s = time.perf_counter() - start
+
+    prefill_tokens = 0
+    prefill_s = 0.0
+    if use_prefill:
+        chunk = build_prefill_chunk(np_gen)
+        if chunk is not None:
+            chunk_tokens, chunk_positions, new_kv_len, prefill_tokens = chunk
+            with _trace_annotation("prefill_chunk", profile_enabled):
+                start = time.perf_counter()
+                gen = prefill(
+                    model_def, model_state, gen,
+                    jax.numpy.asarray(chunk_tokens),
+                    jax.numpy.asarray(chunk_positions),
+                    jax.numpy.asarray(new_kv_len),
+                )
+                _block_until_ready(gen.kv_cache_length)
+                prefill_s = time.perf_counter() - start
 
     start_tokens = int(jax.device_get(gen.tokens_processed))
 
@@ -432,14 +461,14 @@ def _run_turn(
         start = time.perf_counter()
         gen = generate(model_def, model_state, "simple", gen, wait_for)
         _block_until_ready(gen)
-        jit_s = time.perf_counter() - start
+        jit_s = time.perf_counter() - start + prefill_s
 
     with _trace_annotation("metrics_scalar_sync", profile_enabled):
         start = time.perf_counter()
         end_tokens = int(jax.device_get(gen.tokens_processed))
         metrics_sync_s = time.perf_counter() - start
 
-    model_tokens = end_tokens - start_tokens
+    model_tokens = end_tokens - start_tokens + prefill_tokens
 
     with _trace_annotation("jax_to_numpy_transfer", profile_enabled):
         start = time.perf_counter()
@@ -487,6 +516,8 @@ def run_benchmark(
     turns: int,
     prompt_set: str,
     wait_for: int,
+    serving: bool,
+    use_prefill: bool,
     warmup_turns: int,
     seed: int,
     decode: bool,
@@ -525,6 +556,7 @@ def run_benchmark(
                 prompt_kind=prompt_kind,
                 decode=False,
                 profile_enabled=False,
+                use_prefill=use_prefill,
             )
             warmup_totals.jit_s += metrics.jit_s
             if np.all(warmup_np_gen.context_length >= seq_length):
@@ -532,6 +564,30 @@ def run_benchmark(
         warmup_totals.wall_s = time.perf_counter() - start
         memory.snapshots.extend(_device_memory_snapshots("after_warmup"))
         del warmup_gen, warmup_np_gen
+        gc.collect()
+
+    if use_prefill:
+        # Compile every prefill chunk bucket up front; serving-mode refills hit
+        # varying chunk widths mid-run and each width is its own executable.
+        import jax.numpy as jnp
+
+        warm_gen, _ = _new_generation_state(
+            model, batch_size, seq_length, jax.random.PRNGKey(seed + 2)
+        )
+        for bucket in PREFILL_BUCKETS:
+            if bucket >= seq_length:
+                break
+            dummy_positions = jnp.tile(
+                jnp.arange(bucket, dtype=jnp.int32)[None], (batch_size, 1)
+            )
+            warm_gen = prefill(
+                model_def, model_state, warm_gen,
+                jnp.zeros((batch_size, bucket), jnp.int32),
+                dummy_positions,
+                jnp.zeros(batch_size, jnp.int32),
+            )
+        _block_until_ready(warm_gen.kv_cache_length)
+        del warm_gen
         gc.collect()
 
     # Do not reuse/reset the warmup state: the model-returned KV cache can have
@@ -562,6 +618,11 @@ def run_benchmark(
         start_wall = time.perf_counter()
         for turn in range(turns):
             prompt_kind = _prompt_kind(turn, prompt_set)
+            refill_indices = batch_indices
+            if serving and turn > 0:
+                finished = np.where(np_gen.turn_finished)[0].astype(np.int32)
+                if finished.size > 0:
+                    refill_indices = finished
             with _step_annotation("chat_benchmark_turn", turn, profile_enabled):
                 gen, np_gen, metrics = _run_turn(
                     tokenizer=tokenizer,
@@ -569,13 +630,15 @@ def run_benchmark(
                     model_state=model_state,
                     gen=gen,
                     np_gen=np_gen,
-                    batch_indices=batch_indices,
+                    batch_indices=refill_indices,
                     batch_size=batch_size,
                     wait_for=wait_for,
                     turn=turn,
                     prompt_kind=prompt_kind,
                     decode=decode,
                     profile_enabled=profile_enabled,
+                    serving=serving,
+                    use_prefill=use_prefill,
                 )
             turn_metrics.append(metrics)
 
@@ -814,6 +877,20 @@ def parse_args() -> argparse.Namespace:
         help="Rows that must finish before generate returns. Defaults to batch size.",
     )
     parser.add_argument(
+        "--prefill",
+        action="store_true",
+        help="Ingest prompt chunks in one forward pass instead of one decode step per token.",
+    )
+    parser.add_argument(
+        "--serving",
+        action="store_true",
+        help=(
+            "Continuous-batching semantics: after the first turn, append new "
+            "prompts only to rows whose response finished (use with a small "
+            "--wait-for). Unfinished rows keep generating uninterrupted."
+        ),
+    )
+    parser.add_argument(
         "--warmup-turns",
         type=int,
         default=1,
@@ -873,7 +950,8 @@ def main() -> None:
         raise ValueError("--warmup-turns must be non-negative")
     lora_config = _resolve_lora_config(args)
 
-    wait_for = args.wait_for if args.wait_for is not None else args.batch_size
+    default_wait = 1 if args.serving else args.batch_size
+    wait_for = args.wait_for if args.wait_for is not None else default_wait
     if wait_for < 1 or wait_for > args.batch_size:
         raise ValueError("--wait-for must be between 1 and --batch-size")
 
@@ -891,6 +969,8 @@ def main() -> None:
         turns=args.turns,
         prompt_set=args.prompt_set,
         wait_for=wait_for,
+        serving=args.serving,
+        use_prefill=args.prefill,
         warmup_turns=args.warmup_turns,
         seed=args.seed,
         decode=not args.no_decode,
