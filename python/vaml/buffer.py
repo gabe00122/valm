@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import NamedTuple, Iterator, cast
+from typing import NamedTuple, Iterator
 
 import numpy as np
 

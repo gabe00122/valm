@@ -4,7 +4,6 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import jax
-import numpy as np
 import wandb
 from rich.console import Console
 from rich.live import Live
