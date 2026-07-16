@@ -80,6 +80,18 @@ uv run valm eval checkpoint <experiment-name> --episodes 100
 ### Wordle
 Guess a 5-letter word in 6 tries. Feedback: G=Green (correct), Y=Yellow (wrong position), -=Grey (not in word).
 
+The reward function is split into two components, both designed so the maximum return is 1.0.
+
+Partial credit, granted once per slot, the first time a slot is revealed:
+* +0.025 the first time slot *i* is yellow or green
+* +0.025 the first time slot *i* is green
+
+Each of the 5 slots can contribute at most 0.05, so partial credit tops out at 0.25.
+
+Terminal bonus: +0.75 when the word is solved.
+
+Partial rewards are applied at turn boundaries while the terminal reward is always at the end of the episode.
+
 ## Web Viewer
 
 By default every episode during training is saved in results/ along with checkpoints and metrics
