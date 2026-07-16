@@ -1,6 +1,6 @@
 [project]
 name = "valm"
-description = "Add your description here"
+description = "Research framework for LLM finetuning with value approximation written in jax."
 readme = "README.md"
 requires-python = ">=3.14"
 dynamic = ["version"]
