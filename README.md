@@ -1,5 +1,7 @@
 # VALM
 
+<img width="2546" height="1383" alt="Screenshot_20260715_234105" src="https://github.com/user-attachments/assets/9988aa79-311f-4148-a300-bfebc695040f" />
+
 Research framework for LLM finetuning with value approximation written in jax.
 
 Trains a Qwen3 4b from 1% to 99% on wordle in 11 hours on a single 5090 gpu!
