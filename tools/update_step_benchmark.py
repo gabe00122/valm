@@ -14,12 +14,12 @@ from flax import nnx
 from jax import numpy as jnp
 from rich.console import Console
 from rich.table import Table
-from vaml.base_model_loader import load_base_model
-from vaml.buffer import UpdateBatch
-from vaml.config import Config, load_config
-from vaml.model.value_network import ValueParam
-from vaml.update_step import update_step
-from vaml.utils.optimizer import make_optimizer
+from valm.base_model_loader import load_base_model
+from valm.buffer import UpdateBatch
+from valm.config import Config, load_config
+from valm.model.value_network import ValueParam
+from valm.update_step import update_step
+from valm.utils.optimizer import make_optimizer
 
 
 @dataclass
@@ -910,7 +910,7 @@ def print_report(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Benchmark the vaml.update_step JAX training path."
+        description="Benchmark the valm.update_step JAX training path."
     )
     parser.add_argument(
         "--config",

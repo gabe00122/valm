@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
-from vaml.buffer import UpdateBatch
-from vaml.episode_listener.grouped import GroupedEpisodeListener
+from valm.buffer import UpdateBatch
+from valm.episode_listener.grouped import GroupedEpisodeListener
 
 
 class _Collector:

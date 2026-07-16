@@ -1,31 +1,40 @@
 # VALM
 
-A JAX-based research framework for online reinforcement learning with Large Language Models.
+Research framework for LLM finetuning with value approximation written in jax.
+
+Trains a Qwen3 4b from 1% to 99% on wordle in 11 hours on a single 5090 gpu!
+The model weights used for continuous batching are the same used for model updates saving vram and allowing training to happen on a single consumer gpu.
+
+Experiemental results/writeup here: https://gabrielkeith.dev/posts/valm
 
 ## Overview
 
-This project explores efficient multi-step RL for LLMs and investigates value approximation strategies for language tasks. The project features:
+- **Custom Qwen3 Implementation**: A from-scratch JAX/Flax implementation, clean example of Qwen3 in jax using cudnn attention
+- **Continuous Batched Inference**: Simple and efficient continous batching, using jax primitives like vmap and a jax.lax.while_loop to generate multiple tokens on the gpu without python overhead. ~8,200 tokens/s output on a RTX 5090 with 128 slots.
+- **PPO and GRPO**: Clean PPO implementation with value function warmup and a GRPO implementation with interleved continous batching by group id
+- **Novel approximation**: Value network architecture that reads latents from the base model at multiple layers of the base model to improve value approximation accuracy.
+- **Experiement Manage Tools**: Episode viewer for debugging and analysis, checkpointing, detailed logging
+- **Textual Environments in Rust**: The environment time is trivial compared to the inference python would have been fast enough. The real reason for writing them in rust was because it was fun.
 
-- **Custom Qwen3 Implementation**: A from-scratch JAX/Flax implementation optimized for RL training with integrated value networks
-- **Parameter-Efficient Fine-Tuning**: LoRA support for attention and MLP layers
-- **Fast Rust Environments**: Wordle and Arithmetic environments implemented in Rust via PyO3
-- **Flexible Training**: Support for both online RL and offline value network pre-training
-- **Visualization Tools**: Episode viewer for debugging and analysis
+## Limitations
+- Only Qwen3 is supported, the LLM implementation is within the project (and based on my gridworld model implementation https://github.com/gabe00122/mapox-trainer). This means to support a new model I'd need to program the architecture into the framework.
+- No prefill, the raw token decode is very fast but prompt tokens are handle in the same loop as output tokens
+- The only environment is Wordle for now, more environments are planned.
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.13+
+- Python 3.14+
 - Rust (for building environments)
-- CUDA-compatible GPU (recommended)
+- Nvidia GPU for cudnn (it would be easy to switch this to XLA attention in attention.py)
 
 ### Setup
 
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd vaml
+cd valm
 
 # Install with uv (recommended)
 uv sync
@@ -46,27 +55,24 @@ huggingface-cli download Qwen/Qwen3-4B-Instruct-2507 \
 ### Train with Online RL
 
 ```bash
-uv run vaml train configs/test.json
+uv run valm pipeline configs/test.json
 ```
 
-### Train Value Network (Offline)
+For PPO this kicks off three stages
+1) Data collection to a offline_data directory (by default 20,000 games)
+2) Warms the value function up on the offline data with a frozen policy
+3) Trains a lora and value network with online learning based on the value net from step 2
 
-```bash
-# First, build offline data
-uv run vaml build-offline configs/offline.json ./offline_data 100 100
-
-# Then train value network
-uv run vaml train-value configs/value-net.json ./offline_data
-```
+GRPO skips both these steps and goes strait into online learning
 
 ### Evaluate Models
 
 ```bash
 # Evaluate an OpenRouter model
-uv run vaml eval openrouter openrouter/meta-llama/llama-3.3-8b-instruct:free --env wordle
+uv run valm eval openrouter openrouter/google/gemma-4-26b-a4b-it --env wordle
 
 # Evaluate a trained checkpoint
-uv run vaml eval checkpoint <experiment-name> --episodes 100
+uv run valm eval checkpoint <experiment-name> --episodes 100
 ```
 
 ## Environments
@@ -74,9 +80,19 @@ uv run vaml eval checkpoint <experiment-name> --episodes 100
 ### Wordle
 Guess a 5-letter word in 6 tries. Feedback: G=Green (correct), Y=Yellow (wrong position), -=Grey (not in word).
 
-### Arithmetic
-Solve arithmetic expressions (+, -, *, /) with numbers up to 10,000.
+## Web Viewer
 
----
+By default every episode during training is saved in results/ along with checkpoints and metrics
+These can be viewed by launching the svelte dev server and the fastapi episode data server
+You need some training data in the results folder to use the web viewer
 
-**Note**: This project is in early stages of development.
+```bash
+
+# Run the fastapi server
+uv run fastapi dev ./python/valm/server/episode_apy.py
+
+# Run the svelte server
+cd ux
+npm run dev
+
+```

@@ -2,16 +2,16 @@ import jax
 import jax.numpy as jnp
 from flax import nnx
 
-from vaml.config import (
+from valm.config import (
     HlGaussConfig,
     LLMConfig,
     LoraConfig,
     MseCriticConfig,
     ValueConfig,
 )
-from vaml.model.lora import LoRALinear
-from vaml.model.qwen3 import Qwen3
-from vaml.model.value_network import ValueParam
+from valm.model.lora import LoRALinear
+from valm.model.qwen3 import Qwen3
+from valm.model.value_network import ValueParam
 
 
 def _tiny_llm_config() -> LLMConfig:

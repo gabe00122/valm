@@ -33,8 +33,8 @@ _configure_jax_platform()
 import jax  # noqa: E402
 from flax import nnx  # noqa: E402
 from jax import numpy as jnp  # noqa: E402
-from vaml.config import LLMConfig, LoraConfig  # noqa: E402
-from vaml.model.mlp import MlpLayer  # noqa: E402
+from valm.config import LLMConfig, LoraConfig  # noqa: E402
+from valm.model.mlp import MlpLayer  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -474,7 +474,7 @@ def make_cases(args: argparse.Namespace) -> list[DebugCase]:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Inspect python/vaml/model/mlp.py shapes for Qwen3 MLP LoRA on/off cases."
+            "Inspect python/valm/model/mlp.py shapes for Qwen3 MLP LoRA on/off cases."
         )
     )
     parser.add_argument(

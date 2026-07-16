@@ -4,8 +4,8 @@
 One "batch" is a single policy update over ``update_envs`` episodes, driven
 through the exact code path the training loop uses:
 
-  * GRPO -> ``vaml.update_step.grpo.multi_grpo_update_bucketed`` (policy only)
-  * PPO  -> ``vaml.update_step.ppo.multi_update_step_bucket``    (policy + value)
+  * GRPO -> ``valm.update_step.grpo.multi_grpo_update_bucketed`` (policy only)
+  * PPO  -> ``valm.update_step.ppo.multi_update_step_bucket``    (policy + value)
 
 Both apply gradient accumulation internally (``gradient_accumulations`` chunks
 of the batch). We feed real Wordle rollouts saved under ``old-results/rollouts``
@@ -44,13 +44,13 @@ from flax import nnx  # noqa: E402
 from rich.console import Console  # noqa: E402
 from rich.table import Table  # noqa: E402
 
-from vaml.buffer import UpdateBatch  # noqa: E402
-from vaml.base_model_loader import load_base_model  # noqa: E402
-from vaml.config import Config, GRPOLossConfig, load_config  # noqa: E402
-from vaml.model.value_network import ValueParam  # noqa: E402
-from vaml.update_step.grpo import multi_grpo_update_bucketed  # noqa: E402
-from vaml.update_step.ppo import multi_update_step_bucket  # noqa: E402
-from vaml.utils.optimizer import make_optimizer  # noqa: E402
+from valm.buffer import UpdateBatch  # noqa: E402
+from valm.base_model_loader import load_base_model  # noqa: E402
+from valm.config import Config, GRPOLossConfig, load_config  # noqa: E402
+from valm.model.value_network import ValueParam  # noqa: E402
+from valm.update_step.grpo import multi_grpo_update_bucketed  # noqa: E402
+from valm.update_step.ppo import multi_update_step_bucket  # noqa: E402
+from valm.utils.optimizer import make_optimizer  # noqa: E402
 
 
 @dataclass

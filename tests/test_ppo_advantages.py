@@ -7,13 +7,12 @@
 via a reversed `jax.lax.scan` with a zero bootstrap beyond the horizon.
 These tests pin that math against a naive per-episode Python loop, the
 closed-form special cases (Monte Carlo, one-step TD), and the independent
-Rust implementation in `vaml._envs.lambda_returns`.
+Rust implementation in `valm._envs.lambda_returns`.
 """
 
 import numpy as np
 from jax import numpy as jnp
-from vaml._envs import lambda_returns
-from vaml.update_step.ppo import calculate_advantages, explained_variance
+from valm.update_step.ppo import calculate_advantages, explained_variance
 
 
 def _reference_targets(rewards, values, discount, td_lambda):
@@ -119,37 +118,6 @@ def test_zero_discount_cuts_bootstrapping_at_boundary():
         rtol=1e-5,
         atol=1e-5,
     )
-
-
-def test_matches_rust_lambda_returns():
-    """Cross-check the JAX scan against the independent Rust implementation.
-
-    The Rust version bootstraps from the last value while the JAX version
-    bootstraps from zero, so zero out the final value to align them.
-    """
-    rewards, values, _, _ = _random_inputs(np.random.default_rng(4))
-    values[:, -1] = 0.0
-    discount, lam = 0.97, 0.9
-    batch, seq = rewards.shape
-
-    _, targets = calculate_advantages(
-        jnp.asarray(rewards),
-        jnp.asarray(values),
-        jnp.full((batch, seq - 1), discount, dtype=jnp.float32),
-        jnp.full((batch, seq - 1), lam, dtype=jnp.float32),
-    )
-
-    rust_targets = np.zeros((batch, seq - 1), dtype=np.float32)
-    lambda_returns(
-        np.ascontiguousarray(rewards[:, 1:]),
-        np.ascontiguousarray(values[:, 1:]),
-        discount,
-        lam,
-        rust_targets,
-    )
-
-    np.testing.assert_allclose(np.asarray(targets), rust_targets, rtol=1e-5, atol=1e-5)
-
 
 def test_explained_variance_perfect_prediction_is_one():
     rng = np.random.default_rng(5)

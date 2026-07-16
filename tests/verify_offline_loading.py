@@ -3,7 +3,7 @@ import shutil
 from pathlib import Path
 
 import numpy as np
-from vaml.buffer import UpdateBatch
+from valm.buffer import UpdateBatch
 
 
 def create_dummy_data(

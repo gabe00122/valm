@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from vaml.buffer import (
+from valm.buffer import (
     CircularBuffer,
     UpdateBatch,
     UpdateBuffer,

@@ -1,5 +1,5 @@
-from vaml.config import AdamWConfig, OptimizerConfig, WarmupCosineConfig
-from vaml.utils.optimizer import make_optimizer
+from valm.config import AdamWConfig, OptimizerConfig, WarmupCosineConfig
+from valm.utils.optimizer import make_optimizer
 
 
 def test_make_optimizer_uses_total_steps_as_schedule_steps(monkeypatch):
@@ -21,12 +21,12 @@ def test_make_optimizer_uses_total_steps_as_schedule_steps(monkeypatch):
         return kwargs
 
     monkeypatch.setattr(
-        "vaml.utils.optimizer.optax.warmup_cosine_decay_schedule",
+        "valm.utils.optimizer.optax.warmup_cosine_decay_schedule",
         fake_schedule,
     )
-    monkeypatch.setattr("vaml.utils.optimizer.optax.adamw", fake_adamw)
-    monkeypatch.setattr("vaml.utils.optimizer.optax.MultiSteps", fake_multisteps)
-    monkeypatch.setattr("vaml.utils.optimizer.nnx.Optimizer", fake_optimizer)
+    monkeypatch.setattr("valm.utils.optimizer.optax.adamw", fake_adamw)
+    monkeypatch.setattr("valm.utils.optimizer.optax.MultiSteps", fake_multisteps)
+    monkeypatch.setattr("valm.utils.optimizer.nnx.Optimizer", fake_optimizer)
 
     opt_config = OptimizerConfig(
         opt=AdamWConfig(lr=0.1),

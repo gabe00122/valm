@@ -8,8 +8,8 @@ problem, and step() reporting the id of the episode that just *finished*.
 import re
 
 import numpy as np
-from vaml.config import ArithmeticEnvConfig, WordleEnvConfig
-from vaml.env.make import make_env
+from valm.config import ArithmeticEnvConfig, WordleEnvConfig
+from valm.env.make import make_env
 
 _PROBLEM_RE = re.compile(r"^(-?\d+(?:\.\d+)?) ([+\-*/]) (-?\d+(?:\.\d+)?) = ")
 

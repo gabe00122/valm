@@ -10,8 +10,8 @@ import math
 
 import numpy as np
 from jax import numpy as jnp
-from vaml.config import HlGaussConfig
-from vaml.model.value_network import (
+from valm.config import HlGaussConfig
+from valm.model.value_network import (
     HlGaussValueRepresentation,
     MseValueRepresentation,
     calculate_supports,

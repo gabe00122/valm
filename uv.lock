@@ -1899,7 +1899,7 @@ wheels = [
 ]
 
 [[package]]
-name = "vaml"
+name = "valm"
 source = { editable = "." }
 dependencies = [
     { name = "coolname" },

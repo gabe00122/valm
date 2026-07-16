@@ -2,8 +2,8 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from flax import nnx
-from vaml.config import LLMConfig
-from vaml.model.attention import AttentionLayer
+from valm.config import LLMConfig
+from valm.model.attention import AttentionLayer
 
 
 def test_attention_kv_cache_matches_no_cache_causal_path(monkeypatch):

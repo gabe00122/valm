@@ -13,8 +13,8 @@ from flax import nnx
 from rich.console import Console
 from rich.table import Table
 from transformers import PreTrainedTokenizerFast
-from vaml.base_model_loader import load_base_model
-from vaml.chat import (
+from valm.base_model_loader import load_base_model
+from valm.engine import (
     NpGenData,
     append_prompt_tokens,
     convert_to_np,
@@ -24,8 +24,8 @@ from vaml.chat import (
     generate,
     update_gen_state,
 )
-from vaml.config import LoraConfig
-from vaml.model.qwen3 import Qwen3
+from valm.config import LoraConfig
+from valm.model.qwen3 import Qwen3
 
 
 PromptKind = Literal["short", "long"]
@@ -770,7 +770,7 @@ def print_report(
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Benchmark the vaml.chat multiturn JAX generation path."
+        description="Benchmark the valm.engine multiturn JAX generation path."
     )
     parser.add_argument(
         "--model",

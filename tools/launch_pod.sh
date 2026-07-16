@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Launch a vaml training run on runpod.
+# Launch a valm training run on runpod.
 #
 # usage: tools/launch_pod.sh <config> <wandb-tag> [extra 'pod create' flags...]
 #
@@ -13,8 +13,8 @@ set -euo pipefail
 # Repo-relative configs are validated against the current schema before any
 # money is spent.
 #
-# Any VAML_* variables set in the environment are forwarded to the pod, e.g.
-#   VAML_VALUE_WARMUP=false tools/launch_pod.sh configs/mse.json ppo-cold-critic
+# Any VALM_* variables set in the environment are forwarded to the pod, e.g.
+#   VALM_VALUE_WARMUP=false tools/launch_pod.sh configs/mse.json ppo-cold-critic
 #
 # Overridable via environment:
 #   IMAGE                  docker image (default: gabe00122/llm-rl:latest)
@@ -83,7 +83,7 @@ else
     if [[ -f pyproject.toml ]] && command -v uv > /dev/null; then
         uv run python -c "
 from pathlib import Path
-from vaml.config import load_config
+from valm.config import load_config
 load_config(Path('$CONFIG_ARG').read_text())
 " || {
             echo "$CONFIG_ARG failed schema validation, not launching" >&2
@@ -95,15 +95,15 @@ fi
 
 NAME=${NAME:-"$(basename "$CONFIG_ARG" .json)-$TAG"}
 TERMINATE_AT=$(date -u -d "+${TERMINATE_AFTER_HOURS} hours" +%Y-%m-%dT%H:%M:%SZ)
-# Pod env: WANDB_API_KEY, the config/tag for this run, plus any VAML_*
+# Pod env: WANDB_API_KEY, the config/tag for this run, plus any VALM_*
 # variables from the caller's environment (python handles the JSON escaping).
 ENV_JSON=$(CONFIG_PATH="$CONFIG_PATH" TAG="$TAG" python3 - << 'EOF'
 import json
 import os
 
-env = {key: value for key, value in os.environ.items() if key.startswith("VAML_")}
-env["VAML_CONFIG"] = os.environ["CONFIG_PATH"]
-env["VAML_WANDB_TAG"] = os.environ["TAG"]
+env = {key: value for key, value in os.environ.items() if key.startswith("VALM_")}
+env["VALM_CONFIG"] = os.environ["CONFIG_PATH"]
+env["VALM_WANDB_TAG"] = os.environ["TAG"]
 env["WANDB_API_KEY"] = os.environ["WANDB_API_KEY"]
 print(json.dumps(env))
 EOF

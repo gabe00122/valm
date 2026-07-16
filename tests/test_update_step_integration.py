@@ -17,8 +17,8 @@ import jax
 import numpy as np
 from flax import nnx
 from jax import numpy as jnp
-from vaml.buffer import UpdateBatch
-from vaml.config import (
+from valm.buffer import UpdateBatch
+from valm.config import (
     AdamWConfig,
     ArithmeticEnvConfig,
     Config,
@@ -31,13 +31,13 @@ from vaml.config import (
     PPOLossConfig,
     ValueConfig,
 )
-from vaml.episode_listener.grpo_trainer import GRPOTrainer
-from vaml.episode_listener.trainer import Trainer
-from vaml.model.qwen3 import Qwen3
-from vaml.model.value_network import ValueParam
-from vaml.update_step.grpo import calculate_grpo_advantage, multi_grpo_update_bucketed
-from vaml.update_step.ppo import multi_update_step_bucket
-from vaml.utils.optimizer import make_optimizer
+from valm.episode_listener.grpo_trainer import GRPOTrainer
+from valm.episode_listener.trainer import Trainer
+from valm.model.qwen3 import Qwen3
+from valm.model.value_network import ValueParam
+from valm.update_step.grpo import calculate_grpo_advantage, multi_grpo_update_bucketed
+from valm.update_step.ppo import multi_update_step_bucket
+from valm.utils.optimizer import make_optimizer
 
 VOCAB = 32
 BATCH = 4

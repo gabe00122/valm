@@ -7,14 +7,14 @@ set -e
 # RUNPOD_API_KEY is only authorized on the GraphQL API (the REST API, and
 # therefore runpodctl v2, answers 403), so call GraphQL directly: terminate
 # the pod on success, stop it on failure (a stopped pod keeps its console
-# logs for debugging and bills only for disk). Set VAML_KEEP_ALIVE=true to
+# logs for debugging and bills only for disk). Set VALM_KEEP_ALIVE=true to
 # skip self-shutdown.
 finish() {
     status=$?
-    if [[ "$VAML_KEEP_ALIVE" == "true" || -z "$RUNPOD_POD_ID" ]]; then
+    if [[ "$VALM_KEEP_ALIVE" == "true" || -z "$RUNPOD_POD_ID" ]]; then
         exit "$status"
     fi
-    touch /tmp/vaml-finished || true
+    touch /tmp/valm-finished || true
     if [[ "$status" -eq 0 ]]; then
         query='mutation { podTerminate(input: {podId: "'"$RUNPOD_POD_ID"'"}) }'
     else
@@ -34,8 +34,8 @@ trap finish EXIT
 
 # If a previous run in this pod already finished, the container restarted
 # before the shutdown request landed; stop the pod instead of retraining.
-if [[ -n "$RUNPOD_POD_ID" && -f /tmp/vaml-finished ]]; then
-    echo "found /tmp/vaml-finished from an earlier run; shutting down instead of retraining"
+if [[ -n "$RUNPOD_POD_ID" && -f /tmp/valm-finished ]]; then
+    echo "found /tmp/valm-finished from an earlier run; shutting down instead of retraining"
     exit 1
 fi
 
@@ -62,34 +62,34 @@ if [[ "$DEV_MODE" == "true" ]]; then
     exec sleep infinity
 fi
 
-CONFIG="${VAML_CONFIG:-/app/configs/test.json}"
+CONFIG="${VALM_CONFIG:-/app/configs/test.json}"
 
 ARGS=(
     pipeline "$CONFIG"
-    --offline-data "${VAML_OFFLINE_DATA:-./offline_data}"
-    --offline-file-size "${VAML_OFFLINE_FILE_SIZE:-1000}"
-    --offline-file-count "${VAML_OFFLINE_FILE_COUNT:-40}"
-    --base-dir "${VAML_RESULTS_DIR:-results}"
+    --offline-data "${VALM_OFFLINE_DATA:-./offline_data}"
+    --offline-file-size "${VALM_OFFLINE_FILE_SIZE:-1000}"
+    --offline-file-count "${VALM_OFFLINE_FILE_COUNT:-40}"
+    --base-dir "${VALM_RESULTS_DIR:-results}"
 )
 
-if [[ -n "$VAML_OFFLINE_BATCH_SIZE" ]]; then
-    ARGS+=(--offline-batch-size "$VAML_OFFLINE_BATCH_SIZE")
+if [[ -n "$VALM_OFFLINE_BATCH_SIZE" ]]; then
+    ARGS+=(--offline-batch-size "$VALM_OFFLINE_BATCH_SIZE")
 fi
 
 # PPO ablation: train the critic from scratch online instead of pretraining
 # it on offline data.
-if [[ "$VAML_VALUE_WARMUP" == "false" ]]; then
+if [[ "$VALM_VALUE_WARMUP" == "false" ]]; then
     ARGS+=(--no-value-warmup)
 fi
 
 # Remote runs keep only wandb curves plus the final checkpoint of each stage;
-# set VAML_SAVE_ARTIFACTS=true for local-style periodic checkpoints and rollout logs.
-if [[ "$VAML_SAVE_ARTIFACTS" != "true" ]]; then
+# set VALM_SAVE_ARTIFACTS=true for local-style periodic checkpoints and rollout logs.
+if [[ "$VALM_SAVE_ARTIFACTS" != "true" ]]; then
     ARGS+=(--no-save-checkpoints --no-save-rollouts --no-track-values)
 fi
 
-if [[ -n "$VAML_WANDB_TAG" ]]; then
-    ARGS+=(--wandb-tag "$VAML_WANDB_TAG")
+if [[ -n "$VALM_WANDB_TAG" ]]; then
+    ARGS+=(--wandb-tag "$VALM_WANDB_TAG")
 fi
 
-vaml "${ARGS[@]}"
+valm "${ARGS[@]}"

@@ -6,7 +6,7 @@ layout GroupedEpisodeListener guarantees) to zero mean / unit std.
 """
 
 import numpy as np
-from vaml.update_step.grpo import calculate_grpo_advantage
+from valm.update_step.grpo import calculate_grpo_advantage
 
 
 def _episode_rewards(totals, seq=5, rng=None):

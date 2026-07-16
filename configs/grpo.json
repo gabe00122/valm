@@ -20,7 +20,7 @@
     "use_jsonl": false,
     "use_wandb": true,
     "use_console": true,
-    "project_name": "vaml"
+    "project_name": "valm"
   },
   "eval_envs": 64,
   "value_net": {

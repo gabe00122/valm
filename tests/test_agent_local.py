@@ -1,5 +1,5 @@
 import numpy as np
-from vaml.agent.local import TurnData
+from valm.agent.local import TurnData
 
 
 def test_turn_data_lazily_initializes_metrics():
