@@ -10,10 +10,10 @@
   },
   "loss": {
     "type": "ppo",
-    "gae_lambda": 0.95,
+    "gae_lambda": 0.99,
     "gae_discount": 1.0,
     "pg_clip_low": 0.2,
-    "turn_lambda": 0.95,
+    "turn_lambda": 0.8,
     "entropy_coef": null,
     "pg_clip_high": 0.28,
     "turn_discount": 0.97,
@@ -26,7 +26,7 @@
     "use_jsonl": false,
     "use_wandb": true,
     "use_console": true,
-    "project_name": "valm"
+    "project_name": "vaml"
   },
   "eval_envs": 64,
   "value_net": {
@@ -55,7 +55,7 @@
   "max_seq_length": 1024,
   "value_optimizer": {
     "opt": {
-      "lr": 0.0001,
+      "lr": 0.00004,
       "eps": 1e-8,
       "type": "adamw",
       "beta1": 0.9,
@@ -71,7 +71,7 @@
   "checkpoint_every": 1000,
   "policy_optimizer": {
     "opt": {
-      "lr": 0.00004,
+      "lr": 0.000016,
       "eps": 1e-8,
       "type": "adamw",
       "beta1": 0.9,
