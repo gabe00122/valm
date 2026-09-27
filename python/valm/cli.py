@@ -166,6 +166,14 @@ def pipeline(
         ),
     ] = None,
     base_dir: BaseDirOption = "results",
+    run_id: Annotated[
+        Optional[str],
+        typer.Option(
+            "--run-id",
+            help="Experiment token for the RL stage; the value warmup stage "
+            "is named <run-id>-value (default: generated)",
+        ),
+    ] = None,
     value_warmup: Annotated[
         bool,
         typer.Option(
@@ -191,6 +199,7 @@ def pipeline(
         offline_file_count=offline_file_count,
         offline_batch_size=offline_batch_size,
         base_dir=base_dir,
+        run_id=run_id,
         value_warmup=value_warmup,
         save_checkpoints=save_checkpoints,
         save_rollouts=save_rollouts,

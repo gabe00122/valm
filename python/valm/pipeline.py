@@ -20,6 +20,7 @@ def run_pipeline(
     offline_file_count: int = 20,
     offline_batch_size: int | None = None,
     base_dir: str = "results",
+    run_id: str | None = None,
     value_warmup: bool = True,
     save_checkpoints: bool = True,
     save_rollouts: bool = True,
@@ -35,6 +36,10 @@ def run_pipeline(
 
     Stages run as subprocesses so each gets a fresh JAX process and device
     memory from one stage is fully released before the next starts.
+
+    With a run_id, the RL stage is written to results/<run_id> and the value
+    warmup stage to results/<run_id>-value, so a caller (like the dashboard)
+    knows where each stage's logs will be. Otherwise both names are generated.
     """
     with fsspec.open(config_url, "r") as f:
         config = load_config(f.read())
@@ -69,7 +74,9 @@ def run_pipeline(
                 ],
             )
 
-        value_net_id = generate_unique_token()
+        value_net_id = (
+            f"{run_id}-value" if run_id is not None else generate_unique_token()
+        )
         _run_stage(
             console,
             [
@@ -87,6 +94,7 @@ def run_pipeline(
         )
 
     value_args = ["--value-net-id", value_net_id] if value_net_id is not None else []
+    run_id_args = ["--run-id", run_id] if run_id is not None else []
     checkpoint_args = [] if save_checkpoints else ["--no-save-checkpoints"]
     _run_stage(
         console,
@@ -94,6 +102,7 @@ def run_pipeline(
             "train",
             config_url,
             *value_args,
+            *run_id_args,
             "--base-dir",
             base_dir,
             *checkpoint_args,

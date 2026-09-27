@@ -127,7 +127,8 @@ class JsonLogger(BaseLogger):
     def log_dict(self, data: Metrics, step: int) -> None:
         if self._file is not None:
             # this really probably shouldn't be flattened, we need to extract the logic that converts jax arrays to floats from the flattening logic
-            self._file.write(json.dumps(json_normalize(data)) + "\n")
+            row = {"step": step, **json_normalize(data)}
+            self._file.write(json.dumps(row) + "\n")
             self._file.flush()
 
 
