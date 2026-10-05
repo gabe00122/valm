@@ -15,9 +15,37 @@ from valm.config import SamplingConfig
 from valm.model import Qwen3
 from valm.util import batched_put_where, batched_take
 
-# these should come from the tokenizer
-STOP_TOKEN = 151645
-NEW_LINE_TOKEN = 198
+
+class TurnEndTokens(NamedTuple):
+    """The tokens the chat template puts after an assistant message."""
+
+    # sampling this ends the assistant turn
+    stop: int
+    # written after the stop token so the context matches the chat template
+    separator: int
+
+
+def get_turn_end_tokens(tokenizer: PreTrainedTokenizerFast) -> TurnEndTokens:
+    sentinel = "<turn-end-sentinel>"
+    text = cast(
+        str,
+        tokenizer.apply_chat_template(
+            [
+                {"role": "user", "content": "hello"},
+                {"role": "assistant", "content": sentinel},
+            ],
+            tokenize=False,
+        ),
+    )
+    suffix = text.split(sentinel)[-1]
+    tokens = tokenizer.encode(suffix, add_special_tokens=False)
+    if len(tokens) != 2:
+        raise ValueError(
+            f"Expected the chat template to end assistant turns with a stop token "
+            f"and a separator token, got {suffix!r} -> {tokens}"
+        )
+
+    return TurnEndTokens(*tokens)
 
 
 class GenerationState(NamedTuple):
@@ -207,13 +235,14 @@ def append_user_prompts(
 
 
 @jax.jit(
-    static_argnames=("model_def", "sampling", "wait_for"),
+    static_argnames=("model_def", "sampling", "turn_end", "wait_for"),
     donate_argnames=("gen",),
 )
 def generate(
     model_def,
     model_state,
     sampling: SamplingConfig | Literal["greedy", "simple"],
+    turn_end: TurnEndTokens,
     gen: GenerationState,
     wait_for: int = 1,
 ) -> GenerationState:
@@ -253,7 +282,7 @@ def generate(
             turn_finished = carry.turn_finished | (
                 carry.kv_cache_length + 2 >= seq_length
             )
-            is_stop = (in_tokens == STOP_TOKEN) & over_start_position
+            is_stop = (in_tokens == turn_end.stop) & over_start_position
             use_sample = ~turn_finished & over_start_position & ~is_stop
 
             kv_cache_length = jnp.where(
@@ -269,9 +298,11 @@ def generate(
             context = batched_put_where(
                 carry.context, kv_cache_length, sample_tokens, use_sample
             )
-            # hardcode newline
             context = batched_put_where(
-                context, kv_cache_length, jnp.full_like(sample_tokens, 198), is_stop
+                context,
+                kv_cache_length,
+                jnp.full_like(sample_tokens, turn_end.separator),
+                is_stop,
             )
             log_probs = batched_put_where(
                 carry.log_probs, carry.kv_cache_length, log_prob, use_sample
@@ -319,6 +350,7 @@ def chat(
 ):
     kv_cache = model.initialize_carry(batch_size, seq_length)
     model_def, model_state = nnx.split(model)
+    turn_end = get_turn_end_tokens(tokenizer)
 
     gen = create_generation_state(kv_cache, batch_size, seq_length, rngs.sample())
     np_gen = convert_to_np(gen)
@@ -346,7 +378,9 @@ def chat(
         start_tokens = gen.kv_cache_length[0].item()
         append_prompt_tokens(np_gen, batch_indices, prompt_tokens)
         gen = update_gen_state(gen, np_gen)
-        gen: GenerationState = generate(model_def, model_state, "simple", gen)
+        gen: GenerationState = generate(
+            model_def, model_state, "simple", turn_end, gen
+        )
         np_gen = convert_to_np(gen)
 
         end_tokens = gen.kv_cache_length[0].item()

@@ -46,20 +46,22 @@ class AttentionLayer(nnx.Module):
             rngs=rngs,
         )
 
-        self.query_norm = nnx.RMSNorm(
-            config.head_dim,
-            dtype=jnp.bfloat16,
-            param_dtype=param_dtype,
-            epsilon=config.norm_eps,
-            rngs=rngs,
-        )
-        self.key_norm = nnx.RMSNorm(
-            config.head_dim,
-            dtype=jnp.bfloat16,
-            param_dtype=param_dtype,
-            epsilon=config.norm_eps,
-            rngs=rngs,
-        )
+        self._qk_norm = config.qk_norm
+        if self._qk_norm:
+            self.query_norm = nnx.RMSNorm(
+                config.head_dim,
+                dtype=jnp.bfloat16,
+                param_dtype=param_dtype,
+                epsilon=config.norm_eps,
+                rngs=rngs,
+            )
+            self.key_norm = nnx.RMSNorm(
+                config.head_dim,
+                dtype=jnp.bfloat16,
+                param_dtype=param_dtype,
+                epsilon=config.norm_eps,
+                rngs=rngs,
+            )
 
     def initialize_lora(self, lora_config: LoraConfig, *, rngs: nnx.Rngs):
         if not lora_config.attn:
@@ -102,8 +104,9 @@ class AttentionLayer(nnx.Module):
         key = qkv[:, :, self._q_heads : self._q_heads + self._num_kv_heads]
         value = qkv[:, :, self._q_heads + self._num_kv_heads :]
 
-        key = self.key_norm(key)
-        query = self.query_norm(query)
+        if self._qk_norm:
+            key = self.key_norm(key)
+            query = self.query_norm(query)
 
         key = apply_rope(key, positions, self._head_dim, self._rope_theta)
         query = apply_rope(query, positions, self._head_dim, self._rope_theta)
@@ -145,5 +148,6 @@ class AttentionLayer(nnx.Module):
         self.qkv_proj.load_params(qkv_proj)
         self.out.load_params(o_proj)
 
-        load_param(self.query_norm.scale, params["q_norm"]["weight"])
-        load_param(self.key_norm.scale, params["k_norm"]["weight"])
+        if self._qk_norm:
+            load_param(self.query_norm.scale, params["q_norm"]["weight"])
+            load_param(self.key_norm.scale, params["k_norm"]["weight"])

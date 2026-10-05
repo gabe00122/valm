@@ -5,6 +5,7 @@ from flax import nnx
 from jax import numpy as jnp
 from valm.config import LLMConfig, LoraConfig, ValueConfig
 from valm.model.layer import Qwen3Layer
+from valm.model.lora import kernel_init
 from valm.model.util import load_param, wrap_param
 from valm.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
 
@@ -48,6 +49,14 @@ class Qwen3(nnx.Module):
             rngs=rngs,
         )
 
+        self._tie_word_embeddings = config.tie_word_embeddings
+        if not self._tie_word_embeddings:
+            self.lm_head = nnx.Param(
+                kernel_init(
+                    rngs.params(), (config.embed, config.vocab_size), jnp.bfloat16
+                )
+            )
+
     def initialize_value_net(self, value_config: ValueConfig, *, rngs: nnx.Rngs):
         self.value_net = ValueBackbone(value_config, self._embed, rngs=rngs)
         wrap_param(self.value_net, ValueParam)
@@ -70,6 +79,9 @@ class Qwen3(nnx.Module):
             layer.load_params(layer_params)
 
         load_param(self.final_norm.scale, params["model"]["norm"]["weight"])
+
+        if not self._tie_word_embeddings:
+            load_param(self.lm_head, params["lm_head"]["weight"].T)
 
     def __call__(
         self,
@@ -112,7 +124,10 @@ class Qwen3(nnx.Module):
         with jax.named_scope("qwen3_final_norm"):
             x = self.final_norm(x)
         with jax.named_scope("qwen3_lm_head"):
-            logits = x @ self.embeddings.embedding.T
+            if self._tie_word_embeddings:
+                logits = x @ self.embeddings.embedding.T
+            else:
+                logits = x @ self.lm_head[...]
 
         with jax.named_scope("qwen3_logits_to_float32"):
             logits = logits.astype(jnp.float32)

@@ -14,6 +14,7 @@ from valm.engine import (
     decode_responses,
     encode_input,
     generate,
+    get_turn_end_tokens,
     update_gen_state,
 )
 from valm.config import Config
@@ -97,6 +98,7 @@ class LocalAgent(Agent):
 
         self.model_def, self.model_state = nnx.split(model)
         self._tokenizer = tokenizer
+        self._turn_end = get_turn_end_tokens(tokenizer)
         self._config = config
 
         self._rng_key = rng_key
@@ -189,7 +191,9 @@ class LocalAgent(Agent):
         append_user_prompts(self._np_gen, batch_indices, self._tokenizer, obs)
 
         self._gen = update_gen_state(self._gen, self._np_gen)
-        self._gen = generate(self.model_def, self.model_state, "simple", self._gen, 1)
+        self._gen = generate(
+            self.model_def, self.model_state, "simple", self._turn_end, self._gen, 1
+        )
         self._np_gen = convert_to_np(self._gen)
 
         response_indices, response = decode_responses(self._tokenizer, self._np_gen)

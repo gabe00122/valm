@@ -20,8 +20,10 @@ from valm.engine import (
     convert_to_np,
     create_generation_state,
     decode_responses,
+    TurnEndTokens,
     encode_input,
     generate,
+    get_turn_end_tokens,
     update_gen_state,
 )
 from valm.config import LoraConfig
@@ -375,6 +377,7 @@ def _new_generation_state(
 def _run_turn(
     *,
     tokenizer: PreTrainedTokenizerFast,
+    turn_end: TurnEndTokens,
     model_def: Any,
     model_state: Any,
     gen: Any,
@@ -430,7 +433,7 @@ def _run_turn(
         wait_for=wait_for,
     ):
         start = time.perf_counter()
-        gen = generate(model_def, model_state, "simple", gen, wait_for)
+        gen = generate(model_def, model_state, "simple", turn_end, gen, wait_for)
         _block_until_ready(gen)
         jit_s = time.perf_counter() - start
 
@@ -503,6 +506,7 @@ def run_benchmark(
     )
     batch_indices = np.arange(batch_size, dtype=np.int32)
     profile_enabled = profile_dir is not None
+    turn_end = get_turn_end_tokens(tokenizer)
 
     warmup_totals = BenchmarkTotals()
     if warmup_turns > 0:
@@ -514,6 +518,7 @@ def run_benchmark(
             prompt_kind = _prompt_kind(turn, prompt_set)
             warmup_gen, warmup_np_gen, metrics = _run_turn(
                 tokenizer=tokenizer,
+                turn_end=turn_end,
                 model_def=model_def,
                 model_state=model_state,
                 gen=warmup_gen,
@@ -565,6 +570,7 @@ def run_benchmark(
             with _step_annotation("chat_benchmark_turn", turn, profile_enabled):
                 gen, np_gen, metrics = _run_turn(
                     tokenizer=tokenizer,
+                    turn_end=turn_end,
                     model_def=model_def,
                     model_state=model_state,
                     gen=gen,

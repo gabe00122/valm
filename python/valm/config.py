@@ -30,6 +30,10 @@ class LLMConfig(BaseModel):
     mlp_ffw_size: int = -1
     norm_eps: float = 1e-6
     rope_theta: float = 500000.0
+    # Qwen3 rms-normalizes queries and keys per head, Llama does not
+    qk_norm: bool = True
+    # when false the model has a separate lm_head instead of reusing the embeddings
+    tie_word_embeddings: bool = True
 
 
 class SamplingConfig(BaseModel):

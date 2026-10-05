@@ -12,6 +12,10 @@ from valm.model.qwen3 import Qwen3
 from valm.util import load_tokenizer
 
 
+# model_type -> whether the architecture applies rms norm to queries and keys
+_QK_NORM_BY_MODEL_TYPE = {"qwen3": True, "llama": False}
+
+
 def parse_hf_llm_config(hf_config: Any | dict[str, Any]) -> LLMConfig:
     def _get(x, k, default=None):
         return (
@@ -19,6 +23,19 @@ def parse_hf_llm_config(hf_config: Any | dict[str, Any]) -> LLMConfig:
             if not isinstance(hf_config, dict)
             else hf_config.get(k, default)
         )
+
+    model_type = _get(hf_config, "model_type", "qwen3")
+    if model_type not in _QK_NORM_BY_MODEL_TYPE:
+        raise ValueError(f"Unsupported model_type: {model_type}")
+
+    # features the implementation does not have, fail loudly instead of
+    # silently producing wrong logits
+    if _get(hf_config, "attention_bias", False) or _get(hf_config, "mlp_bias", False):
+        raise ValueError("Linear layer biases are not supported")
+    if _get(hf_config, "rope_scaling") is not None:
+        raise ValueError("rope_scaling is not supported")
+    if _get(hf_config, "hidden_act", "silu") != "silu":
+        raise ValueError("Only silu activations are supported")
 
     return LLMConfig(
         embed=_get(hf_config, "hidden_size"),
@@ -30,6 +47,8 @@ def parse_hf_llm_config(hf_config: Any | dict[str, Any]) -> LLMConfig:
         vocab_size=_get(hf_config, "vocab_size"),
         norm_eps=_get(hf_config, "rms_norm_eps"),
         rope_theta=_get(hf_config, "rope_theta"),
+        qk_norm=_QK_NORM_BY_MODEL_TYPE[model_type],
+        tie_word_embeddings=_get(hf_config, "tie_word_embeddings", True),
     )
 
 
