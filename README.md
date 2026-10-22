@@ -102,7 +102,7 @@ You need some training data in the results folder to use the web viewer
 ```bash
 
 # Run the fastapi server
-uv run fastapi dev ./python/valm/server/episode_apy.py
+uv run fastapi dev ./src/valm/server/episode_apy.py
 
 # Run the svelte server
 cd ux

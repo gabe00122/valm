@@ -33,9 +33,9 @@ from pathlib import Path
 import numpy as np
 
 # Make the package importable when run straight from a checkout (mirrors the
-# pytest `pythonpath = ["python"]` setting).
+# pytest `pythonpath = ["src"]` setting).
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PYTHON_SRC = REPO_ROOT / "python"
+PYTHON_SRC = REPO_ROOT / "src"
 if str(PYTHON_SRC) not in sys.path:
     sys.path.insert(0, str(PYTHON_SRC))
 

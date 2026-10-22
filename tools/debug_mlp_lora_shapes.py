@@ -474,7 +474,7 @@ def make_cases(args: argparse.Namespace) -> list[DebugCase]:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Inspect python/valm/model/mlp.py shapes for Qwen3 MLP LoRA on/off cases."
+            "Inspect src/valm/model/mlp.py shapes for Qwen3 MLP LoRA on/off cases."
         )
     )
     parser.add_argument(
