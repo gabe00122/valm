@@ -18,6 +18,9 @@ class WordleEnvConfig(BaseModel):
     max_guesses: int
 
 
+type EnvConfig = ArithmeticEnvConfig | WordleEnvConfig
+
+
 # Base Model Config
 class LLMConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
@@ -149,7 +152,7 @@ class Config(BaseModel):
     policy_optimizer: OptimizerConfig | None = None
     value_optimizer: OptimizerConfig
     loss: PPOLossConfig | GRPOLossConfig = Field(discriminator="type")
-    env: ArithmeticEnvConfig | WordleEnvConfig = Field(discriminator="name")
+    env: EnvConfig = Field(discriminator="name")
 
     gradient_accumulations: int | None = None
     eval_envs: int

@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Optional
 
 import typer
 from valm.build_offline import build_offline as build_offline_fn
+from valm.config import ArithmeticEnvConfig, EnvConfig, WordleEnvConfig
 from valm.pipeline import run_pipeline
 from valm.server.export_episode import export_episode as export_episode_fn
 from valm.train_rl import train_cli
@@ -12,21 +13,25 @@ app = typer.Typer(pretty_exceptions_show_locals=False)
 eval_app = typer.Typer(help="Evaluate agents against environments")
 app.add_typer(eval_app, name="eval")
 
+# settings for commands that pick an environment by name rather than by config
+ENV_PRESETS: dict[str, EnvConfig] = {
+    "arithmetic": ArithmeticEnvConfig(max_x=100, max_y=100),
+    "wordle": WordleEnvConfig(max_guesses=6),
+}
+
 
 @app.command()
 def play(
     env: Annotated[
-        str,
-        typer.Argument(
-            help="Environment name (arithmetic, wordle, countdown, spatial)"
-        ),
+        Literal["arithmetic", "wordle"],
+        typer.Argument(help="Environment name"),
     ],
     seed: Annotated[int, typer.Option("--seed", "-s", help="Random seed")] = 42,
 ):
     """Play an environment interactively from the terminal."""
     from valm.play import play as play_fn
 
-    play_fn(env, seed)
+    play_fn(ENV_PRESETS[env], seed)
 
 
 RunIdOption = Annotated[
@@ -284,7 +289,7 @@ def eval_api_cmd(
 
     eval_api(
         model=model,
-        env_name=env,
+        env_config=ENV_PRESETS[env],
         num_envs=num_envs,
         num_episodes=num_episodes,
         base_url=base_url,

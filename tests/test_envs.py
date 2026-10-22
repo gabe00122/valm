@@ -1,21 +1,25 @@
-"""Contract tests for the Rust environments across the pyo3 boundary.
+"""Contract tests for the text environments.
 
 The training loop (train_rl.py) depends on this exact interface: reset/step
 shapes and dtypes, GRPO group ids that pair consecutive resets onto the same
 problem, and step() reporting the id of the episode that just *finished*.
 """
 
+import random
 import re
 
 import numpy as np
+import pytest
 from valm.config import ArithmeticEnvConfig, WordleEnvConfig
+from valm.env.arithmetic import parse_answer
 from valm.env.make import make_env
+from valm.env.wordle import SOLVED_REWARD, WordleGame, score_guess
 
 _PROBLEM_RE = re.compile(r"^(-?\d+(?:\.\d+)?) ([+\-*/]) (-?\d+(?:\.\d+)?) = ")
 
 
 def _solve(obs: str) -> np.float32:
-    """Compute the answer in float32 to mirror the Rust f32 arithmetic."""
+    """Compute the expected answer from the prompt."""
     match = _PROBLEM_RE.match(obs)
     assert match is not None, f"unparseable arithmetic prompt: {obs!r}"
     x = np.float32(match.group(1))
@@ -36,11 +40,7 @@ def _answer(value: np.float32) -> str:
 
 def _arithmetic_env(num_agents=4, group_size=2, seed=123):
     return make_env(
-        "arithmetic",
-        num_agents,
-        group_size,
-        seed,
-        ArithmeticEnvConfig(max_x=20, max_y=20),
+        ArithmeticEnvConfig(max_x=20, max_y=20), num_agents, group_size, seed
     )
 
 
@@ -124,7 +124,7 @@ def test_answer_embedded_in_chatter_still_parses():
 
 
 def test_wordle_smoke():
-    env = make_env("wordle", 2, 1, 42, WordleEnvConfig(max_guesses=6))
+    env = make_env(WordleEnvConfig(max_guesses=6), 2, 1, 42)
     assert env.max_turns == 6
     assert "Wordle" in env.instructions()
 
@@ -146,3 +146,51 @@ def test_wordle_smoke():
         _, _, dones, _, _ = env.step(indices, ["crane", "slate"])
         finished |= dones
     assert finished.all()
+
+
+def test_parse_answer_takes_last_number():
+    assert parse_answer("2 + 2 is 4, so\n1,234.5") == 1234.5
+    assert parse_answer("-7.") == -7.0
+    assert parse_answer("no numbers here") is None
+
+
+def test_score_guess_handles_repeated_letters():
+    # only one E is unmatched in the secret, so only the first spare E is yellow
+    assert score_guess("EERIE", "THEME") == list("YXXXG")
+    assert score_guess("CRANE", "CRANE") == list("GGGGG")
+    assert score_guess("SLATE", "CRONY") == list("XXXXX")
+
+
+def _wordle_game(secret: str, max_guesses: int) -> WordleGame:
+    game = WordleGame(WordleEnvConfig(max_guesses=max_guesses))
+    game.reset(random.Random(0))
+    game.secret = secret
+    return game
+
+
+def test_wordle_rewards_and_feedback_text():
+    game = _wordle_game("CRANE", max_guesses=6)
+
+    obs, reward, done, metrics = game.step("I'll try trace")
+    assert obs == "Your feedback is:\nX G G Y G \nT R A C E \n\nYou have 5 guesses left"
+    assert reward == pytest.approx(0.025 * 4 + 0.025 * 3)  # 4 hits, 3 of them green
+    assert not done and metrics == {"word_found": 0.0}
+
+    # positions already rewarded earn nothing new
+    _, reward, _, _ = game.step("trace")
+    assert reward == 0.0
+
+    _, reward, done, metrics = game.step("crane")
+    assert reward == pytest.approx(0.025 * 3 + SOLVED_REWARD)  # C and N turn green
+    assert done and metrics == {"word_found": 1.0}
+
+
+def test_wordle_missing_guess_still_uses_a_turn():
+    game = _wordle_game("CRANE", max_guesses=2)
+
+    obs, reward, done, _ = game.step("hmm")
+    assert obs == "No guess was found\nYou have 1 guess left"
+    assert reward == 0.0 and not done
+
+    _, _, done, _ = game.step("hmm")
+    assert done

@@ -5,9 +5,8 @@
     target_t = r_{t+1} + d_t * ((1 - l_t) * v_{t+1} + l_t * target_{t+1})
 
 via a reversed `jax.lax.scan` with a zero bootstrap beyond the horizon.
-These tests pin that math against a naive per-episode Python loop, the
-closed-form special cases (Monte Carlo, one-step TD), and the independent
-Rust implementation in `valm._envs.lambda_returns`.
+These tests pin that math against a naive per-episode Python loop and the
+closed-form special cases (Monte Carlo, one-step TD).
 """
 
 import numpy as np

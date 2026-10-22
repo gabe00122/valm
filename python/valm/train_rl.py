@@ -65,11 +65,10 @@ def train_cli(
 
     eval_batch_size = config.eval_envs
     env = make_env(
-        config.env.name,
+        config.env,
         eval_batch_size,
         config.group_size,
         experiment.environments_seed,
-        config.env,
     )
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)

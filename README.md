@@ -16,7 +16,7 @@ Experiemental results/writeup here: https://gabrielkeith.dev/posts/valm
 - **PPO and GRPO**: Clean PPO implementation with value function warmup and a GRPO implementation with interleved continous batching by group id
 - **Novel approximation**: Value network architecture that reads latents from the base model at multiple layers of the base model to improve value approximation accuracy.
 - **Experiement Manage Tools**: Episode viewer for debugging and analysis, checkpointing, detailed logging
-- **Textual Environments in Rust**: The environment time is trivial compared to the inference python would have been fast enough. The real reason for writing them in rust was because it was fun.
+- **Textual Environments**: Simple batched text environments (Wordle, arithmetic) in plain Python; environment time is trivial compared to inference.
 
 ## Limitations
 - Only Qwen3 is supported, the LLM implementation is within the project (and based on my gridworld model implementation https://github.com/gabe00122/mapox-trainer). This means to support a new model I'd need to program the architecture into the framework.
@@ -28,7 +28,6 @@ Experiemental results/writeup here: https://gabrielkeith.dev/posts/valm
 ### Prerequisites
 
 - Python 3.14+
-- Rust (for building environments)
 - Nvidia GPU for cudnn (it would be easy to switch this to XLA attention in attention.py)
 
 ### Setup
@@ -42,7 +41,7 @@ cd valm
 uv sync
 ```
 
-This will compile the Rust environments and install all Python dependencies.
+This will install all Python dependencies.
 
 ### Download Base Model
 

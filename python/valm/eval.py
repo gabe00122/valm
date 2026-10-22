@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from typing import Literal
 
 import numpy as np
 from flax import nnx
@@ -15,6 +14,7 @@ from valm.agent.api_agent import ApiAgent
 from valm.agent.base import Agent
 from valm.agent.local import LocalAgent
 from valm.base_model_loader import load_base_model
+from valm.config import EnvConfig
 from valm.env.base import Env
 from valm.env.make import make_env
 from valm.experiment import Experiment
@@ -107,7 +107,7 @@ def _run_eval_loop(
 
 def eval_api(
     model: str,
-    env_name: Literal["arithmetic", "wordle"],
+    env_config: EnvConfig,
     num_envs: int,
     num_episodes: int,
     base_url: str,
@@ -120,7 +120,7 @@ def eval_api(
 
     Args:
         model: Model identifier (e.g., "openrouter/meta-llama/llama-3.3-8b-instruct:free")
-        env_name: Environment to evaluate on ("arithmetic" or "wordle")
+        env_config: Environment to evaluate on
         num_envs: Number of parallel environments
         num_episodes: Total number of episodes to run
         base_url: Base URL for the API
@@ -132,7 +132,7 @@ def eval_api(
         EvalResult with evaluation statistics
     """
     console = Console()
-    env = make_env(env_name, num_envs, 1, env_seed, None)
+    env = make_env(env_config, num_envs, 1, env_seed)
 
     agent = ApiAgent(
         model=model,
@@ -144,7 +144,7 @@ def eval_api(
     agent.set_episode_instructions(env.instructions())
 
     console.print(f"[bold]Evaluating model:[/bold] {model}")
-    console.print(f"[bold]Environment:[/bold] {env_name}")
+    console.print(f"[bold]Environment:[/bold] {env_config.name}")
     console.print(f"[bold]Episodes:[/bold] {num_episodes}")
     console.print()
 
@@ -219,11 +219,10 @@ def eval_checkpoint(
     # Create environment
     num_envs = config.eval_envs
     env = make_env(
-        config.env.name,
+        config.env,
         num_envs,
         1,
         experiment.environments_seed,
-        config.env,
     )
     # Create agent
     agent = LocalAgent(

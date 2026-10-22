@@ -52,11 +52,10 @@ def build_offline(
 
     eval_batch_size = config.eval_envs
     env = make_env(
-        config.env.name,
+        config.env,
         eval_batch_size,
         1,
         experiment.environments_seed,
-        config.env,
     )
 
     env_indices = np.arange(eval_batch_size, dtype=np.int32)

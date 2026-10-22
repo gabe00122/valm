@@ -2,10 +2,7 @@ FROM python:3.14-slim-bookworm
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# rust deps
 RUN apt update && apt install -y build-essential curl git
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:${PATH}"
 
 WORKDIR /app
 
@@ -15,8 +12,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
     uv sync --locked --no-install-project
 
-COPY README.md pyproject.toml uv.lock Cargo.toml Cargo.lock ./
-COPY src src
+COPY README.md pyproject.toml uv.lock ./
 COPY python python
 
 # Sync the project

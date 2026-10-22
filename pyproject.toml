@@ -3,7 +3,7 @@ name = "valm"
 description = "Research framework for LLM finetuning with value approximation written in jax."
 readme = "README.md"
 requires-python = ">=3.14"
-dynamic = ["version"]
+version = "0.1.0"
 dependencies = [
     "distrax>=0.1.7",
     "einops>=0.8.1",
@@ -26,13 +26,11 @@ dependencies = [
 ]
 
 [build-system]
-requires = ["maturin>=1.9,<2.0"]
-build-backend = "maturin"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.maturin]
-features = ["pyo3/extension-module"]
-python-source = "python"
-module-name = "valm._envs"
+[tool.hatch.build.targets.wheel]
+packages = ["python/valm"]
 
 [dependency-groups]
 test = [

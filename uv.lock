@@ -3,7 +3,7 @@ revision = 3
 requires-python = ">=3.14"
 
 [options]
-exclude-newer = "2026-09-28T00:12:02.979442083Z"
+exclude-newer = "2026-10-14T03:18:31.745117546Z"
 exclude-newer-span = "P1W"
 
 [[package]]
@@ -2375,6 +2375,7 @@ wheels = [
 
 [[package]]
 name = "valm"
+version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "coolname" },

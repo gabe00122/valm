@@ -1,26 +1,18 @@
-from types import SimpleNamespace
-
-from valm._envs import (
-    ArithmeticEnv,
-    WordleEnv,
-)
-from valm.env.base import Env
-
-ENV_DEFAULTS = {
-    "arithmetic": {"max_x": 100, "max_y": 100},
-    "wordle": {"max_guesses": 6},
-}
+from valm.config import EnvConfig
+from valm.env.arithmetic import ArithmeticGame
+from valm.env.base import Env, TextEnv
+from valm.env.wordle import WordleGame
 
 
-def make_env(
-    env_name: str, num_agents: int, group_size: int, seed: int, settings
-) -> Env:
-    if settings is None:
-        settings = SimpleNamespace(**ENV_DEFAULTS[env_name])
+def make_env(settings: EnvConfig, num_agents: int, group_size: int, seed: int) -> Env:
+    match settings.name:
+        case "arithmetic":
+            game_cls = ArithmeticGame
+            new_game = lambda: ArithmeticGame(settings)
+        case "wordle":
+            game_cls = WordleGame
+            new_game = lambda: WordleGame(settings)
 
-    if env_name == "arithmetic":
-        return ArithmeticEnv(num_agents, group_size, seed, settings)
-    elif env_name == "wordle":
-        return WordleEnv(num_agents, group_size, seed, settings)
-    else:
-        raise ValueError(f"Unknown environment: {env_name}")
+    return TextEnv(
+        new_game, game_cls.MAX_TURNS, game_cls.INSTRUCTIONS, num_agents, group_size, seed
+    )

@@ -14,9 +14,6 @@ base-models/
 
 checkpoints/
 
-# Rust
-target
-*.so
 .uv-cache
 
 # logs

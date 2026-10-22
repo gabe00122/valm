@@ -4,15 +4,16 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.text import Text
+from valm.config import EnvConfig
 from valm.env.make import make_env
 
 
-def play(env_name: str, seed: int = 42):
+def play(env_config: EnvConfig, seed: int = 42):
     console = Console()
-    env = make_env(env_name, 1, 1, seed, None)
+    env = make_env(env_config, 1, 1, seed)
     console.print(env.max_turns)
 
-    console.print(Rule(f"[bold cyan]{env_name.upper()}[/bold cyan]"))
+    console.print(Rule(f"[bold cyan]{env_config.name.upper()}[/bold cyan]"))
     console.print(
         Panel(
             env.instructions(),
