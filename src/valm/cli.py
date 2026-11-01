@@ -1,7 +1,8 @@
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal
 
 import typer
+
 from valm.build_offline import build_offline as build_offline_fn
 from valm.config import ArithmeticEnvConfig, EnvConfig, WordleEnvConfig
 from valm.pipeline import run_pipeline
@@ -35,7 +36,7 @@ def play(
 
 
 RunIdOption = Annotated[
-    Optional[str],
+    str | None,
     typer.Option("--run-id", help="Experiment token for this run (default: generated)"),
 ]
 BaseDirOption = Annotated[
@@ -56,7 +57,7 @@ SaveCheckpointsOption = Annotated[
     ),
 ]
 WandbTagOption = Annotated[
-    Optional[list[str]],
+    list[str] | None,
     typer.Option("--wandb-tag", help="Tag added to the wandb run (repeatable)"),
 ]
 TrackValuesOption = Annotated[
@@ -73,18 +74,18 @@ TrackValuesOption = Annotated[
 def train(
     config_url: str,
     value_net_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option("--value-net-id", help="Experiment token to start training from"),
     ] = None,
     lora_init_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--lora-init-id",
             help="Experiment token to warm-start LoRA parameters from (LoRA only)",
         ),
     ] = None,
     lora_init_step: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--lora-init-step",
             help="Checkpoint step to load LoRA parameters from (default: latest)",
@@ -137,7 +138,7 @@ def build_offline(
     file_size: int,
     file_count: int,
     batch_size: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--batch-size",
             help="Env batch size for data generation (default: config eval_envs)",
@@ -164,7 +165,7 @@ def pipeline(
         int, typer.Option("--offline-file-count", help="Number of offline data files")
     ] = 20,
     offline_batch_size: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--offline-batch-size",
             help="Env batch size for data generation (default: config eval_envs)",
@@ -172,7 +173,7 @@ def pipeline(
     ] = None,
     base_dir: BaseDirOption = "results",
     run_id: Annotated[
-        Optional[str],
+        str | None,
         typer.Option(
             "--run-id",
             help="Experiment token for the RL stage; the value warmup stage "
@@ -215,9 +216,7 @@ def pipeline(
 
 @app.command()
 def export_episode(
-    out: Annotated[
-        Path, typer.Option("--out", "-o", help="Destination JSON file")
-    ],
+    out: Annotated[Path, typer.Option("--out", "-o", help="Destination JSON file")],
     run: Annotated[
         str,
         typer.Option("--run", help="Run name under results/<run>/rollouts"),
@@ -309,7 +308,7 @@ def eval_checkpoint_cmd(
         int, typer.Option("--episodes", "-ep", help="Number of episodes to run")
     ] = 100,
     step: Annotated[
-        Optional[int],
+        int | None,
         typer.Option("--step", "-s", help="Checkpoint step (default: latest)"),
     ] = None,
     base_dir: Annotated[

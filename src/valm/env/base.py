@@ -97,9 +97,7 @@ class TextEnv:
 
     def step(
         self, batch_indices: np.ndarray, actions: list[str]
-    ) -> tuple[
-        list[str], np.ndarray, np.ndarray, np.ndarray, dict[str, np.ndarray]
-    ]:
+    ) -> tuple[list[str], np.ndarray, np.ndarray, np.ndarray, dict[str, np.ndarray]]:
         # capture the ids before stepping: a done step resets the game, and the
         # caller needs the id of the episode that just finished
         group_ids = self._group_ids[batch_indices]

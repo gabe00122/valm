@@ -8,6 +8,7 @@ from flax import nnx
 from flax.nnx import variablelib
 from jax import numpy as jnp
 from jax.scipy.stats import norm
+
 from valm.config import HlGaussConfig, LLMConfig, MseCriticConfig, ValueConfig
 from valm.model.layer import Qwen3Layer
 
@@ -15,7 +16,7 @@ A = tp.TypeVar("A")
 
 
 class ValueRepresentation(Protocol):
-    def __getitem__(self, idx) -> "ValueRepresentation": ...
+    def __getitem__(self, idx) -> ValueRepresentation: ...
 
     def value(self) -> jax.Array: ...
 

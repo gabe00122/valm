@@ -17,6 +17,7 @@ import jax
 import numpy as np
 from flax import nnx
 from jax import numpy as jnp
+
 from valm.buffer import UpdateBatch
 from valm.config import (
     AdamWConfig,
@@ -33,6 +34,7 @@ from valm.config import (
 )
 from valm.episode_listener.grpo_trainer import GRPOTrainer
 from valm.episode_listener.trainer import Trainer
+from valm.model.params import PolicyParam
 from valm.model.qwen3 import Qwen3
 from valm.model.value_network import ValueParam
 from valm.update_step.grpo import calculate_grpo_advantage, multi_grpo_update_bucketed
@@ -43,7 +45,7 @@ VOCAB = 32
 BATCH = 4
 SEQ = 32
 
-BASE_PARAMS = nnx.All(nnx.Param, nnx.Not(nnx.Any(nnx.LoRAParam, ValueParam)))
+BASE_PARAMS = nnx.All(nnx.Param, nnx.Not(nnx.Any(PolicyParam, ValueParam)))
 
 
 def _llm_config() -> LLMConfig:
@@ -72,7 +74,7 @@ def _make_model(with_value_net: bool) -> Qwen3:
     model = Qwen3(_llm_config(), rngs=nnx.Rngs(0))
     if with_value_net:
         model.initialize_value_net(_value_config(), rngs=nnx.Rngs(1))
-    model.initialize_lora(LoraConfig(attn=True, mlp=True, rank=2), rngs=nnx.Rngs(2))
+    model.initialize_policy(LoraConfig(attn=True, mlp=True, rank=2), rngs=nnx.Rngs(2))
     return model
 
 
@@ -135,7 +137,10 @@ def _rollout_batch(model: Qwen3, rewards_by_group: bool = False) -> UpdateBatch:
 
 
 def _snapshot(model: Qwen3, filter_) -> list[np.ndarray]:
-    return [np.array(leaf) for leaf in jax.tree.leaves(jax.device_get(nnx.state(model, filter_)))]
+    return [
+        np.array(leaf)
+        for leaf in jax.tree.leaves(jax.device_get(nnx.state(model, filter_)))
+    ]
 
 
 def _any_changed(before: list[np.ndarray], after: list[np.ndarray]) -> bool:
@@ -156,10 +161,10 @@ def test_ppo_update_trains_lora_and_value_but_not_base():
     batch = _rollout_batch(model)
 
     base_before = _snapshot(model, BASE_PARAMS)
-    lora_before = _snapshot(model, nnx.LoRAParam)
+    lora_before = _snapshot(model, PolicyParam)
     value_before = _snapshot(model, ValueParam)
 
-    policy_opt = _optimizer(model, nnx.LoRAParam)
+    policy_opt = _optimizer(model, PolicyParam)
     value_opt = _optimizer(model, ValueParam)
     policy_opt_def, policy_opt_state = nnx.split(policy_opt)
     value_opt_def, value_opt_state = nnx.split(value_opt)
@@ -187,7 +192,7 @@ def test_ppo_update_trains_lora_and_value_but_not_base():
     )
 
     updated = nnx.merge(model_def, model_state)
-    assert _any_changed(lora_before, _snapshot(updated, nnx.LoRAParam))
+    assert _any_changed(lora_before, _snapshot(updated, PolicyParam))
     assert _any_changed(value_before, _snapshot(updated, ValueParam))
     assert not _any_changed(base_before, _snapshot(updated, BASE_PARAMS))
 
@@ -205,7 +210,7 @@ def test_ppo_value_only_update_leaves_policy_untouched():
     model = _make_model(with_value_net=True)
     batch = _rollout_batch(model)
 
-    lora_before = _snapshot(model, nnx.LoRAParam)
+    lora_before = _snapshot(model, PolicyParam)
     value_before = _snapshot(model, ValueParam)
 
     value_opt = _optimizer(model, ValueParam)
@@ -235,7 +240,7 @@ def test_ppo_value_only_update_leaves_policy_untouched():
 
     assert policy_opt_state is None
     updated = nnx.merge(model_def, model_state)
-    assert not _any_changed(lora_before, _snapshot(updated, nnx.LoRAParam))
+    assert not _any_changed(lora_before, _snapshot(updated, PolicyParam))
     assert _any_changed(value_before, _snapshot(updated, ValueParam))
     _assert_finite_tree(summary, "summary metrics")
     assert "actor_loss" not in summary
@@ -246,9 +251,9 @@ def test_grpo_update_trains_lora_only_with_group_advantages():
     batch = _rollout_batch(model, rewards_by_group=True)
 
     base_before = _snapshot(model, BASE_PARAMS)
-    lora_before = _snapshot(model, nnx.LoRAParam)
+    lora_before = _snapshot(model, PolicyParam)
 
-    policy_opt = _optimizer(model, nnx.LoRAParam)
+    policy_opt = _optimizer(model, PolicyParam)
     policy_opt_def, policy_opt_state = nnx.split(policy_opt)
     model_def, model_state = nnx.split(model)
 
@@ -271,7 +276,7 @@ def test_grpo_update_trains_lora_only_with_group_advantages():
     )
 
     updated = nnx.merge(model_def, model_state)
-    assert _any_changed(lora_before, _snapshot(updated, nnx.LoRAParam))
+    assert _any_changed(lora_before, _snapshot(updated, PolicyParam))
     assert not _any_changed(base_before, _snapshot(updated, BASE_PARAMS))
 
     _assert_finite_tree(summary, "summary metrics")
@@ -346,7 +351,7 @@ def test_trainer_updates_model_and_notifies_listener_logger_checkpointer():
 
     trainer = Trainer(
         provider,
-        _optimizer(model, nnx.LoRAParam),
+        _optimizer(model, PolicyParam),
         _optimizer(model, ValueParam),
         jax.random.key(0),
         checkpointer,
@@ -366,7 +371,7 @@ def test_trainer_updates_model_and_notifies_listener_logger_checkpointer():
     np.testing.assert_array_equal(collector.batches[0].context, batch.context)
 
     # logger receives the summary, including summarized env metrics
-    (metrics, step), = logger.logged
+    ((metrics, step),) = logger.logged
     assert step == 0
     assert "value_loss" in metrics and "approx_kl" in metrics
     np.testing.assert_allclose(
@@ -389,7 +394,7 @@ def test_grpo_trainer_updates_model_and_notifies_listener_logger_checkpointer():
 
     trainer = GRPOTrainer(
         provider,
-        _optimizer(model, nnx.LoRAParam),
+        _optimizer(model, PolicyParam),
         jax.random.key(0),
         checkpointer,
         logger,
@@ -402,7 +407,7 @@ def test_grpo_trainer_updates_model_and_notifies_listener_logger_checkpointer():
     assert trainer.progress == 1 / 4
     assert len(collector.batches) == 1
     assert "advantage" in collector.batches[0].update_metrics
-    (metrics, step), = logger.logged
+    ((metrics, step),) = logger.logged
     assert step == 0
     assert "actor_loss" in metrics
     assert checkpointer.saved_steps == [1]

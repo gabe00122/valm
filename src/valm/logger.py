@@ -4,12 +4,11 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 
 import jax
-import wandb
 from rich.console import Console
 from rich.live import Live
 from rich.table import Table
 from tensorboardX import SummaryWriter
-from valm.config import Config
+
 from valm.experiment import Experiment
 
 Metrics = dict[str, jax.Array | float | int]
@@ -132,26 +131,6 @@ class JsonLogger(BaseLogger):
             self._file.flush()
 
 
-class WandbLogger(BaseLogger):
-    def __init__(
-        self, unique_token: str, settings: Config, tags: list[str] | None = None
-    ):
-        wandb.init(
-            project=settings.logger.project_name,
-            name=unique_token,
-            config={"hypers": settings.model_dump()},
-            tags=tags,
-        )
-
-    def log_dict(self, data: Metrics, step: int) -> None:
-        normalized_data = json_normalize(data)
-
-        wandb.log(normalized_data, step=step)
-
-    def close(self) -> None:
-        wandb.finish()
-
-
 def create_logger(
     experiment: Experiment,
     console: Console,
@@ -164,10 +143,6 @@ def create_logger(
         loggers.append(TensorboardLogger(experiment.unique_token))
     if logger_config.use_console:
         loggers.append(ConsoleLogger(experiment.unique_token, console))
-    if logger_config.use_wandb:
-        loggers.append(
-            WandbLogger(experiment.unique_token, experiment.config, wandb_tags)
-        )
     if logger_config.use_jsonl:
         loggers.append(JsonLogger(experiment.root))
 

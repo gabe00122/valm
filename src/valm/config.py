@@ -37,6 +37,7 @@ class LLMConfig(BaseModel):
     qk_norm: bool = True
     # when false the model has a separate lm_head instead of reusing the embeddings
     tie_word_embeddings: bool = True
+    remat: bool = True
 
 
 class SamplingConfig(BaseModel):
@@ -142,11 +143,18 @@ class PPOLossConfig(BaseModel):
     decoupled_gae: bool = False
 
 
+class PolicyNetworkConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    backbone: LLMConfig
+    base_layer: int
+
+
 class Config(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     seed: int | Literal["random"] = "random"
     base_model: str
-    lora: LoraConfig
+    lora: LoraConfig | None
+    policy_net: PolicyNetworkConfig | None
     value_net: ValueConfig
     logger: LoggerConfig
     policy_optimizer: OptimizerConfig | None = None

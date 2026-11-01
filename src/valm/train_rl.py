@@ -1,6 +1,7 @@
 import numpy as np
 from flax import nnx
 from rich.console import Console
+
 from valm.agent.local import LocalAgent
 from valm.base_model_loader import load_base_model
 from valm.checkpointer import Checkpointer
@@ -14,6 +15,7 @@ from valm.episode_listener import (
 )
 from valm.experiment import Experiment
 from valm.logger import create_logger
+from valm.model.params import PolicyParam
 from valm.model.value_network import ValueParam
 from valm.utils.optimizer import make_optimizer
 
@@ -45,7 +47,7 @@ def train_cli(
     # GRPO has no critic; only build the value net for the PPO loss.
     if config.loss.type == "ppo":
         model.initialize_value_net(config.value_net, rngs=rngs)
-    model.initialize_lora(config.lora, rngs=rngs)
+    model.initialize_policy(lora=config.lora, policy=config.policy_net, rngs=rngs)
 
     # Optionally warm-start the LoRA parameters (only) from another experiment's
     # checkpoint. The value net is intentionally left untouched.
@@ -54,11 +56,11 @@ def train_cli(
         with Checkpointer(lora_exp.checkpoints_url) as lora_checkpointer:
             if lora_init_step is None:
                 lora_checkpointer.restore_latest(
-                    {"model": model}, nnx.LoRAParam, partial=True
+                    {"model": model}, PolicyParam, partial=True
                 )
             else:
                 lora_checkpointer.restore(
-                    {"model": model}, lora_init_step, nnx.LoRAParam, partial=True
+                    {"model": model}, lora_init_step, PolicyParam, partial=True
                 )
 
     checkpointer = Checkpointer(experiment.checkpoints_url)
@@ -80,7 +82,7 @@ def train_cli(
         config.policy_optimizer,
         config.total_update_episodes,
         config.gradient_accumulations,
-        nnx.LoRAParam,
+        PolicyParam,
     )
 
     agent = LocalAgent(

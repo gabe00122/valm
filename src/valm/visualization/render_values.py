@@ -3,9 +3,9 @@
 
 import argparse
 
-import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib import animation
 
 
 def render_values_video(

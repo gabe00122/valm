@@ -82,4 +82,3 @@ class WordleGame(Game):
                 self.got_green[i] = True
                 reward += POSITION_REWARD
         return reward
-

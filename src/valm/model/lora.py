@@ -5,6 +5,8 @@ import numpy as np
 from flax import nnx
 from jax import numpy as jnp
 
+from valm.model.params import PolicyParam
+
 kernel_init = nnx.initializers.lecun_normal()
 default_a_initializer = nnx.initializers.he_uniform()
 default_b_initializer = nnx.initializers.zeros
@@ -40,10 +42,10 @@ class LoRALinear(nnx.Module):
         lora_a_key = rngs.params()
         lora_b_key = rngs.params()
 
-        self.lora_a = nnx.LoRAParam(
+        self.lora_a = PolicyParam(
             default_a_initializer(lora_a_key, (self._prod_in, rank), jnp.float32)
         )
-        self.lora_b = nnx.LoRAParam(
+        self.lora_b = PolicyParam(
             default_b_initializer(lora_b_key, (rank, self._prod_out), jnp.float32)
         )
         self.use_lora = True
@@ -91,6 +93,7 @@ class LoRAGeneral(nnx.Module):
             prod_out,
             dtype=jnp.bfloat16,
             param_dtype=param_dtype,
+            lora_param_type=PolicyParam,
             rngs=rngs,
         )
 

@@ -53,7 +53,9 @@ class GroupedEpisodeListener(EpisodeListener):
 
     def on_episodes(self, batch: UpdateBatch):
         if batch.group_id is None:
-            raise ValueError("GroupedEpisodeListener requires batches with group_id set")
+            raise ValueError(
+                "GroupedEpisodeListener requires batches with group_id set"
+            )
 
         for row in _split_rows(batch):
             gid = int(row.group_id[0])

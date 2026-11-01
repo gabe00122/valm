@@ -7,10 +7,10 @@ from flax import nnx
 from rich.progress import track
 from safetensors import safe_open
 from transformers import TokenizersBackend
+
 from valm.config import LLMConfig, SamplingConfig
 from valm.model.qwen3 import Qwen3
 from valm.util import load_tokenizer
-
 
 # model_type -> whether the architecture applies rms norm to queries and keys
 _QK_NORM_BY_MODEL_TYPE = {"qwen3": True, "llama": False}
@@ -52,7 +52,7 @@ def parse_hf_llm_config(hf_config: Any | dict[str, Any]) -> LLMConfig:
     )
 
 
-def load_hf_llm_config(config_path: str | os.PathLike[str] | Path) -> "LLMConfig":
+def load_hf_llm_config(config_path: str | os.PathLike[str] | Path) -> LLMConfig:
     return parse_hf_llm_config(json.loads(Path(config_path).read_text()))
 
 

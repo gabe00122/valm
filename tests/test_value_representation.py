@@ -10,6 +10,7 @@ import math
 
 import numpy as np
 from jax import numpy as jnp
+
 from valm.config import HlGaussConfig
 from valm.model.value_network import (
     HlGaussValueRepresentation,

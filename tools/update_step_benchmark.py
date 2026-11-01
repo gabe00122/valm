@@ -14,9 +14,11 @@ from flax import nnx
 from jax import numpy as jnp
 from rich.console import Console
 from rich.table import Table
+
 from valm.base_model_loader import load_base_model
 from valm.buffer import UpdateBatch
 from valm.config import Config, load_config
+from valm.model.params import PolicyParam
 from valm.model.value_network import ValueParam
 from valm.update_step import update_step
 from valm.utils.optimizer import make_optimizer
@@ -330,7 +332,9 @@ def _slice_batch(
         rewards = rewards[:, :seq_length]
         policy_mask = policy_mask[:, :seq_length]
         context_length = np.minimum(context_length, seq_length).astype(np.int32)
-        bounds = np.arange(seq_length, dtype=np.int32)[None, :] < context_length[:, None]
+        bounds = (
+            np.arange(seq_length, dtype=np.int32)[None, :] < context_length[:, None]
+        )
         policy_mask = policy_mask & bounds
 
     if context.shape[1] < 2:
@@ -449,7 +453,9 @@ def _batch_to_device(batch: UpdateBatch) -> UpdateBatch:
 
 def _batch_counts(batch: UpdateBatch) -> tuple[int, int, int, int]:
     batch_size, seq_length = batch.context.shape
-    bounds = np.arange(seq_length, dtype=np.int32)[None, :] < batch.context_length[:, None]
+    bounds = (
+        np.arange(seq_length, dtype=np.int32)[None, :] < batch.context_length[:, None]
+    )
     policy_mask = batch.policy_mask[:, :-1] & bounds[:, :-1]
     return (
         batch_size,
@@ -612,7 +618,7 @@ def run_benchmark(
             model,
             config.policy_optimizer,
             total_optimizer_steps,
-            nnx.LoRAParam,
+            PolicyParam,
         )
         policy_opt_def, policy_opt_state = nnx.split(policy_opt)
     else:
@@ -846,7 +852,9 @@ def print_report(
         breakdown, "batch host -> device", totals.batch_to_device_s, totals.wall_s
     )
     _add_time_row(breakdown, "jitted update_step", totals.update_s, totals.wall_s)
-    _add_time_row(breakdown, "summary metrics sync", totals.metrics_sync_s, totals.wall_s)
+    _add_time_row(
+        breakdown, "summary metrics sync", totals.metrics_sync_s, totals.wall_s
+    )
     if sync_token_metrics:
         _add_time_row(
             breakdown,
@@ -1011,8 +1019,12 @@ def main() -> None:
     config = _load_config_file(args.config)
 
     batch_size = args.batch_size if args.batch_size is not None else config.update_envs
-    seq_length = args.seq_length if args.seq_length is not None else config.max_seq_length
-    context_length = args.context_length if args.context_length is not None else seq_length
+    seq_length = (
+        args.seq_length if args.seq_length is not None else config.max_seq_length
+    )
+    context_length = (
+        args.context_length if args.context_length is not None else seq_length
+    )
     seed = args.seed if args.seed is not None else int(config.seed)
     total_optimizer_steps = (
         args.total_optimizer_steps
@@ -1033,7 +1045,7 @@ def main() -> None:
     model, _, _ = load_base_model(model_name, rngs)
     model.initialize_value_net(config.value_net, rngs=rngs)
     if not args.value_only:
-        model.initialize_lora(config.lora, rngs=rngs)
+        model.initialize_policy(config.lora, rngs=rngs)
 
     batches = _load_rollout_batches(
         rollout_npz=args.rollout_npz,

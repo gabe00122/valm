@@ -4,8 +4,10 @@ import jax
 import numpy as np
 from flax import nnx
 from transformers import PreTrainedTokenizerFast
+
 from valm.agent.base import Agent
 from valm.buffer import UpdateBatch
+from valm.config import Config
 from valm.engine import (
     append_prompt_tokens,
     append_user_prompts,
@@ -17,7 +19,6 @@ from valm.engine import (
     get_turn_end_tokens,
     update_gen_state,
 )
-from valm.config import Config
 from valm.episode_listener.base import EpisodeListener
 from valm.model.qwen3 import Qwen3
 

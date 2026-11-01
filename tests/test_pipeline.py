@@ -2,7 +2,8 @@ import json
 from pathlib import Path
 
 import pytest
-import valm.pipeline as pipeline
+
+from valm import pipeline
 from valm.logger import JsonLogger
 
 CONFIGS = Path(__file__).resolve().parent.parent / "configs"

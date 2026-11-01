@@ -2,6 +2,7 @@ import base64
 from typing import Protocol, TypedDict
 
 import numpy as np
+
 from valm.buffer import UpdateBatch
 
 # This constant is a liability

@@ -14,5 +14,10 @@ def make_env(settings: EnvConfig, num_agents: int, group_size: int, seed: int) -
             new_game = lambda: WordleGame(settings)
 
     return TextEnv(
-        new_game, game_cls.MAX_TURNS, game_cls.INSTRUCTIONS, num_agents, group_size, seed
+        new_game,
+        game_cls.MAX_TURNS,
+        game_cls.INSTRUCTIONS,
+        num_agents,
+        group_size,
+        seed,
     )

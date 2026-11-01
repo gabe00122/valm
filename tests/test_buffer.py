@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from valm.buffer import (
     CircularBuffer,
     UpdateBatch,
@@ -234,7 +235,9 @@ def test_bucket_chunk_requires_token_aligned_update_metrics():
     """Documents the current contract: bucket_chunk slices update_metrics on axis 1
     (``v[:, :bucket]``), so a scalar-per-sample (1-D) update metric raises instead of
     passing through."""
-    batch = _buffer_shaped_batch([10, 20], seq_length=200, max_turns=2, with_metrics=False)
+    batch = _buffer_shaped_batch(
+        [10, 20], seq_length=200, max_turns=2, with_metrics=False
+    )
     batch = batch._replace(update_metrics={"scalar": np.zeros(2, dtype=np.float32)})
 
     with pytest.raises(IndexError):

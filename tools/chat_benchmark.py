@@ -2,10 +2,11 @@ import argparse
 import gc
 import json
 import time
+from collections.abc import Sequence
 from contextlib import nullcontext
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal
 
 import jax
 import numpy as np
@@ -13,22 +14,22 @@ from flax import nnx
 from rich.console import Console
 from rich.table import Table
 from transformers import PreTrainedTokenizerFast
+
 from valm.base_model_loader import load_base_model
+from valm.config import LoraConfig
 from valm.engine import (
     NpGenData,
+    TurnEndTokens,
     append_prompt_tokens,
     convert_to_np,
     create_generation_state,
     decode_responses,
-    TurnEndTokens,
     encode_input,
     generate,
     get_turn_end_tokens,
     update_gen_state,
 )
-from valm.config import LoraConfig
 from valm.model.qwen3 import Qwen3
-
 
 PromptKind = Literal["short", "long"]
 
@@ -887,7 +888,7 @@ def main() -> None:
     rngs = nnx.Rngs(args.seed)
     model, tokenizer, _ = load_base_model(args.model, rngs)
     if lora_config is not None:
-        model.initialize_lora(lora_config, rngs=rngs)
+        model.initialize_policy(lora_config, rngs=rngs)
 
     totals, turn_metrics, memory = run_benchmark(
         model=model,

@@ -10,6 +10,7 @@ import re
 
 import numpy as np
 import pytest
+
 from valm.config import ArithmeticEnvConfig, WordleEnvConfig
 from valm.env.arithmetic import parse_answer
 from valm.env.make import make_env

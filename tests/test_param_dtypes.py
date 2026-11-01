@@ -10,6 +10,7 @@ from valm.config import (
     ValueConfig,
 )
 from valm.model.lora import LoRALinear
+from valm.model.params import PolicyParam
 from valm.model.qwen3 import Qwen3
 from valm.model.value_network import ValueParam
 
@@ -40,12 +41,12 @@ def _layer_dtypes(model) -> dict[str, jnp.dtype]:
 
 def test_lora_params_are_float32():
     model = Qwen3(_tiny_llm_config(), rngs=nnx.Rngs(0))
-    model.initialize_lora(
+    model.initialize_policy(
         LoraConfig(attn=True, mlp=True, rank=2),
         rngs=nnx.Rngs(1),
     )
 
-    dtypes = _state_dtypes(nnx.state(model, nnx.LoRAParam))
+    dtypes = _state_dtypes(nnx.state(model, PolicyParam))
 
     assert dtypes == {jnp.dtype(jnp.float32)}
 
@@ -54,7 +55,7 @@ def test_custom_lora_linear_params_are_float32():
     layer = LoRALinear(4, 4, rngs=nnx.Rngs(0))
     layer.initialize_lora(2, rngs=nnx.Rngs(1))
 
-    dtypes = _state_dtypes(nnx.state(layer, nnx.LoRAParam))
+    dtypes = _state_dtypes(nnx.state(layer, PolicyParam))
 
     assert dtypes == {jnp.dtype(jnp.float32)}
 
@@ -83,7 +84,7 @@ def test_layer_compute_dtypes_remain_bfloat16():
     ):
         llm_config = _tiny_llm_config()
         model = Qwen3(llm_config, rngs=nnx.Rngs(0))
-        model.initialize_lora(
+        model.initialize_policy(
             LoraConfig(attn=True, mlp=True, rank=2),
             rngs=nnx.Rngs(1),
         )

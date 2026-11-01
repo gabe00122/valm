@@ -1,5 +1,6 @@
 import time
-from typing import Any, Literal, NamedTuple, Protocol, Sequence, cast
+from collections.abc import Sequence
+from typing import Any, Literal, NamedTuple, Protocol, cast
 
 import jax
 import numpy as np
@@ -11,6 +12,7 @@ from jax import numpy as jnp
 from rich.console import Console
 from rich.markdown import Markdown
 from transformers import PreTrainedTokenizerFast
+
 from valm.config import SamplingConfig
 from valm.model import Qwen3
 from valm.util import batched_put_where, batched_take
@@ -378,9 +380,7 @@ def chat(
         start_tokens = gen.kv_cache_length[0].item()
         append_prompt_tokens(np_gen, batch_indices, prompt_tokens)
         gen = update_gen_state(gen, np_gen)
-        gen: GenerationState = generate(
-            model_def, model_state, "simple", turn_end, gen
-        )
+        gen: GenerationState = generate(model_def, model_state, "simple", turn_end, gen)
         np_gen = convert_to_np(gen)
 
         end_tokens = gen.kv_cache_length[0].item()

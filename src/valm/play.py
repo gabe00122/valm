@@ -4,6 +4,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.rule import Rule
 from rich.text import Text
+
 from valm.config import EnvConfig
 from valm.env.make import make_env
 

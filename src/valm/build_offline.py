@@ -11,6 +11,7 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+
 from valm.agent.local import LocalAgent
 from valm.base_model_loader import load_base_model
 from valm.env.make import make_env

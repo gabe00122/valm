@@ -3,6 +3,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from typing import override
 
 import numpy as np
+
 from valm.agent.base import Agent
 from valm.utils.api import Message, completion
 

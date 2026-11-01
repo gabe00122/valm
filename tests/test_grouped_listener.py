@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+
 from valm.buffer import UpdateBatch
 from valm.episode_listener.grouped import GroupedEpisodeListener
 

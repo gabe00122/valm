@@ -2,6 +2,7 @@ from typing import cast
 
 import optax
 from flax import nnx
+
 from valm.config import (
     AdamWConfig,
     OptimizerConfig,

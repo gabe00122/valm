@@ -32,7 +32,7 @@ def batched_put(target: jax.Array, indices: jax.Array, values: jax.Array) -> jax
         dnums,
         indices_are_sorted=True,
         unique_indices=True,
-        mode="drop"
+        mode="drop",
     )
 
 

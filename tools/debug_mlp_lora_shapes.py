@@ -30,11 +30,12 @@ def _configure_jax_platform() -> None:
 
 _configure_jax_platform()
 
-import jax  # noqa: E402
-from flax import nnx  # noqa: E402
-from jax import numpy as jnp  # noqa: E402
-from valm.config import LLMConfig, LoraConfig  # noqa: E402
-from valm.model.mlp import MlpLayer  # noqa: E402
+import jax
+from flax import nnx
+from jax import numpy as jnp
+
+from valm.config import LLMConfig, LoraConfig
+from valm.model.mlp import MlpLayer
 
 
 @dataclass(frozen=True)
@@ -243,9 +244,7 @@ def validate_shapes(
 
         actual_shape = actual[name][0]
         if actual_shape != expected_shape:
-            errors.append(
-                f"{name}: expected {expected_shape}, observed {actual_shape}"
-            )
+            errors.append(f"{name}: expected {expected_shape}, observed {actual_shape}")
 
     for name in actual:
         if name not in expected:

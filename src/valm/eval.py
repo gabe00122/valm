@@ -10,15 +10,17 @@ from rich.progress import (
     TaskProgressColumn,
     TextColumn,
 )
+
 from valm.agent.api_agent import ApiAgent
 from valm.agent.base import Agent
 from valm.agent.local import LocalAgent
 from valm.base_model_loader import load_base_model
+from valm.checkpointer import Checkpointer
 from valm.config import EnvConfig
 from valm.env.base import Env
 from valm.env.make import make_env
 from valm.experiment import Experiment
-from valm.checkpointer import Checkpointer
+from valm.model.params import PolicyParam
 from valm.model.value_network import ValueParam
 
 
@@ -194,7 +196,7 @@ def eval_checkpoint(
     # Load model
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, _ = load_base_model(config.base_model, rngs)
-    model.initialize_lora(config.lora, rngs=rngs)
+    model.initialize_policy(lora=config.lora, policy=config.policy_net, rngs=rngs)
     model.initialize_value_net(config.value_net, rngs=rngs)
 
     # Load checkpoint
@@ -203,13 +205,13 @@ def eval_checkpoint(
         checkpointer.restore(
             {"model": model},
             checkpoint_step,
-            nnx.Any(nnx.LoRAParam, ValueParam),
+            nnx.Any(PolicyParam, ValueParam),
         )
         console.print(f"[bold]Checkpoint step:[/bold] {checkpoint_step}")
     else:
         checkpointer.restore_latest(
             {"model": model},
-            nnx.Any(nnx.LoRAParam, ValueParam),
+            nnx.Any(PolicyParam, ValueParam),
         )
         console.print(
             f"[bold]Checkpoint step:[/bold] latest ({checkpointer.mngr.latest_step()})"

@@ -39,18 +39,19 @@ PYTHON_SRC = REPO_ROOT / "src"
 if str(PYTHON_SRC) not in sys.path:
     sys.path.insert(0, str(PYTHON_SRC))
 
-import jax  # noqa: E402
-from flax import nnx  # noqa: E402
-from rich.console import Console  # noqa: E402
-from rich.table import Table  # noqa: E402
+import jax
+from flax import nnx
+from rich.console import Console
+from rich.table import Table
 
-from valm.buffer import UpdateBatch  # noqa: E402
-from valm.base_model_loader import load_base_model  # noqa: E402
-from valm.config import Config, GRPOLossConfig, load_config  # noqa: E402
-from valm.model.value_network import ValueParam  # noqa: E402
-from valm.update_step.grpo import multi_grpo_update_bucketed  # noqa: E402
-from valm.update_step.ppo import multi_update_step_bucket  # noqa: E402
-from valm.utils.optimizer import make_optimizer  # noqa: E402
+from valm.base_model_loader import load_base_model
+from valm.buffer import UpdateBatch
+from valm.config import Config, GRPOLossConfig, load_config
+from valm.model.params import PolicyParam
+from valm.model.value_network import ValueParam
+from valm.update_step.grpo import multi_grpo_update_bucketed
+from valm.update_step.ppo import multi_update_step_bucket
+from valm.utils.optimizer import make_optimizer
 
 
 @dataclass
@@ -66,7 +67,9 @@ class AlgoResult:
 
     @property
     def ms_per_batch(self) -> float:
-        return 1000.0 * self.wall_s / self.measured_steps if self.measured_steps else 0.0
+        return (
+            1000.0 * self.wall_s / self.measured_steps if self.measured_steps else 0.0
+        )
 
     def stats_ms(self) -> tuple[float, float, float, float]:
         if not self.per_step_s:
@@ -332,9 +335,7 @@ def main() -> None:
         f"lora_rank={config.lora.rank}  max_seq_length={config.max_seq_length}"
     )
 
-    batches = load_realistic_batches(
-        Path(args.rollout_dir), update_envs, args.batches
-    )
+    batches = load_realistic_batches(Path(args.rollout_dir), update_envs, args.batches)
     seq_lo, seq_hi = describe_buckets(batches, chunk_size)
     console.print(
         f"loaded {len(batches)} realistic batches from {args.rollout_dir} | "
@@ -346,23 +347,32 @@ def main() -> None:
     console.print("loading base model + value net + lora...")
     model, _, _ = load_base_model(config.base_model, rngs)
     model.initialize_value_net(config.value_net, rngs=rngs)
-    model.initialize_lora(config.lora, rngs=rngs)
+    model.initialize_policy(config.lora, rngs=rngs)
 
     algos = [a.strip().lower() for a in args.algos.split(",") if a.strip()]
 
     # Build every optimizer from the live model module, then split into
     # (graphdef, state) the way the trainers do.
     grpo_policy = make_optimizer(
-        model, config.policy_optimizer, config.total_update_episodes,
-        grad_accum, nnx.LoRAParam,
+        model,
+        config.policy_optimizer,
+        config.total_update_episodes,
+        grad_accum,
+        PolicyParam,
     )
     ppo_policy = make_optimizer(
-        model, config.policy_optimizer, config.total_update_episodes,
-        grad_accum, nnx.LoRAParam,
+        model,
+        config.policy_optimizer,
+        config.total_update_episodes,
+        grad_accum,
+        PolicyParam,
     )
     value_opt = make_optimizer(
-        model, config.value_optimizer, config.total_update_episodes,
-        grad_accum, ValueParam,
+        model,
+        config.value_optimizer,
+        config.total_update_episodes,
+        grad_accum,
+        ValueParam,
     )
 
     grpo_policy_def, grpo_policy_state = nnx.split(grpo_policy)

@@ -38,4 +38,3 @@ class ArithmeticGame(Game):
         answer = parse_answer(action)
         correct = answer is not None and abs(answer - self.result) < 0.001
         return "", 1.0 if correct else 0.0, True, {}
-

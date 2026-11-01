@@ -5,6 +5,7 @@ import subprocess
 import fsspec
 from coolname import generate_slug
 from pydantic import BaseModel
+
 from valm.config import Config, load_config
 
 
@@ -57,7 +58,7 @@ class Experiment:
             f.write(self.meta.model_dump_json(indent=2))
 
     @classmethod
-    def load(cls, unique_token: str, base_dir: str = "results") -> "Experiment":
+    def load(cls, unique_token: str, base_dir: str = "results") -> Experiment:
         experiment_url = f"{base_dir.rstrip('/')}/{unique_token}"
         fs, root = fsspec.url_to_fs(experiment_url)
 
@@ -76,9 +77,9 @@ class Experiment:
         config: Config,
         base_dir: str = "results",
         create_directories: bool = True,
-    ) -> "Experiment":
+    ) -> Experiment:
         meta = ExperimentMeta(
-            start_time=dt.datetime.now(tz=dt.timezone.utc),
+            start_time=dt.datetime.now(tz=dt.UTC),
             git_hash=get_git_hash(),
         )
         exp = cls(unique_token, config, meta, base_dir)
@@ -94,7 +95,7 @@ class Experiment:
         base_dir: str = "results",
         create_directories: bool = True,
         unique_token: str | None = None,
-    ) -> "Experiment":
+    ) -> Experiment:
         with fsspec.open(config_file, "r") as f:
             config = load_config(f.read())
         return cls.from_config(

@@ -11,6 +11,7 @@ closed-form special cases (Monte Carlo, one-step TD).
 
 import numpy as np
 from jax import numpy as jnp
+
 from valm.update_step.ppo import calculate_advantages, explained_variance
 
 
@@ -118,13 +119,16 @@ def test_zero_discount_cuts_bootstrapping_at_boundary():
         atol=1e-5,
     )
 
+
 def test_explained_variance_perfect_prediction_is_one():
     rng = np.random.default_rng(5)
     targets = rng.normal(size=(3, 7)).astype(np.float32)
     values = np.concatenate([targets, rng.normal(size=(3, 1)).astype(np.float32)], 1)
     mask = np.ones((3, 8), dtype=bool)
 
-    ev = explained_variance(jnp.asarray(values), jnp.asarray(targets), jnp.asarray(mask))
+    ev = explained_variance(
+        jnp.asarray(values), jnp.asarray(targets), jnp.asarray(mask)
+    )
 
     np.testing.assert_allclose(np.asarray(ev), 1.0, atol=1e-5)
 
@@ -135,7 +139,9 @@ def test_explained_variance_mean_prediction_is_zero():
     values = np.full((3, 8), targets.mean(), dtype=np.float32)
     mask = np.ones((3, 8), dtype=bool)
 
-    ev = explained_variance(jnp.asarray(values), jnp.asarray(targets), jnp.asarray(mask))
+    ev = explained_variance(
+        jnp.asarray(values), jnp.asarray(targets), jnp.asarray(mask)
+    )
 
     np.testing.assert_allclose(np.asarray(ev), 0.0, atol=1e-5)
 
@@ -146,7 +152,9 @@ def test_explained_variance_constant_targets_returns_zero():
     values = np.zeros((2, 6), dtype=np.float32)
     mask = np.ones((2, 6), dtype=bool)
 
-    ev = explained_variance(jnp.asarray(values), jnp.asarray(targets), jnp.asarray(mask))
+    ev = explained_variance(
+        jnp.asarray(values), jnp.asarray(targets), jnp.asarray(mask)
+    )
 
     assert np.asarray(ev) == 0.0
 
