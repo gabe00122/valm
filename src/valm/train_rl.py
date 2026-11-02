@@ -47,7 +47,7 @@ def train_cli(
     # GRPO has no critic; only build the value net for the PPO loss.
     if config.loss.type == "ppo":
         model.initialize_value_net(config.value_net, rngs=rngs)
-    model.initialize_policy(lora=config.lora, policy=config.policy_net, rngs=rngs)
+    model.initialize_policy(lora=config.lora, policy=config.policy_net, intervention_layer=config.intervention_layer, rngs=rngs)
 
     # Optionally warm-start the LoRA parameters (only) from another experiment's
     # checkpoint. The value net is intentionally left untouched.

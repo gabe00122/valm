@@ -9,6 +9,7 @@ from flax.nnx import variablelib
 from jax import numpy as jnp
 from jax.scipy.stats import norm
 
+from valm.model.ladder import LadderNet
 from valm.config import HlGaussConfig, LLMConfig, MseCriticConfig, ValueConfig
 from valm.model.layer import Qwen3Layer
 
@@ -122,130 +123,23 @@ class ValueParam(variablelib.Param[A]):
     pass
 
 
-class ValueNetEncode(nnx.Module):
-    def __init__(
-        self,
-        latent_size: int,
-        latent_encode_rank: int,
-        out_size: int,
-        *,
-        rngs: nnx.Rngs,
-    ):
-        self._normalize = nnx.RMSNorm(
-            latent_size,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.float32,
-            rngs=rngs,
-        )
-        self._encode_up = nnx.Linear(
-            latent_size,
-            latent_encode_rank,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.float32,
-            rngs=rngs,
-        )
-        self._up_gate = nnx.Linear(
-            latent_size,
-            latent_encode_rank,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.float32,
-            rngs=rngs,
-        )
-        self._encode_down = nnx.Linear(
-            latent_encode_rank,
-            out_size,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.float32,
-            rngs=rngs,
-        )
-
-    def __call__(
-        self, x: jax.Array, *, rng_key: jax.Array
-    ) -> tuple[jax.Array, jax.Array]:
-
-        x = jax.lax.stop_gradient(x)
-        x = self._normalize(x)
-        gate = self._up_gate(x)
-        x = self._encode_up(x)
-        x = jax.nn.silu(x) * gate
-        x = self._encode_down(x)
-        return x, rng_key
-
-
-class ValueNetLayer(nnx.Module):
-    def __init__(
-        self,
-        config: LLMConfig,
-        latent_size: int,
-        latent_encode_rank: int,
-        *,
-        rngs: nnx.Rngs,
-    ):
-        self._latent_encode = ValueNetEncode(
-            latent_size, latent_encode_rank, config.embed, rngs=rngs
-        )
-        self._layer = Qwen3Layer(config, param_dtype=jnp.float32, rngs=rngs)
-
-    def __call__(
-        self,
-        x: jax.Array,
-        latent: jax.Array,
-        positions: jax.Array,
-        carry: Any = None,
-        *,
-        rng_key: jax.Array,
-    ) -> tuple[jax.Array, Any, jax.Array]:
-        latent, rng_key = self._latent_encode(latent, rng_key=rng_key)
-        x, carry = self._layer(x + latent, positions, carry)
-        return x, carry, rng_key
-
-    def initialize_carry(self, batch_size: int, seq_length: int) -> Any:
-        return self._layer.initialize_carry(batch_size, seq_length)
-
-
 class ValueBackbone(nnx.Module):
     def __init__(self, config: ValueConfig, latent_size: int, *, rngs: nnx.Rngs):
         self._last_latent_only = config.last_latent_only
-
-        self._reward_encode = nnx.Linear(
-            1,
-            config.backbone.embed,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.float32,
-            rngs=rngs,
-        )
-
-        self._embedding_encode = ValueNetEncode(
+        self.backbone = LadderNet(
+            config.backbone,
             latent_size,
             config.latent_encoder_rank,
-            config.backbone.embed,
-            rngs=rngs,
-        )
-
-        self.layers = nnx.List(
-            [
-                ValueNetLayer(
-                    config=config.backbone,
-                    latent_size=latent_size,
-                    latent_encode_rank=config.latent_encoder_rank,
-                    rngs=rngs,
-                )
-                for _ in range(config.backbone.num_layers)
-            ]
-        )
-
-        self.final_norm = nnx.RMSNorm(
-            config.backbone.embed,
-            epsilon=config.backbone.norm_eps,
-            dtype=jnp.bfloat16,
-            param_dtype=jnp.float32,
-            rngs=rngs,
+            config.last_latent_only,
+            True,
+            rngs=rngs
         )
 
         if isinstance(config.head, HlGaussConfig):
             self._head = HlGaussHead(config.backbone.embed, config.head, rngs=rngs)
         elif isinstance(config.head, MseCriticConfig):
             self._head = MseHead(config.backbone.embed, rngs=rngs)
+
 
     def __call__(
         self,
@@ -256,36 +150,10 @@ class ValueBackbone(nnx.Module):
         *,
         rng_key: jax.Array,
     ) -> tuple[ValueRepresentation, tuple[Any, ...] | None, jax.Array]:
-        x, *layer_latents = latents
+        x, carry, rng_key = self.backbone(latents, rewards, positions, carry, rng_key=rng_key)
 
-        if self._last_latent_only:
-            x = latents[-1]
-
-        take_every = len(layer_latents) // (len(self.layers) or 1)
-        layer_latents = layer_latents[::take_every][: len(self.layers)]
-
-        x, rng_key = self._embedding_encode(x, rng_key=rng_key)
-        x = x + self._reward_encode(rewards[..., None])
-
-        if carry is not None:
-            out_carry = []
-            for layer, latent, carry_in in zip(self.layers, layer_latents, carry):
-                x, carry_out, rng_key = layer(
-                    x, latent, positions, carry_in, rng_key=rng_key
-                )
-
-                out_carry.append(carry_out)
-
-            carry = tuple(out_carry)
-        else:
-            for layer, latent in zip(self.layers, layer_latents):
-                x, _, rng_key = layer(x, latent, positions, rng_key=rng_key)
-
-        x = self.final_norm(x)
         value_repr = self._head(x)
         return value_repr, carry, rng_key
 
     def initialize_carry(self, batch_size: int, seq_length: int):
-        return tuple(
-            layer.initialize_carry(batch_size, seq_length) for layer in self.layers
-        )
+        return self.backbone.initialize_carry(batch_size, seq_length)

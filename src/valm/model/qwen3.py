@@ -7,10 +7,11 @@ from jax import numpy as jnp
 from valm.config import LLMConfig, LoraConfig, PolicyNetworkConfig, ValueConfig
 from valm.model.layer import Qwen3Layer
 from valm.model.lora import kernel_init
+from valm.model.params import PolicyParam
 from valm.model.policy_network import PolicyNet
 from valm.model.util import load_param, wrap_param
 from valm.model.value_network import ValueBackbone, ValueParam, ValueRepresentation
-from valm.model.params import PolicyParam
+
 
 class Qwen3(nnx.Module):
     def __init__(
@@ -57,6 +58,8 @@ class Qwen3(nnx.Module):
                 )
             )
 
+        self.intervention_layer = len(self.layers) - 1
+
     def initialize_value_net(self, value_config: ValueConfig, *, rngs: nnx.Rngs):
         self.value_net = ValueBackbone(value_config, self._config.embed, rngs=rngs)
         wrap_param(self.value_net, ValueParam)
@@ -66,8 +69,11 @@ class Qwen3(nnx.Module):
         *,
         rngs: nnx.Rngs,
         lora: LoraConfig | None = None,
+        intervention_layer: int | None = None,
         policy: PolicyNetworkConfig | None = None,
     ):
+        self.intervention_layer = intervention_layer if intervention_layer is not None else len(self.layers) - 1
+
         if lora is not None:
             for layer in self.layers:
                 layer.initialize_lora(lora, rngs=rngs)
@@ -98,44 +104,45 @@ class Qwen3(nnx.Module):
         self,
         tokens: jax.Array,
         positions: jax.Array,
-        carry: Any = None,
+        carry: dict | None = None,
         *,
         rewards: jax.Array | None = None,
         rng_key: jax.Array,
     ) -> tuple[jax.Array, ValueRepresentation | None, Any, jax.Array]:
         has_carry = carry is not None
-        carry = carry if has_carry else {}
         base_carry = carry["base"] if has_carry else (None,) * len(self.layers)
-        policy_carry = carry.get("policy")
+        policy_carry = carry.get("policy") if has_carry else None
 
-        value_repr = None
+        policy_net = getattr(self, "policy_net", None)
+        value_net = getattr(self, "value_net", None)
 
         with jax.named_scope("qwen3_embeddings"):
             x = self.embeddings(tokens)
 
         latents = [x]
-        out_carries = []
-        for i, (layer, in_carry) in enumerate(zip(self.layers, base_carry)):
+        next_base_carries = []
+        for i, (layer, layer_carry) in enumerate(zip(self.layers, base_carry)):
             with jax.named_scope(f"qwen3_layer_{i:02d}"):
-                if self._config.remat:
-                    layer = jax.remat(layer)
-                x, out_carry = layer(x, positions, in_carry)
-
-            if hasattr(self, "policy_net") and self.policy_net.base_layer_index == i:
-                policy_vec, policy_carry = self.policy_net(x, positions, policy_carry)
-                x = x + policy_vec
+                apply_layer = jax.remat(layer) if self._config.remat else layer
+                x, next_layer_carry = apply_layer(x, positions, layer_carry)
 
             latents.append(x)
-            out_carries.append(out_carry)
+            next_base_carries.append(next_layer_carry)
 
-        base_carry = tuple(out_carries) if carry is not None else None
+            if self.intervention_layer == i:
+                if policy_net is not None:
+                    policy_vec, next_policy_carry, rng_key = self.policy_net(latents, positions, policy_carry, rng_key=rng_key)
+                    x = x + policy_vec
 
-        # the value net is training only so it's not calculated in inference mode
-        if not has_carry and hasattr(self, "value_net"):
-            with jax.named_scope("qwen3_value_net"):
-                value_repr, _, rng_key = self.value_net(
-                    latents, rewards, positions, rng_key=rng_key
-                )
+                # the value net is training only so it's not calculated in inference mode
+                value_repr = None
+                if not has_carry and value_net is not None:
+                    with jax.named_scope("qwen3_value_net"):
+                        value_repr, _, rng_key = value_net(
+                            latents, rewards, positions, rng_key=rng_key
+                        )
+
+        base_carry = tuple(next_base_carries) if carry is not None else None
 
         with jax.named_scope("qwen3_final_norm"):
             x = self.final_norm(x)
@@ -148,14 +155,14 @@ class Qwen3(nnx.Module):
 
             logits = jnp.matmul(x, weight, preferred_element_type=jnp.float32)
 
-        combined_out_carry = { "base": base_carry}
-        if policy_carry is not None:
-            combined_out_carry["policy"] = policy_carry
+        if has_carry:
+            next_carry = {"base": base_carry}
+            if policy_carry is not None:
+                next_carry["policy"] = next_policy_carry
+        else:
+            next_carry = None
 
-        if not has_carry:
-            combined_out_carry = None
-
-        return logits, value_repr, combined_out_carry, rng_key
+        return logits, value_repr, next_carry, rng_key
 
     def initialize_carry(self, batch_size: int, seq_length: int):
         out = {}

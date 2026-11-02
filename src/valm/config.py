@@ -146,7 +146,7 @@ class PPOLossConfig(BaseModel):
 class PolicyNetworkConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     backbone: LLMConfig
-    base_layer: int
+    latent_encoder_rank: int
 
 
 class Config(BaseModel):
@@ -156,6 +156,7 @@ class Config(BaseModel):
     lora: LoraConfig | None
     policy_net: PolicyNetworkConfig | None
     value_net: ValueConfig
+    intervention_layer: int
     logger: LoggerConfig
     policy_optimizer: OptimizerConfig | None = None
     value_optimizer: OptimizerConfig
