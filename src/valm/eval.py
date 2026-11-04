@@ -196,7 +196,7 @@ def eval_checkpoint(
     # Load model
     rngs = nnx.Rngs(experiment.params_seed)
     model, tokenizer, _ = load_base_model(config.base_model, rngs)
-    model.initialize_policy(lora=config.lora, policy=config.policy_net, rngs=rngs)
+    model.initialize_policy(lora=config.lora, policy=config.policy_net, intervention_layer=config.intervention_layer, rngs=rngs)
     model.initialize_value_net(config.value_net, rngs=rngs)
 
     # Load checkpoint

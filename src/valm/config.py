@@ -153,10 +153,10 @@ class Config(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
     seed: int | Literal["random"] = "random"
     base_model: str
-    lora: LoraConfig | None
-    policy_net: PolicyNetworkConfig | None
+    lora: LoraConfig | None = None
+    policy_net: PolicyNetworkConfig | None = None
     value_net: ValueConfig
-    intervention_layer: int
+    intervention_layer: int | None = None
     logger: LoggerConfig
     policy_optimizer: OptimizerConfig | None = None
     value_optimizer: OptimizerConfig
